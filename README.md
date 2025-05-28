@@ -1,9 +1,9 @@
-![NetHack Learning Environment (NLE)](https://github.com/heiner/nle/raw/main/dat/nle/logo.png)
+![NetHack Learning Environment (NLE)](https://github.com/NetHack-LE/nle/raw/main/dat/nle/logo.png)
 
 --------------------------------------------------------------------------------
 
 <p align="center">
-  <a href="https://github.com/heiner/nle/actions/workflows/test_and_deploy.yml"><img src="https://github.com/heiner/nle/actions/workflows/test_and_deploy.yml/badge.svg?branch=main" /></a>
+  <a href="https://github.com/NetHack-LE/nle/actions/workflows/test_and_deploy.yml"><img src="https://github.com/NetHack-LE/nle/actions/workflows/test_and_deploy.yml/badge.svg?branch=main" /></a>
   <a href="https://pypi.python.org/pypi/nle/"><img src="https://img.shields.io/pypi/v/nle.svg" /></a>
   <a href="https://pepy.tech/project/nle"><img src="https://static.pepy.tech/personalized-badge/nle?period=total&units=international_system&left_color=black&right_color=orange&left_text=Downloads" /></a>
   <a href="https://twitter.com/NetHack_LE"><img src="https://img.shields.io/twitter/follow/NetHack_LE?label=Twitter&style=social" alt="Twitter" /></a>
@@ -24,7 +24,7 @@ You can read more about NLE in the [NeurIPS 2020 paper](https://arxiv.org/abs/20
 README](./README.nh), at [nethack.org](https://nethack.org/), and on the
 [NetHack wiki](https://nethackwiki.com).
 
-![Example of an agent running on NLE](https://github.com/heiner/nle/raw/main/dat/nle/example_run.gif)
+![Example of an agent running on NLE](https://github.com/NetHack-LE/nle/raw/main/dat/nle/example_run.gif)
 
 This version of NLE uses the [Farama Organisation Gymnasium Environment](https://gymnasium.farama.org) APIs.
 
@@ -75,7 +75,7 @@ $ pip install nle
 NOTE: If you want to extend / develop NLE, please install the package as follows:
 
 ``` bash
-$ git clone https://github.com/heiner/nle --recursive
+$ git clone https://github.com/NetHack-LE/nle --recursive
 $ pip install -e ".[dev]"
 $ pre-commit install
 ```
@@ -84,7 +84,7 @@ $ pre-commit install
 ## Docker
 
 We have provided some docker images. Please see the [relevant
-README](https://github.com/heiner/nle/blob/main/docker/README.md). 
+README](https://github.com/NetHack-LE/nle/blob/main/docker/README.md). 
 
 
 ## Trying it out
@@ -187,7 +187,7 @@ for i, mb in enumerate(dataset):
     foo(mb) # etc...
 ```
 
-For information on how to download NLD-AA and NLD-NAO, see the dataset doc [here](https://github.com/heiner/nle/blob/main/DATASET.md).
+For information on how to download NLD-AA and NLD-NAO, see the dataset doc [here](https://github.com/NetHack-LE/nle/blob/main/DATASET.md).
 
 Otherwise checkout the tutorial Colab notebook [here](https://colab.research.google.com/drive/1GRP15SbOEDjbyhJGMDDb2rXAptRQztUD?usp=sharing).
 
@@ -201,7 +201,7 @@ Otherwise checkout the tutorial Colab notebook [here](https://colab.research.goo
 - Küttler et al. [The NetHack Learning Environment](https://arxiv.org/abs/2006.13760) (FAIR, Oxford, NYU, Imperial, UCL, NeurIPS 2020).
 
 Open a [pull
-request](https://github.com/heiner/nle/edit/main/README.md)
+request](https://github.com/NetHack-LE/nle/edit/main/README.md)
 to add papers.
 
 
@@ -209,7 +209,7 @@ to add papers.
 # Contributing
 
 We welcome contributions to NLE. If you are interested in contributing please
-see [this document](https://github.com/heiner/nle/blob/main/CONTRIBUTING.md).
+see [this document](https://github.com/NetHack-LE/nle/blob/main/CONTRIBUTING.md).
 
 
 # Architecture
@@ -221,7 +221,7 @@ repeated nethack games, and finally to binding of these games to Python
 `gymnasium` environment.
 
 If you want to learn more about the architecture of `nle` and how it works
-under the hood, checkout the [architecture document](https://github.com/heiner/nle/blob/main/doc/nle/ARCHITECTURE.md).
+under the hood, checkout the [architecture document](https://github.com/NetHack-LE/nle/blob/main/doc/nle/ARCHITECTURE.md).
 This may be a useful starting point for anyone looking to contribute to the
 lower level elements of NLE.
 

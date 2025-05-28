@@ -45,7 +45,7 @@ template: |
 
   Install with pip: `pip install nle==$RESOLVED_VERSION`.
 
-  See [README.md](https://github.com/heiner/nle/blob/v$RESOLVED_VERSION/README.md) and/or [docker/README.md](https://github.com/heiner/nle/blob/v$RESOLVED_VERSION/docker/README.md) for further instructions.
+  See [README.md](https://github.com/NetHack-LE/nle/blob/v$RESOLVED_VERSION/README.md) and/or [docker/README.md](https://github.com/NetHack-LE/nle/blob/v$RESOLVED_VERSION/docker/README.md) for further instructions.
 
   # New in NLE v$RESOLVED_VERSION
 

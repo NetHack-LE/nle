@@ -15,7 +15,7 @@ To build and run an image (e.g. `Dockerfile-jammy`) for your local
 architecture do:
 
 ```bash
-$ git clone https://github.com/heiner/nle --recursive
+$ git clone https://github.com/NetHack-LE/nle --recursive
 $ cd nle
 $ docker build --file docker/Dockerfile-jammy . --tag nle
 $ docker run -it --gpus all --rm --name nle nle

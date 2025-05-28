@@ -61,7 +61,7 @@ void callback(tmt_msg_t, TMT *, const void *, void *);
 #define BRIGHT 8
 
 
-/* Taken from nle.c -- github.com/heiner/nle */
+/* Taken from nle.c -- github.com/NetHack-LE/nle */
 signed char
 vt_char_color_extract(TMTCHAR *c)
 {

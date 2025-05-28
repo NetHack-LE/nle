@@ -19,10 +19,10 @@ that just feeds back observations. Below we examine these layers from lowest to 
 ### Layer 0: “Original” NetHack Game Logic
 
 - **part of `libnethack.so`**
-- **key directories & files** [`src/`](https://github.com/heiner/nle/blob/main/src),
-[`include/`](https://github.com/heiner/nle/blob/main/include),
-[`dat/`](https://github.com/heiner/nle/blob/main/dat),
-[`src/allmain.c`](https://github.com/heiner/nle/blob/main/src/allmain.c)
+- **key directories & files** [`src/`](https://github.com/NetHack-LE/nle/blob/main/src),
+[`include/`](https://github.com/NetHack-LE/nle/blob/main/include),
+[`dat/`](https://github.com/NetHack-LE/nle/blob/main/dat),
+[`src/allmain.c`](https://github.com/NetHack-LE/nle/blob/main/src/allmain.c)
 
 
 * The original nethack game is written purely in C, found mainly in `src` and
@@ -31,18 +31,18 @@ that just feeds back observations. Below we examine these layers from lowest to 
 file to keep track of the internal state of the game, rendering the gamely
 utterly un-threadsafe.
 * The game logic itself starts in  `allmain.c`  where the game is started with
-[`void moveloop(bool resuming)`](https://github.com/heiner/nle/blob/main/src/allmain.c#L23).
+[`void moveloop(bool resuming)`](https://github.com/NetHack-LE/nle/blob/main/src/allmain.c#L23).
 This function never returns, instead it runs an infinite loop
-[(line 83)](https://github.com/heiner/nle/blob/main/src/allmain.c#L83),
+[(line 83)](https://github.com/NetHack-LE/nle/blob/main/src/allmain.c#L83),
 and may be interrupted either by the player or completing the game.
 
 ### Layer 1: Interacting with NetHack Game Logic: Windows and Window Procs
 
 - **part of `libnethack.so`**
-- **key directories & files** [`win/rl`](https://github.com/heiner/nle/blob/main/win/rl),
-[`win/tty`](https://github.com/heiner/nle/blob/main/win/tty),
-[`src/windows.c`](https://github.com/heiner/nle/blob/main/src/windows.c),
-[`include/winprocs.h`](https://github.com/heiner/nle/blob/main/include/winprocs.h)
+- **key directories & files** [`win/rl`](https://github.com/NetHack-LE/nle/blob/main/win/rl),
+[`win/tty`](https://github.com/NetHack-LE/nle/blob/main/win/tty),
+[`src/windows.c`](https://github.com/NetHack-LE/nle/blob/main/src/windows.c),
+[`include/winprocs.h`](https://github.com/NetHack-LE/nle/blob/main/include/winprocs.h)
 
 
 * Periodically the game may need input from the player, or need to return
@@ -50,29 +50,29 @@ something to be displayed to the player. To allow a variety of interfaces to be
 exposed to the player (ie tty, mobile, atari etc), a developer must implement
 and provide a number functions to the game, as a standard contract.
 * The full api is described in
-[`doc/window.doc`](https://github.com/heiner/nle/blob/main/doc/window.doc),
+[`doc/window.doc`](https://github.com/NetHack-LE/nle/blob/main/doc/window.doc),
 and is defined in `include/winprocs.h`. The object to be provided to the game is the
 `struct window_procs`, which is (largely) a struct of pointers to functions.
 * Once a developer has implemented this struct, it can be added to the chosen
 `window_procs` in `src/windows.c`, via some macros. Our `window_procs` struct
 is `extern`'d there under the name `rl_procs`.
 * The implementation of `rl_procs` is found in
-[`win/rl/winrl.cc`](https://github.com/heiner/nle/blob/main/win/rl/winrl.cc).
+[`win/rl/winrl.cc`](https://github.com/NetHack-LE/nle/blob/main/win/rl/winrl.cc).
 In this C++ file we implement a `class NetHackRL` that will contain all our
 functions, and then we declare the struct `rl_procs` to point to the appropriate
 methods.
 * Our implementation of the `window_procs` wrap heavily around existing tty
 `window_procs` found in
-[`win/tty/wintty.c`](https://github.com/heiner/nle/blob/main/win/tty/wintty.c)
+[`win/tty/wintty.c`](https://github.com/NetHack-LE/nle/blob/main/win/tty/wintty.c)
 but allows us to control the capture of information and when to send it to the
 user.
 
 ### Layer 2: Yielding from NetHack Game Logic: Context Switching and the “nethack-stack”
 
 - **part of `libnethack.so`**
-- **key directories & files** [`src/nle.c`](https://github.com/heiner/nle/blob/main/src/nle.c),
-[`include/nle.h`](https://github.com/heiner/nle/blob/main/include/nle.h),
-[`include/nletypes.h`](https://github.com/heiner/nle/blob/main/include/nletypes.h)
+- **key directories & files** [`src/nle.c`](https://github.com/NetHack-LE/nle/blob/main/src/nle.c),
+[`include/nle.h`](https://github.com/NetHack-LE/nle/blob/main/include/nle.h),
+[`include/nletypes.h`](https://github.com/NetHack-LE/nle/blob/main/include/nletypes.h)
 
 
 * In our case the user “playing” the game is not a terminal, but ultimately a
@@ -123,9 +123,9 @@ user.:
 ### Layer 3: Dynamic Library Loading: Resetting the Game
 
 - **library:** libnethackdl.a,
-- **key directories & files:** [`sys/unix/nledl.c`](https://github.com/heiner/nle/blob/main/sys/unix/nledl.c),
-[`include/nledl.h`](https://github.com/heiner/nle/blob/main/include/nledl.h),
-[`sys/unix/rlmain.cc`](https://github.com/heiner/nle/blob/main/sys/unix/rlmain.cc)
+- **key directories & files:** [`sys/unix/nledl.c`](https://github.com/NetHack-LE/nle/blob/main/sys/unix/nledl.c),
+[`include/nledl.h`](https://github.com/NetHack-LE/nle/blob/main/include/nledl.h),
+[`sys/unix/rlmain.cc`](https://github.com/NetHack-LE/nle/blob/main/sys/unix/rlmain.cc)
 
 
 * Now that we have a means of playing the game in `libnethack.so`, we would
@@ -148,11 +148,11 @@ nethack, instead of `nle.h`, and in fact we can test this with the file
 ### Layer 4: Binding to Python: Exposing the Game
 
 - **libraries:** `_pynethack.cpython-37.*`
-- **key directories & files:**[`pynethack.cc`](https://github.com/heiner/nle/blob/main/win/rl/pynethack.cc),
-[`src/monst.c`](https://github.com/heiner/nle/blob/main/src/monst.c),
-[`src/objects.c`](https://github.com/heiner/nle/blob/main/src/objects.c),
-[`src/decl.c`](https://github.com/heiner/nle/blob/main/src/decl.c),
-[`src/drawing.c`](https://github.com/heiner/nle/blob/main/src/drawing.c)
+- **key directories & files:**[`pynethack.cc`](https://github.com/NetHack-LE/nle/blob/main/win/rl/pynethack.cc),
+[`src/monst.c`](https://github.com/NetHack-LE/nle/blob/main/src/monst.c),
+[`src/objects.c`](https://github.com/NetHack-LE/nle/blob/main/src/objects.c),
+[`src/decl.c`](https://github.com/NetHack-LE/nle/blob/main/src/decl.c),
+[`src/drawing.c`](https://github.com/NetHack-LE/nle/blob/main/src/drawing.c)
 
 
 * Now that we have a means of playing the game, we need to bind our commands to
@@ -168,9 +168,9 @@ These include items found in `src/monst.c`, `src/decl.c`, `src/drawing.c`,
 
 ### Layer 5: Calling from Python: Playing A Copy of the Game
 
-- **libraries:** [`nle`](https://github.com/heiner/nle/blob/main/nle)
-- **key directories & files:** [`nle/nethack/*.py`](https://github.com/heiner/nle/blob/main/nle/nethack),
-[`nle/env/*.py`](https://github.com/heiner/nle/blob/main/nle/env)
+- **libraries:** [`nle`](https://github.com/NetHack-LE/nle/blob/main/nle)
+- **key directories & files:** [`nle/nethack/*.py`](https://github.com/NetHack-LE/nle/blob/main/nle/nethack),
+[`nle/env/*.py`](https://github.com/NetHack-LE/nle/blob/main/nle/env)
 
 
 * The `class nle.nethack.Nethack` is our Python interface to the game. It does
