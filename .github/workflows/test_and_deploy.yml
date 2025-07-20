@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        python-version: ['3.9', '3.10', '3.11', '3.12']
         os: [ubuntu-latest, macos-latest]
       fail-fast: false
     steps:
@@ -44,15 +44,15 @@ jobs:
         run: pip install -e '.[dev]'
       - name: Run tests
         run: python -m pytest --import-mode=append -svx nle/tests
-  test_sdist_3_8:
-    name: Test sdist on MacOS w/ Py3.8
+  test_sdist_3_9:
+    name: Test sdist on MacOS w/ Py3.9
     needs: test_repo
     runs-on: macos-latest
     steps:
-      - name: Setup Python 3.8 env
+      - name: Setup Python 3.9 env
         uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: 3.9
       - name: Ensure latest pip, wheel & setuptools
         run: python -m pip install -q --upgrade pip wheel setuptools
       - name: Install dependencies

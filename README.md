@@ -37,7 +37,7 @@ with other gym (or Gynmasium) / RL environments.
 
 ## Installation
 
-NLE requires `python>=3.8`, `cmake>=3.18` to be installed and available both when building the
+NLE requires `python>=3.9`, `cmake>=3.18` to be installed and available both when building the
 package, and at runtime.
 
 On **MacOS**, one can use `Homebrew` as follows:
@@ -66,7 +66,7 @@ Afterwards it's a matter of setting up your environment. We advise using a conda
 environment for this:
 
 ```bash
-$ conda create -y -n nle python=3.8
+$ conda create -y -n nle python=3.9
 $ conda activate nle
 $ pip install nle
 ```
