@@ -324,3 +324,6 @@ class Nethack:
 
     def how_done(self):
         return self._pynethack.how_done()
+    
+    def pixel_render(self):
+        return np.zeros((336,1264,3),dtype=np.int8)

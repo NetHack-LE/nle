@@ -25,7 +25,6 @@ extern "C" {
 #undef min
 #undef max
 
-#ifdef NLE_USE_TILES
 extern short glyph2tile[]; /* in tile.c (made from tilemap.c) */
 
 /* Copy from dungeon.c. Necessary to add tile.c.
@@ -53,7 +52,6 @@ on_level(d_level *lev1, d_level *lev2)
                       && lev1->dlevel == lev2->dlevel);
 }
 /* End of copy from dungeon.c */
-#endif
 
 namespace py = pybind11;
 using namespace py::literals;
@@ -629,13 +627,10 @@ PYBIND11_MODULE(_pynethack, m)
            py::vectorize([](int glyph) { return glyph_is_swallow(glyph); }));
     mn.def("glyph_is_warning",
            py::vectorize([](int glyph) { return glyph_is_warning(glyph); }));
-
-#ifdef NLE_USE_TILES
     mn.attr("glyph2tile") =
         py::memoryview::from_buffer(glyph2tile, /*shape=*/{ MAX_GLYPH },
                                     /*strides=*/{ sizeof(glyph2tile[0]) },
                                     /*readonly=*/true);
-#endif
 
     py::class_<permonst>(mn, "permonst", "The permonst struct.")
         .def(

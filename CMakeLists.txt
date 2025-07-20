@@ -36,6 +36,9 @@ message(STATUS "Building nle backend version: ${CMAKE_NLE_VERSION}")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+add_compile_options(-Wno-deprecated-non-prototype)
+add_compile_options(-Wno-unused-variable)
+
 # We use this to decide where the root of the nle/ package is. Normally it
 # shouldn't be needed, but sometimes (e.g. when using setuptools) we are
 # generating some of the files outside of the original package path.
@@ -61,8 +64,7 @@ add_compile_definitions(
   HACKDIR="${HACKDIR}"
   DEFAULT_WINDOW_SYS="rl"
   DLB
-  NOCWD_ASSUMPTIONS
-  NLE_USE_TILES)
+  NOCWD_ASSUMPTIONS)
 
 set(NLE_SRC ${nle_SOURCE_DIR}/src)
 set(NLE_INC ${nle_SOURCE_DIR}/include)
@@ -94,7 +96,10 @@ file(
   "sys/unix/unixmain.c"
   "sys/unix/unixres.c"
   "win/tty/*.c"
-  "win/rl/winrl.cc")
+  "win/rl/winrl.cc"
+  "win/rl/tile2rgb.c"
+  "win/share/tiletext.c"
+  "win/share/tilemap.c")
 
 # static version of bzip2 library
 add_library(
@@ -120,7 +125,9 @@ target_include_directories(
   nethack
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${NLE_INC_GEN} /usr/local/include
          ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt
-         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bzip2)
+         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bzip2
+         ${CMAKE_CURRENT_SOURCE_DIR}/win/share
+         ${NLE_SRC_GEN})
 # target_link_directories(nethack PUBLIC /usr/local/lib)
 
 # Careful with -DMONITOR_HEAP: Ironically, it fails to fclose FILE* heaplog.
