@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.13'
       - uses: actions/checkout@v4
       - run: pip install -q uv && uv pip install --system ruff==0.4.3 isort
       - run: ruff format --check --diff .
