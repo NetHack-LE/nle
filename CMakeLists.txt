@@ -96,10 +96,7 @@ file(
   "sys/unix/unixmain.c"
   "sys/unix/unixres.c"
   "win/tty/*.c"
-  "win/rl/winrl.cc"
-  "win/rl/tile2rgb.c"
-  "win/share/tiletext.c"
-  "win/share/tilemap.c")
+  "win/rl/winrl.cc")
 
 # static version of bzip2 library
 add_library(
@@ -125,9 +122,7 @@ target_include_directories(
   nethack
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${NLE_INC_GEN} /usr/local/include
          ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt
-         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bzip2
-         ${CMAKE_CURRENT_SOURCE_DIR}/win/share
-         ${NLE_SRC_GEN})
+         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bzip2)
 # target_link_directories(nethack PUBLIC /usr/local/lib)
 
 # Careful with -DMONITOR_HEAP: Ironically, it fails to fclose FILE* heaplog.
@@ -162,8 +157,8 @@ pybind11_add_module(
   $<TARGET_OBJECTS:tile>)
 target_link_libraries(_pynethack PUBLIC nethackdl)
 set_target_properties(_pynethack PROPERTIES CXX_STANDARD 14)
-target_include_directories(_pynethack PUBLIC ${NLE_INC_GEN})
-add_dependencies(_pynethack util) # For pm.h.
+target_include_directories(_pynethack PUBLIC ${NLE_INC_GEN} ${NLE_WIN}/share)
+#add_dependencies(_pynethack util tile) # For pm.h.
 
 # ttyrec converter library
 add_library(

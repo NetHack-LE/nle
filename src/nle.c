@@ -31,7 +31,6 @@
 #endif
 
 extern int unixmain(int, char **);
-extern int init_tiles(const char *[], int);
 
 signed char
 vt_char_color_extract(TMTCHAR *c)
@@ -402,14 +401,6 @@ nle_start(nle_obs *obs, FILE *ttyrec, nle_settings *settings_p)
 
     /* Initialise the level generation RNG */
     nle_init_lgen_rng();
-
-    /* TEMP: load the tiles */
-    char *tilefiles[] = {
-        "monsters.txt",
-        "objects.txt",
-        "other.txt"
-    };
-    init_tiles(tilefiles, 3);
 
     nle->stack = create_fcontext_stack(STACK_SIZE);
     nle->generatorcontext =

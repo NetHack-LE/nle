@@ -18,6 +18,7 @@ extern "C" {
 
 extern "C" {
 #include "nledl.h"
+#include "tile2rgb.h"
 }
 
 // Undef name clashes between NetHack and Python.
@@ -26,6 +27,7 @@ extern "C" {
 #undef max
 
 extern short glyph2tile[]; /* in tile.c (made from tilemap.c) */
+extern int total_tiles_used; /* also in tile.c */
 
 /* Copy from dungeon.c. Necessary to add tile.c.
    Can't add dungeon.c itself as it pulls in too much. */
@@ -152,6 +154,12 @@ class Nethack
         close();
         if (ttyrec_) {
             fclose(ttyrec_);
+        }
+        if (tileset) {
+            free(tileset);
+        }
+        if (rendered_tiles) {
+            free(rendered_tiles);
         }
     }
 
@@ -361,6 +369,31 @@ class Nethack
         strncpy(settings_.wizkit, wizkit.c_str(), sizeof(settings_.wizkit));
     }
 
+    boolean
+    setup_tiles()
+    {
+        int tiles_read = 0;
+        const char *tilefiles[] = {
+            "./win/share/monsters.txt",
+            "./win/share/objects.txt",
+            "./win/share/other.txt"
+        };
+
+        tileset = (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
+        // TODO - handle memory allocation failure for tileset
+        if(tileset) {
+            tiles_read = init_tiles(tilefiles, 3, tileset);
+
+            if(tiles_read == 3) {
+                return true;
+            }
+        }
+        
+        // TODO Error Handling
+        printf("Unable to open tile file %s\n", tilefiles[tiles_read]);
+        return false;
+    }
+
   private:
     void
     reset(FILE *ttyrec)
@@ -390,6 +423,8 @@ class Nethack
     nledl_ctx *nle_ = nullptr;
     std::FILE *ttyrec_ = nullptr;
     nle_settings settings_;
+    tile_t *tileset = nullptr;
+    tile_t *rendered_tiles = nullptr;
 };
 
 PYBIND11_MODULE(_pynethack, m)
@@ -429,7 +464,8 @@ PYBIND11_MODULE(_pynethack, m)
         .def("get_seeds", &Nethack::get_seeds)
         .def("in_normal_game", &Nethack::in_normal_game)
         .def("how_done", &Nethack::how_done)
-        .def("set_wizkit", &Nethack::set_wizkit);
+        .def("set_wizkit", &Nethack::set_wizkit)
+        .def("setup_tiles", &Nethack::setup_tiles);
 
     py::module mn = m.def_submodule(
         "nethack", "Collection of NetHack constants and functions");
@@ -629,8 +665,8 @@ PYBIND11_MODULE(_pynethack, m)
            py::vectorize([](int glyph) { return glyph_is_warning(glyph); }));
     mn.attr("glyph2tile") =
         py::memoryview::from_buffer(glyph2tile, /*shape=*/{ MAX_GLYPH },
-                                    /*strides=*/{ sizeof(glyph2tile[0]) },
-                                    /*readonly=*/true);
+                                   /*strides=*/{ sizeof(glyph2tile[0]) },
+                                   /*readonly=*/true);
 
     py::class_<permonst>(mn, "permonst", "The permonst struct.")
         .def(
@@ -689,7 +725,7 @@ PYBIND11_MODULE(_pynethack, m)
                         "Argument should be between 0 and MAXMCLASSES ("
                         + std::to_string(MAXMCLASSES) + ") but got "
                         + std::to_string(let));
-                return &def_monsyms[let];
+                return &def_monsyms[(int)let];
             },
             py::return_value_policy::reference)
         .def_static(
@@ -700,7 +736,7 @@ PYBIND11_MODULE(_pynethack, m)
                         "Argument should be between 0 and MAXOCLASSES ("
                         + std::to_string(MAXOCLASSES) + ") but got "
                         + std::to_string(olet));
-                return &def_oc_syms[olet];
+                return &def_oc_syms[(int)olet];
             },
             py::return_value_policy::reference)
         .def_readonly("sym", &class_sym::sym)

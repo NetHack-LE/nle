@@ -54,11 +54,13 @@ add_custom_command(
   DEPENDS makedefs
   OUTPUT ${NLE_INC_GEN}/pm.h
   COMMAND $<TARGET_FILE:makedefs> ARGS -p)
+add_custom_target(generate_pm_h DEPENDS ${NLE_INC_GEN}/pm.h)
 
 add_custom_command(
   DEPENDS tilemap
   OUTPUT ${NLE_SRC_GEN}/tile.c
   COMMAND $<TARGET_FILE:tilemap>)
+add_custom_target(generate_tile_c DEPENDS ${NLE_SRC_GEN}/tile.c)
 
 add_custom_command(
   OUTPUT ${NLE_UTIL_GEN}/dgn_parser.c ${NLE_UTIL_GEN}/dgn_comp.h
@@ -90,8 +92,16 @@ add_executable(tilemap ${NLE_WIN}/share/tilemap.c)
 target_include_directories(tilemap PUBLIC ${NLE_INC} ${NLE_INC_GEN})
 add_dependencies(tilemap util)
 
-add_library(tile OBJECT ${NLE_SRC_GEN}/tile.c)
-target_include_directories(tile PUBLIC ${NLE_INC} ${NLE_INC_GEN})
+file(
+  GLOB
+  NETHACK_TILE_SRC
+  ${NLE_WIN}/rl/tile2rgb.c
+  ${NLE_WIN}/rl/nletiletxt.c
+  ${NLE_WIN}/share/tiletext.c
+)
+add_library(tile OBJECT ${NETHACK_TILE_SRC} ${NLE_SRC_GEN}/tile.c)
+target_include_directories(tile PUBLIC ${NLE_INC} ${NLE_INC_GEN} ${NLE_WIN}/share)
+add_dependencies(tile generate_pm_h generate_tile_c)
 
 # NOTE: util is dependent on these two
 add_dependencies(lev_comp util)
