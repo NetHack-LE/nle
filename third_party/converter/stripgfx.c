@@ -344,7 +344,7 @@ static unsigned char dec_graphics[MAXPCHARS] = {
 
 /* clang-format on */
 
-void populate_gfx_arrays() {
+void populate_gfx_arrays(void) {
   int i;
 
 

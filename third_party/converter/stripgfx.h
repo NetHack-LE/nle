@@ -1,7 +1,7 @@
 #ifndef INCLUDED_stripgfx_h
 #define INCLUDED_stripgfx_h
 
-void populate_gfx_arrays();
+void populate_gfx_arrays(void);
 unsigned char strip_gfx(unsigned char inchar, int use_dec);
 
 #endif /* !INCLUDED_stripgfx_h */
