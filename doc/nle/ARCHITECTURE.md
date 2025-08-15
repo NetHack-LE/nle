@@ -147,7 +147,7 @@ nethack, instead of `nle.h`, and in fact we can test this with the file
 
 ### Layer 4: Binding to Python: Exposing the Game
 
-- **libraries:** `_pynethack.cpython-37.*`
+- **libraries:** `_pynethack.cpython-3xx.*`
 - **key directories & files:**[`pynethack.cc`](https://github.com/NetHack-LE/nle/blob/main/win/rl/pynethack.cc),
 [`src/monst.c`](https://github.com/NetHack-LE/nle/blob/main/src/monst.c),
 [`src/objects.c`](https://github.com/NetHack-LE/nle/blob/main/src/objects.c),
