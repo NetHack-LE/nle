@@ -125,7 +125,7 @@ jobs:
           submodules: recursive
       - name: Build wheels
         if: github.event_name != 'release'
-        uses: pypa/cibuildwheel@v2.19.2 # The main configuration is in pyproject.toml
+        uses: pypa/cibuildwheel@v3.1.3 # The main configuration is in pyproject.toml
         env:
           CIBW_BUILD: "cp313-manylinux*" # Build only python 3.13 wheels for testing
           # Increase verbosity to see what's going on in the build in case of failure
@@ -134,7 +134,7 @@ jobs:
             auditwheel show {wheel} && auditwheel repair -w {dest_dir} {wheel}
       - name: Build release wheels
         if: github.event_name == 'release' && (github.event.action == 'released' || github.event.action == 'prereleased')
-        uses: pypa/cibuildwheel@v2.19.2 # The main configuration is in pyproject.toml
+        uses: pypa/cibuildwheel@v3.1.3 # The main configuration is in pyproject.toml
         env:
           # Set NLE_RELEASE_BUILD to 1 to build release wheels
           CIBW_ENVIRONMENT: "NLE_RELEASE_BUILD=1"
