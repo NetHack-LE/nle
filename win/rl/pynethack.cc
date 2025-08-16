@@ -394,6 +394,10 @@ class Nethack
         return false;
     }
 
+    tile_t *get_tile_set() {
+        return tileset;
+    }
+
   private:
     void
     reset(FILE *ttyrec)
@@ -666,6 +670,10 @@ PYBIND11_MODULE(_pynethack, m)
     mn.attr("glyph2tile") =
         py::memoryview::from_buffer(glyph2tile, /*shape=*/{ MAX_GLYPH },
                                    /*strides=*/{ sizeof(glyph2tile[0]) },
+                                   /*readonly=*/true);
+    mn.attr("tileset") = 
+        py::memoryview::from_buffer(get_tile_set(), /*shape=*/{ total_tiles_used },
+                                   /*strides=*/{ sizeof(tile_s) },
                                    /*readonly=*/true);
 
     py::class_<permonst>(mn, "permonst", "The permonst struct.")
