@@ -5,7 +5,7 @@ FROM nvidia/cuda:12.4.1-devel-ubuntu20.04
 ARG TARGETPLATFORM
 RUN echo "Building image for $TARGETPLATFORM"
 
-ARG PYTHON_VERSION=3.9
+ARG PYTHON_VERSION=3.10
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \

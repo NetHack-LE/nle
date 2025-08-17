@@ -46,11 +46,11 @@ allow-dict-calls-with-keyword-arguments = true
 
 [tool.cibuildwheel]
 # We need to build wheels for the following Python versions:
-build = "cp{39,310,311,312,313}-*"
+build = "cp{310,311,312,313}-*"
 
 [tool.cibuildwheel.linux]
 # Only manylinux is supported (no musllinux)
-build = "cp{39,310,311,312,313}-manylinux*"
+build = "cp{310,311,312,313}-manylinux*"
 
 # We need to clean up the build directory, all .so files, and CMakeCache.txt
 # and install the dependencies using yum, as manylinux2014 image is CentOS 7-based

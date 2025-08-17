@@ -4,7 +4,7 @@ Getting Started
 Dependencies
 ************
 
-NLE requires `python>=3.9`, `cmake>=3.18` and some NetHack dependencies
+NLE requires `python>=3.10`, `cmake>=3.18` and some NetHack dependencies
 (e.g. `libncurses`) to be installed and available both when building the
 package, and at runtime.
 
