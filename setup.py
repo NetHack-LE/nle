@@ -155,7 +155,7 @@ if __name__ == "__main__":
         ext_modules=[setuptools.Extension("nle", sources=[])],
         cmdclass={"build_ext": CMakeBuild},
         setup_requires=["pybind11>=2.2"],
-        install_requires=["pybind11>=2.2", "numpy>=1.16", "gymnasium==1.0.0"],
+        install_requires=["pybind11>=2.2", "numpy>=1.16", "gymnasium==1.2.0"],
         extras_require=extras_deps,
         python_requires=">=3.10",
         classifiers=[
