@@ -1,3 +1,75 @@
+[project]
+name = "nle"
+description = "The NetHack Learning Environment (NLE): a reinforcement learning environment based on NetHack"
+readme = "README.md"
+authors = [ { name = "The NLE Dev Team" } ]
+requires-python = ">=3.10"
+dynamic = ["classifiers", "version"]
+dependencies = [
+  "pybind11>=2.2",
+  "numpy>=1.16",
+  "gymnasium==1.2.0"
+]
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Homepage = "https://github.com/NetHack-LE/nle"
+
+[build-system]
+requires = ["setuptools", "pybind11>=2.2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages]
+find = { include = [
+    "nle",
+    "nle.dataset",
+    "nle.env",
+    "nle.nethack",
+    "nle.agent",
+    "nle.scripts",
+    "nle.tests"
+]}
+
+[project.scripts]
+nle-play = "nle.scripts.play:main"
+nle-ttyrec = "nle.scripts.ttyrec:main"
+nle-ttyplay = "nle.scripts.ttyplay:main"
+nle-ttyplay2 = "nle.scripts.ttyplay2:main"
+nle-read-tty = "nle.scripts.read_tty:main"
+
+[dependency-groups]
+dev = [
+  "pre-commit>=2.0.1",
+  "isort>=5.13.2",
+  "cmake_format>=0.6.10",
+  "memory-profiler>=0.60.0",
+  "pytest>=6.2.5",
+  "pytest-benchmark>=3.4.1",
+  "sphinx>=2.4.4",
+  "sphinx-rtd-theme>=0.4.3",
+  "setuptools>=69.5.1",
+  "ruff>=0.4.3",
+]
+
+[project.optional-dependencies]
+agent = [
+  "torch>=1.3.1"
+]
+all = [
+  "pre-commit>=2.0.1",
+  "isort>=5.13.2",
+  "cmake_format>=0.6.10",
+  "memory-profiler>=0.60.0",
+  "pytest>=6.2.5",
+  "pytest-benchmark>=3.4.1",
+  "sphinx>=2.4.4",
+  "sphinx-rtd-theme>=0.4.3",
+  "setuptools>=69.5.1",
+  "ruff>=0.4.3",
+  "torch>=1.3.1"
+]
 [tool.black]
 line-length = 88
 target-version = ['py38']
@@ -68,3 +140,6 @@ manylinux-aarch64-image = "manylinux2014"
 [tool.cibuildwheel.macos]
 # For macOS wheels, we only need to install cmake
 before-all = "rm -rf {project}/build {project}/*.so {project}/CMakeCache.txt && brew install cmake"
+
+[tool.pytest.ini_options]
+testpaths = ["nle/tests"]
