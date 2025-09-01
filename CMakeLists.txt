@@ -53,6 +53,22 @@ message(STATUS "HACKDIR set to: ${HACKDIR}")
 set(VARDIR ${HACKDIR})
 set(INSTDIR ${HACKDIR})
 
+# pybind11 via FetchContent
+include(FetchContent)
+FetchContent_Declare(
+  pybind11
+  GIT_REPOSITORY https://github.com/pybind/pybind11.git
+  GIT_TAG v3.0.1)
+FetchContent_MakeAvailable(pybind11)
+find_package(pybind11 CONFIG REQUIRED)
+
+# de-boost-ified version of boost.context via FetchContent
+FetchContent_Declare(
+  deboost_context
+  GIT_REPOSITORY https://github.com/septag/deboost.context.git
+  GIT_HASH "259fc4103bad6bb484d5ff426ace56ac557107a4")
+FetchContent_MakeAvailable(deboost_context)
+
 add_compile_definitions(
   GCC_WARN
   NOCLIPPING
@@ -78,9 +94,6 @@ set(NLE_DAT_GEN ${nle_BINARY_DIR}/dat)
 set(NLE_UTIL_GEN ${nle_BINARY_DIR}/util)
 
 set(CMAKE_INSTALL_MESSAGE LAZY) # Don't tell us about up-to-date files.
-
-# EXCLUDE_FROM_ALL: Don't install this static library into /usr/local.
-add_subdirectory(third_party/deboost.context EXCLUDE_FROM_ALL)
 add_subdirectory(util)
 add_subdirectory(dat)
 
@@ -96,17 +109,26 @@ file(
   "win/tty/*.c"
   "win/rl/winrl.cc")
 
-# static version of bzip2 library
-add_library(
-  bz2_static STATIC
-  "third_party/bzip2/blocksort.c"
-  "third_party/bzip2/bzlib.c"
-  "third_party/bzip2/compress.c"
-  "third_party/bzip2/crctable.c"
-  "third_party/bzip2/decompress.c"
-  "third_party/bzip2/huffman.c"
-  "third_party/bzip2/randtable.c")
-target_link_libraries(bz2_static)
+# FetchContent for bzip2
+include(FetchContent)
+FetchContent_Declare(
+  bzip2
+  GIT_REPOSITORY git://sourceware.org/git/bzip2.git
+  GIT_HASH fbc4b11da543753b3b803e5546f56e26ec90c2a7)
+FetchContent_MakeAvailable(bzip2)
+
+# Manually add bzip2 source files from the downloaded directory
+set(BZIP2_SOURCE_DIR ${bzip2_SOURCE_DIR})
+set(BZIP2_SRC
+    ${BZIP2_SOURCE_DIR}/blocksort.c
+    ${BZIP2_SOURCE_DIR}/bzlib.c
+    ${BZIP2_SOURCE_DIR}/compress.c
+    ${BZIP2_SOURCE_DIR}/crctable.c
+    ${BZIP2_SOURCE_DIR}/decompress.c
+    ${BZIP2_SOURCE_DIR}/huffman.c
+    ${BZIP2_SOURCE_DIR}/randtable.c)
+add_library(bz2_static STATIC ${BZIP2_SRC})
+target_include_directories(bz2_static PUBLIC ${BZIP2_SOURCE_DIR})
 
 # terminal emulator library
 add_library(tmt STATIC "third_party/libtmt/tmt.c")
@@ -120,7 +142,7 @@ target_include_directories(
   nethack
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${NLE_INC_GEN} /usr/local/include
          ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt
-         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bzip2)
+         $<TARGET_PROPERTY:bz2_static,SOURCE_DIR>)
 # target_link_directories(nethack PUBLIC /usr/local/lib)
 
 # Careful with -DMONITOR_HEAP: Ironically, it fails to fclose FILE* heaplog.
@@ -131,9 +153,8 @@ target_link_libraries(nethack PUBLIC m fcontext bz2_static tmt)
 # dlopen wrapper library
 add_library(nethackdl STATIC "sys/unix/nledl.c")
 target_include_directories(
-  nethackdl
-  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
-         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/deboost.context/include)
+  nethackdl PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
+                   ${deboost_context_SOURCE_DIR}/include)
 target_link_libraries(nethackdl PUBLIC dl)
 
 # rlmain C++ (test) binary
@@ -144,7 +165,6 @@ target_include_directories(rlmain PUBLIC ${NLE_INC_GEN})
 add_dependencies(rlmain util) # For pm.h.
 
 # pybind11 core python library.
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third_party/pybind11)
 pybind11_add_module(
   _pynethack
   win/rl/pynethack.cc
@@ -166,7 +186,7 @@ target_include_directories(
   converter
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt
          ${CMAKE_CURRENT_SOURCE_DIR}/third_party/converter
-         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/bzip2)
+         $<TARGET_PROPERTY:bz2_static,SOURCE_DIR>)
 target_link_libraries(converter PUBLIC bz2_static tmt)
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   target_compile_options(converter PRIVATE -Wall -Wextra -pedantic -Werror)
