@@ -60,7 +60,6 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/pybind/pybind11.git
   GIT_TAG v3.0.1)
 FetchContent_MakeAvailable(pybind11)
-find_package(pybind11 CONFIG REQUIRED)
 
 # de-boost-ified version of boost.context via FetchContent
 FetchContent_Declare(
