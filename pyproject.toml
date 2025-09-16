@@ -57,6 +57,18 @@ dev = [
 agent = [
   "torch>=1.3.1"
 ]
+dev = [
+  "pre-commit>=2.0.1",
+  "isort>=5.13.2",
+  "cmake_format>=0.6.10",
+  "memory-profiler>=0.60.0",
+  "pytest>=6.2.5",
+  "pytest-benchmark>=3.4.1",
+  "sphinx>=2.4.4",
+  "sphinx-rtd-theme>=0.4.3",
+  "setuptools>=69.5.1",
+  "ruff>=0.4.3"
+]
 all = [
   "pre-commit>=2.0.1",
   "isort>=5.13.2",
