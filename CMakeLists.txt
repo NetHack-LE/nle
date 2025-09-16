@@ -117,17 +117,16 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(bzip2)
 
 # Manually add bzip2 source files from the downloaded directory
-set(BZIP2_SOURCE_DIR ${bzip2_SOURCE_DIR})
 set(BZIP2_SRC
-    ${BZIP2_SOURCE_DIR}/blocksort.c
-    ${BZIP2_SOURCE_DIR}/bzlib.c
-    ${BZIP2_SOURCE_DIR}/compress.c
-    ${BZIP2_SOURCE_DIR}/crctable.c
-    ${BZIP2_SOURCE_DIR}/decompress.c
-    ${BZIP2_SOURCE_DIR}/huffman.c
-    ${BZIP2_SOURCE_DIR}/randtable.c)
+    ${bzip2_SOURCE_DIR}/blocksort.c
+    ${bzip2_SOURCE_DIR}/bzlib.c
+    ${bzip2_SOURCE_DIR}/compress.c
+    ${bzip2_SOURCE_DIR}/crctable.c
+    ${bzip2_SOURCE_DIR}/decompress.c
+    ${bzip2_SOURCE_DIR}/huffman.c
+    ${bzip2_SOURCE_DIR}/randtable.c)
 add_library(bz2_static STATIC ${BZIP2_SRC})
-target_include_directories(bz2_static PUBLIC ${BZIP2_SOURCE_DIR})
+target_include_directories(bz2_static PUBLIC ${bzip2_SOURCE_DIR})
 
 # terminal emulator library
 add_library(tmt STATIC "third_party/libtmt/tmt.c")
@@ -141,7 +140,7 @@ target_include_directories(
   nethack
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${NLE_INC_GEN} /usr/local/include
          ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt
-         $<TARGET_PROPERTY:bz2_static,SOURCE_DIR>)
+         ${bzip2_SOURCE_DIR})
 # target_link_directories(nethack PUBLIC /usr/local/lib)
 
 # Careful with -DMONITOR_HEAP: Ironically, it fails to fclose FILE* heaplog.
@@ -185,7 +184,7 @@ target_include_directories(
   converter
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt
          ${CMAKE_CURRENT_SOURCE_DIR}/third_party/converter
-         $<TARGET_PROPERTY:bz2_static,SOURCE_DIR>)
+         ${bzip2_SOURCE_DIR})
 target_link_libraries(converter PUBLIC bz2_static tmt)
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   target_compile_options(converter PRIVATE -Wall -Wextra -pedantic -Werror)
