@@ -75,7 +75,7 @@ $ pip install nle
 NOTE: If you want to extend / develop NLE, please install the package as follows:
 
 ``` bash
-$ git clone https://github.com/NetHack-LE/nle --recursive
+$ git clone https://github.com/NetHack-LE/nle
 $ pip install -e ".[dev]"
 $ pre-commit install
 ```
