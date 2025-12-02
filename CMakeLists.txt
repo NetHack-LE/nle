@@ -58,14 +58,15 @@ include(FetchContent)
 FetchContent_Declare(
   pybind11
   GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG v3.0.1)
+  GIT_TAG v3.0.1
+  EXCLUDE_FROM_ALL)
 FetchContent_MakeAvailable(pybind11)
 
 # de-boost-ified version of boost.context via FetchContent
 FetchContent_Declare(
   deboost_context
   GIT_REPOSITORY https://github.com/septag/deboost.context.git
-  GIT_HASH "259fc4103bad6bb484d5ff426ace56ac557107a4")
+  GIT_HASH "259fc4103bad6bb484d5ff426ace56ac557107a4" EXCLUDE_FROM_ALL)
 FetchContent_MakeAvailable(deboost_context)
 
 add_compile_definitions(
@@ -113,7 +114,7 @@ include(FetchContent)
 FetchContent_Declare(
   bzip2
   GIT_REPOSITORY git://sourceware.org/git/bzip2.git
-  GIT_HASH fbc4b11da543753b3b803e5546f56e26ec90c2a7)
+  GIT_HASH fbc4b11da543753b3b803e5546f56e26ec90c2a7 EXCLUDE_FROM_ALL)
 FetchContent_MakeAvailable(bzip2)
 
 # Manually add bzip2 source files from the downloaded directory
@@ -125,7 +126,9 @@ set(BZIP2_SRC
     ${bzip2_SOURCE_DIR}/decompress.c
     ${bzip2_SOURCE_DIR}/huffman.c
     ${bzip2_SOURCE_DIR}/randtable.c)
-add_library(bz2_static STATIC ${BZIP2_SRC})
+
+# EXCLUDE_FROM_ALL: Don't install this static library into /usr/local.
+add_library(bz2_static STATIC EXCLUDE_FROM_ALL ${BZIP2_SRC})
 target_include_directories(bz2_static PUBLIC ${bzip2_SOURCE_DIR})
 
 # terminal emulator library
@@ -139,8 +142,7 @@ set_target_properties(nethack PROPERTIES CXX_STANDARD 14 SUFFIX ".so")
 target_include_directories(
   nethack
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${NLE_INC_GEN} /usr/local/include
-         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt
-         ${bzip2_SOURCE_DIR})
+         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt ${bzip2_SOURCE_DIR})
 # target_link_directories(nethack PUBLIC /usr/local/lib)
 
 # Careful with -DMONITOR_HEAP: Ironically, it fails to fclose FILE* heaplog.
@@ -183,8 +185,7 @@ add_library(
 target_include_directories(
   converter
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libtmt
-         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/converter
-         ${bzip2_SOURCE_DIR})
+         ${CMAKE_CURRENT_SOURCE_DIR}/third_party/converter ${bzip2_SOURCE_DIR})
 target_link_libraries(converter PUBLIC bz2_static tmt)
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   target_compile_options(converter PRIVATE -Wall -Wextra -pedantic -Werror)
