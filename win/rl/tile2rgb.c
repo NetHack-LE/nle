@@ -12,7 +12,7 @@ extern int total_tiles_used;
 
 /* Basically want to open the files, read the pixels and be done with it */
 
-int init_tiles(const char *filenames[], int filecount, tile_t *tileset) {
+int init_tileset(const char *filenames[], int filecount, tile_t *tileset) {
 
    if(!tileset) {
       // function was called without memory being allocated
@@ -23,6 +23,10 @@ int init_tiles(const char *filenames[], int filecount, tile_t *tileset) {
    tile_t *tile_ptr = tileset;
 
    for(int f=0; f<filecount; f++) {
+      /* file handles are static variables in tiletext.c so 
+         we don't have to manage them - except that we call
+         the open and close management functions.
+      */
       if(!fopen_text_file(filenames[f], "r")) {
          /* can't read the tiles, throw the problem back */
          printf("init_tiles: unable to open %s\n", filenames[f]);
@@ -30,7 +34,7 @@ int init_tiles(const char *filenames[], int filecount, tile_t *tileset) {
       }
 
       while(read_text_tile(tile)) {
-         memccpy(tile_ptr, &(tile), TILE_Y * TILE_X, sizeof(pixel));
+         memcpy(tile_ptr, &(tile), TILE_Y * TILE_X * sizeof(pixel));
          tile_ptr++;
       }
 

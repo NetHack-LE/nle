@@ -5,6 +5,7 @@
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 // "digit" is declared in both Python's longintrepr.h and NetHack's extern.h.
 #define digit nethack_digit
@@ -28,6 +29,8 @@ extern "C" {
 
 extern short glyph2tile[]; /* in tile.c (made from tilemap.c) */
 extern int total_tiles_used; /* also in tile.c */
+
+namespace fs = std::filesystem;
 
 /* Copy from dungeon.c. Necessary to add tile.c.
    Can't add dungeon.c itself as it pulls in too much. */
@@ -157,9 +160,6 @@ class Nethack
         }
         if (tileset) {
             free(tileset);
-        }
-        if (rendered_tiles) {
-            free(rendered_tiles);
         }
     }
 
@@ -370,19 +370,19 @@ class Nethack
     }
 
     boolean
-    setup_tiles()
+    setup_tileset()
     {
         int tiles_read = 0;
         const char *tilefiles[] = {
-            "./win/share/monsters.txt",
-            "./win/share/objects.txt",
-            "./win/share/other.txt"
+            "/Users/stephenoman/Development/nle/win/share/monsters.txt",
+            "/Users/stephenoman/Development/nle/win/share/objects.txt",
+            "/Users/stephenoman/Development/nle/win/share/other.txt"
         };
 
-        tileset = (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
+        this->tileset = (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
         // TODO - handle memory allocation failure for tileset
         if(tileset) {
-            tiles_read = init_tiles(tilefiles, 3, tileset);
+            tiles_read = init_tileset(tilefiles, 3, tileset);
 
             if(tiles_read == 3) {
                 return true;
@@ -394,8 +394,13 @@ class Nethack
         return false;
     }
 
-    tile_t *get_tile_set() {
-        return tileset;
+    void get_tileset(py::array_t<uint8_t> frame) {
+        auto buffer = frame.mutable_unchecked<1>();
+        uint8_t *pixel_rgb = (uint8_t *) this->tileset;
+
+        for(pybind11::ssize_t i = 0; i < buffer.shape(0); ++i) {
+            buffer(i) = pixel_rgb[i];
+        }
     }
 
   private:
@@ -428,7 +433,6 @@ class Nethack
     std::FILE *ttyrec_ = nullptr;
     nle_settings settings_;
     tile_t *tileset = nullptr;
-    tile_t *rendered_tiles = nullptr;
 };
 
 PYBIND11_MODULE(_pynethack, m)
@@ -469,7 +473,8 @@ PYBIND11_MODULE(_pynethack, m)
         .def("in_normal_game", &Nethack::in_normal_game)
         .def("how_done", &Nethack::how_done)
         .def("set_wizkit", &Nethack::set_wizkit)
-        .def("setup_tiles", &Nethack::setup_tiles);
+        .def("setup_tiles", &Nethack::setup_tileset)
+        .def("get_tileset", &Nethack::get_tileset);
 
     py::module mn = m.def_submodule(
         "nethack", "Collection of NetHack constants and functions");
@@ -670,10 +675,6 @@ PYBIND11_MODULE(_pynethack, m)
     mn.attr("glyph2tile") =
         py::memoryview::from_buffer(glyph2tile, /*shape=*/{ MAX_GLYPH },
                                    /*strides=*/{ sizeof(glyph2tile[0]) },
-                                   /*readonly=*/true);
-    mn.attr("tileset") = 
-        py::memoryview::from_buffer(get_tile_set(), /*shape=*/{ total_tiles_used },
-                                   /*strides=*/{ sizeof(tile_s) },
                                    /*readonly=*/true);
 
     py::class_<permonst>(mn, "permonst", "The permonst struct.")
