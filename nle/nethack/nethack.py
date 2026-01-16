@@ -324,9 +324,15 @@ class Nethack:
 
     def how_done(self):
         return self._pynethack.how_done()
-    
+
     def setup_tiles(self):
         return self._pynethack.setup_tiles()
-    
+
     def pixel_render(self):
-        return np.zeros((336,1264,3),dtype=np.int8)
+        return np.zeros((336, 1264, 3), dtype=np.int8)
+
+    def get_tileset(self, buffer):
+        return self._pynethack.get_tileset(buffer)
+
+    def get_frame(self, buffer):
+        return self._pynethack.get_frame(buffer)
