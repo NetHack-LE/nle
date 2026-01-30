@@ -37,7 +37,7 @@ with other gym (or Gynmasium) / RL environments.
 
 ## Installation
 
-NLE requires `python>=3.10`, `cmake>=3.18` to be installed and available both when building the
+NLE requires `python>=3.10`, `cmake>=3.28` to be installed and available both when building the
 package, and at runtime.
 
 On **MacOS**, one can use `Homebrew` as follows:
@@ -75,7 +75,7 @@ $ pip install nle
 NOTE: If you want to extend / develop NLE, please install the package as follows:
 
 ``` bash
-$ git clone https://github.com/NetHack-LE/nle --recursive
+$ git clone https://github.com/NetHack-LE/nle
 $ pip install -e ".[dev]"
 $ pre-commit install
 ```

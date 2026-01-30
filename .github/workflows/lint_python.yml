@@ -11,11 +11,13 @@ jobs:
     name: Check Python linting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-python@v5
+      - name: Install the latest version of uv.
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
+
       - uses: actions/checkout@v4
-      - run: pip install -q uv && uv pip install --system ruff==0.4.3 isort
-      - run: ruff format --check --diff .
-      - run: ruff check
-      - run: isort -c --diff nle/
+      - run: uv sync
+      - run: uv run ruff format --check --diff .
+      - run: uv run ruff check
+      - run: uv run isort -c --diff nle/

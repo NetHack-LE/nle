@@ -4,7 +4,7 @@ Getting Started
 Dependencies
 ************
 
-NLE requires `python>=3.10`, `cmake>=3.18` and some NetHack dependencies
+NLE requires `python>=3.10`, `cmake>=3.28` and some NetHack dependencies
 (e.g. `libncurses`) to be installed and available both when building the
 package, and at runtime.
 
@@ -47,7 +47,7 @@ Optionally, one can clone the repository and install the package manually.
 
 .. code-block:: bash
 
-   $ git clone https://github.com/NetHack-LE/nle --recursive
+   $ git clone https://github.com/NetHack-LE/nle
    $ conda activate nledev
    $ pip install .
 

@@ -21,9 +21,6 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Ensure latest pip, wheel & setuptools
       run: "python -m pip install -q --upgrade pip wheel setuptools"
-    - name: Install dependencies
-      run: |
-        brew install cmake
     - name: Install nle via pip
       run: "pip install nle"
     - name: Check nethack is installed

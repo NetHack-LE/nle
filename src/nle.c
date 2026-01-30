@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <string.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include <tmt.h>
 
@@ -21,6 +22,24 @@
 #endif
 
 #define STACK_SIZE (1 << 16) /* 64KiB */
+
+static size_t
+effective_stack_size(void)
+{
+    /* create_fcontext_stack() uses the first page as a guard page.
+     *
+     * On systems with 64KiB pages (e.g. some aarch64 kernels),
+     * STACK_SIZE=64KiB results in a single page mapping, leaving no usable
+     * stack space after the guard page. Ensure at least 2 pages (guard +
+     * usable).
+     */
+    size_t stack_size = STACK_SIZE;
+    long page_size = sysconf(_SC_PAGESIZE);
+    if (page_size > 0 && stack_size < 2u * (size_t) page_size) {
+        stack_size = 2u * (size_t) page_size;
+    }
+    return stack_size;
+}
 
 #ifndef __has_feature
 #define __has_feature(x) 0 /* Compatibility with non-clang compilers. */
@@ -402,7 +421,7 @@ nle_start(nle_obs *obs, FILE *ttyrec, nle_settings *settings_p)
     /* Initialise the level generation RNG */
     nle_init_lgen_rng();
 
-    nle->stack = create_fcontext_stack(STACK_SIZE);
+    nle->stack = create_fcontext_stack(effective_stack_size());
     nle->generatorcontext =
         make_fcontext(nle->stack.sptr, nle->stack.ssize, mainloop);
 
