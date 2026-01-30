@@ -332,6 +332,17 @@ class NLE(gym.Env):
 
         self.action_space = gym.spaces.Discrete(len(self.actions))
 
+        if render_mode == "pixel":
+            # Pre-setup reference tilemap for pixel rendering
+            tile_paths = [
+                "./win/share/monsters.txt",
+                "./win/share/objects.txt",
+                "./win/share/other.txt",
+            ]
+            if not self.nethack.setup_tiles(tile_paths):
+                raise RuntimeError("Failed to setup tilemap for pixel rendering.")
+            self.rendered_frame = np.zeros((336, 1264, 3), dtype=np.uint8)
+
     def _get_observation(self, observation):
         return {
             key: observation[i]
@@ -548,9 +559,10 @@ class NLE(gym.Env):
             chars = self.last_observation[self._observation_keys.index("chars")]
             # TODO: Why return a string here but print in the other branches?
             return "\n".join([line.tobytes().decode("utf-8") for line in chars])
-        
+
         if mode == "pixel":
-            return self.nethack.pixel_render()
+            self.nethack.draw_frame(buffer=self.rendered_frame)
+            return self.rendered_frame
 
         return "\nInvalid render mode: " + mode
 

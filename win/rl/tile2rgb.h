@@ -5,6 +5,8 @@
 
 #include "tile.h"
 
+#define TILE_Z 3  /* RGB */
+
 typedef struct tile_s {
    pixel tile[TILE_Y][TILE_X];
 } tile_t;

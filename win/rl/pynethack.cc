@@ -371,19 +371,20 @@ class Nethack
     }
 
     boolean
-    setup_tileset()
+    setup_tileset(std::array<std::string, 3> tilefiles)
     {
         int tiles_read = 0;
-        const char *tilefiles[] = {
-            "/Users/stephenoman/Development/nle/win/share/monsters.txt",
-            "/Users/stephenoman/Development/nle/win/share/objects.txt",
-            "/Users/stephenoman/Development/nle/win/share/other.txt"
-        };
 
         this->tileset = (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
+
         // TODO - handle memory allocation failure for tileset
         if(tileset) {
-            tiles_read = init_tileset(tilefiles, 3, tileset);
+            const char *tilefile_ptrs[3] = {
+                tilefiles[0].c_str(),
+                tilefiles[1].c_str(),
+                tilefiles[2].c_str()
+            };
+            tiles_read = init_tileset(tilefile_ptrs, 3, tileset);
 
             if(tiles_read == 3) {
                 return true;
@@ -415,37 +416,20 @@ class Nethack
                 for(pybind11::ssize_t y = 0; y < TILE_Y; y++) {
                     memcpy(&buffer((tile_row * TILE_Y) + y,
                                    (tile_col * TILE_X), 0),
-                           pixel_rgb, TILE_X * 3 * sizeof(uint8_t));
-                    pixel_rgb += TILE_X * 3;
+                           pixel_rgb, TILE_X * TILE_Z * sizeof(uint8_t));
+                    pixel_rgb += TILE_X * TILE_Z;
                 }
             }
         }
     }
 
-    void get_frame(py::array_t<uint8_t> frame) {
-        auto buffer = frame.mutable_unchecked<3>();
+    void draw_frame(py::array_t<uint8_t> frame) {
+        auto buffer = checked_conversion<uint8_t>(frame, { ROWNO * TILE_Y, (COLNO - 1) * TILE_X, TILE_Z });
+        
+        int frame_width =  (COLNO - 1) * TILE_X * TILE_Z;
 
-        pybind11::size_t tile_rows = buffer.shape(0) / TILE_Y;
-        if(tile_rows != ROWNO) {
-            // TODO Error Handling
-            std::cout << "Frame height incorrect. Got " << tile_rows << ", expected " << ROWNO << std::endl;
-            return;
-        }
-        pybind11::size_t tile_cols = (buffer.shape(1) / TILE_X);
-        if(tile_cols != COLNO - 1) {    //  Usually COLNO is 80, but only 79 columns are used.
-            // TODO Error Handling
-            std::cout << "Frame width incorrect. Got " << tile_cols << ", expected " << COLNO - 1 << std::endl;
-            return;
-        }
-        pybind11::size_t channels = buffer.shape(2);
-        if(channels != 3) {
-            // TODO Error Handling
-            std::cout << "Frame channels incorrect. Got " << channels << ", expected 3" << std::endl;
-            return;
-        }
-
-        for(pybind11::ssize_t tile_row = 0; tile_row < tile_rows; tile_row++) {
-            for(pybind11::ssize_t tile_col = 0; tile_col < tile_cols; tile_col++) {
+        for(int tile_row = 0; tile_row < ROWNO; tile_row++) {
+            for(int tile_col = 0; tile_col < (COLNO - 1); tile_col++) {
                 // figure out which tile to copy from the glyph at this position
                 short int glyph = obs_.glyphs[(tile_row * (COLNO - 1)) + tile_col];
 
@@ -458,14 +442,20 @@ class Nethack
                 tile_t *tile_data = &(tileset[tile_index]);
                 if(!tile_data) {
                     // TODO Error Handling
-                    printf("No tile data for glyph %d at position (%d,%d)\n", glyph, tile_row, tile_col);
-                    return;
+                    printf("No tile data for glyph %d at position (%ld,%ld)\n", glyph, tile_row, tile_col);
+                    continue;
                 }
 
-                for(pybind11::ssize_t pixel_row = 0; pixel_row < TILE_Y; pixel_row++) {
-                    memcpy(&buffer((tile_row * TILE_Y) + pixel_row,
-                                   (tile_col * TILE_X), 0),
-                           &(tile_data->tile[pixel_row]), (size_t)TILE_Y * sizeof(pixel));
+                uint8_t * frame_tile = buffer + (tile_row * frame_width * TILE_Y) + (tile_col * TILE_X * TILE_Z);
+                if(!frame_tile) {
+                    // TODO Error Handling
+                    printf("No frame tile pointer for glyph %d at position (%ld,%ld)\n", glyph, tile_row, tile_col);
+                    continue;
+                }
+
+                for(int pixel_row = 0; pixel_row < TILE_Y; pixel_row++) {
+                    memcpy(frame_tile + (pixel_row * frame_width),
+                           &(tile_data->tile[pixel_row][0]), TILE_X * TILE_Z * sizeof(uint8_t));
                 }
             }
         }
@@ -492,6 +482,11 @@ class Nethack
         /* Once the seeds have been used, prevent them being reused. */
         settings_.initial_seeds.use_init_seeds = false;
         settings_.initial_seeds.use_lgen_seed = false;
+        
+        if(tileset) {
+            // reset previous glyphs to force full redraw on first draw_frame call
+            std::fill(std::begin(prev_glyphs), std::end(prev_glyphs), 0);
+        }
 
         if (obs_.done)
             throw std::runtime_error("NetHack done right after reset");
@@ -547,7 +542,7 @@ PYBIND11_MODULE(_pynethack, m)
         .def("set_wizkit", &Nethack::set_wizkit)
         .def("setup_tiles", &Nethack::setup_tileset)
         .def("get_tileset", &Nethack::get_tileset)
-        .def("get_frame", &Nethack::get_frame);
+        .def("draw_frame", &Nethack::draw_frame);
 
     py::module mn = m.def_submodule(
         "nethack", "Collection of NetHack constants and functions");
