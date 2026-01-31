@@ -47,12 +47,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: '3.10'
-      - name: Install build dependencies
-        run: uv pip install build wheel setuptools
       - uses: actions/checkout@v4
       - name: Generate sdist
         run: |
-          NLE_RELEASE_BUILD=1 python -m build --sdist
+          NLE_RELEASE_BUILD=1 uv build --sdist
       - name: Install from sdist
         run: |
           SDISTNAME=$(ls dist/)
@@ -62,7 +60,7 @@ jobs:
         run: |
           REPONAME=$(basename $PWD)
           pushd ..
-          python -m pytest --import-mode=append -svx $REPONAME/nle/tests
+          uv run pytest --import-mode=append -svx $REPONAME/nle/tests
           popd
   test_sdist_3_13:
     name: Test sdist on MacOS w/ Py3.13
@@ -73,12 +71,10 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: 3.13
-      - name: Install build dependencies
-        run: uv pip install build wheel setuptools
       - uses: actions/checkout@v4
       - name: Generate sdist
         run: |
-          NLE_RELEASE_BUILD=1 python -m build --sdist
+          NLE_RELEASE_BUILD=1 uv build --sdist
       - name: Install from sdist
         run: |
           SDISTNAME=$(ls dist/)
@@ -88,7 +84,7 @@ jobs:
         run: |
           REPONAME=$(basename $PWD)
           pushd ..
-          python -m pytest --import-mode=append -svx $REPONAME/nle/tests
+          uv run pytest --import-mode=append -svx $REPONAME/nle/tests
           popd
       - name: Save sdist
         if: ${{ always() }}
@@ -134,8 +130,6 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           python-version: 3.13
-      - name: Install build dependencies
-        run: uv pip install wheel setuptools
       - uses: actions/checkout@v4
       - name: Get wheels artifacts
         uses: actions/download-artifact@v4
@@ -151,7 +145,7 @@ jobs:
         run: |
           REPONAME=$(basename $PWD)
           pushd ..
-          python -m pytest --import-mode=append -svx $REPONAME/nle/tests
+          uv run pytest --import-mode=append -svx $REPONAME/nle/tests
           popd
 
   # Use prereleases to test publish the artefacts to testpypi
