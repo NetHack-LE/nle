@@ -325,7 +325,13 @@ class Nethack:
     def how_done(self):
         return self._pynethack.how_done()
 
-    def setup_tiles(self, tile_paths):
+    def setup_tiles(self, tile_paths=None):
+        if tile_paths is None:
+            tile_paths = [
+                os.path.join(HACKDIR, "tiles", "monsters.txt"),
+                os.path.join(HACKDIR, "tiles", "objects.txt"),
+                os.path.join(HACKDIR, "tiles", "other.txt"),
+            ]
         return self._pynethack.setup_tiles(tile_paths)
 
     def get_tileset(self, buffer):

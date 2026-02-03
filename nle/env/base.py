@@ -333,13 +333,8 @@ class NLE(gym.Env):
         self.action_space = gym.spaces.Discrete(len(self.actions))
 
         if render_mode == "pixel":
-            # Pre-setup reference tilemap for pixel rendering
-            tile_paths = [
-                "./win/share/monsters.txt",
-                "./win/share/objects.txt",
-                "./win/share/other.txt",
-            ]
-            if not self.nethack.setup_tiles(tile_paths):
+            # Pre-load reference tilemap for pixel rendering
+            if not self.nethack.setup_tiles():
                 raise RuntimeError("Failed to setup tilemap for pixel rendering.")
             self.rendered_frame = np.zeros((336, 1264, 3), dtype=np.uint8)
 

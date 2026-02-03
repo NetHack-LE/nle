@@ -178,7 +178,7 @@ pybind11_add_module(
 target_link_libraries(_pynethack PUBLIC nethackdl)
 set_target_properties(_pynethack PROPERTIES CXX_STANDARD 14)
 target_include_directories(_pynethack PUBLIC ${NLE_INC_GEN} ${NLE_WIN}/share)
-#add_dependencies(_pynethack util tile) # For pm.h.
+# add_dependencies(_pynethack util tile) # For pm.h.
 
 # ttyrec converter library
 add_library(
@@ -204,3 +204,8 @@ target_link_libraries(_pyconverter PUBLIC converter)
 set_target_properties(_pyconverter PROPERTIES CXX_STANDARD 14)
 target_include_directories(
   _pyconverter PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/converter)
+
+set(TILE_FILES "win/share/monsters.txt" "win/share/objects.txt"
+               "win/share/other.txt")
+
+install(FILES ${TILE_FILES} DESTINATION ${INSTDIR}/tiles)
