@@ -14,6 +14,16 @@ from nle import _pynethack
 DLPATH = os.path.join(os.path.dirname(_pynethack.__file__), "libnethack.so")
 
 DUNGEON_SHAPE = (_pynethack.nethack.ROWNO, _pynethack.nethack.COLNO - 1)
+TILE_SHAPE = (
+    _pynethack.nethack.TILE_Y,
+    _pynethack.nethack.TILE_X,
+    _pynethack.nethack.TILE_Z,
+)
+TILE_RENDER_SHAPE = (
+    DUNGEON_SHAPE[0] * TILE_SHAPE[0],
+    DUNGEON_SHAPE[1] * TILE_SHAPE[1],
+    TILE_SHAPE[2],
+)
 BLSTATS_SHAPE = (_pynethack.nethack.NLE_BLSTATS_SIZE,)
 MESSAGE_SHAPE = (_pynethack.nethack.NLE_MESSAGE_SIZE,)
 PROGRAM_STATE_SHAPE = (_pynethack.nethack.NLE_PROGRAM_STATE_SIZE,)

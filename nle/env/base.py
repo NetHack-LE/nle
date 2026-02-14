@@ -336,7 +336,7 @@ class NLE(gym.Env):
             # Pre-load reference tilemap for pixel rendering
             if not self.nethack.setup_tiles():
                 raise RuntimeError("Failed to setup tilemap for pixel rendering.")
-            self.rendered_frame = np.zeros((336, 1264, 3), dtype=np.uint8)
+            self.rendered_frame = np.zeros(nethack.TILE_RENDER_SHAPE, dtype=np.uint8)
 
     def _get_observation(self, observation):
         return {

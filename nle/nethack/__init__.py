@@ -5,6 +5,8 @@ from nle.nethack.nethack import (
     Nethack,
     NETHACKOPTIONS,
     DUNGEON_SHAPE,
+    TILE_SHAPE,
+    TILE_RENDER_SHAPE,
     BLSTATS_SHAPE,
     MESSAGE_SHAPE,
     INV_SIZE,

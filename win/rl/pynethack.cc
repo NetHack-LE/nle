@@ -598,6 +598,10 @@ PYBIND11_MODULE(_pynethack, m)
     mn.attr("NHW_MENU") = py::int_(NHW_MENU);
     mn.attr("NHW_TEXT") = py::int_(NHW_TEXT);
 
+    mn.attr("TILE_X") = py::int_(TILE_X);
+    mn.attr("TILE_Y") = py::int_(TILE_Y);
+    mn.attr("TILE_Z") = py::int_(TILE_Z);
+
     // Cannot include wintty.h as it redefines putc etc.
     // MAXWIN is #defined as 20 there.
     mn.attr("MAXWIN") = py::int_(20);
