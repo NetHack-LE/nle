@@ -373,27 +373,24 @@ class Nethack
     boolean
     setup_tileset(std::array<std::string, 3> tilefiles)
     {
-        int tiles_read = 0;
-
         this->tileset = (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
-
-        // TODO - handle memory allocation failure for tileset
-        if(tileset) {
-            const char *tilefile_ptrs[3] = {
-                tilefiles[0].c_str(),
-                tilefiles[1].c_str(),
-                tilefiles[2].c_str()
-            };
-            tiles_read = init_tileset(tilefile_ptrs, 3, tileset);
-
-            if(tiles_read == 3) {
-                return true;
-            }
+        if(!this->tileset) {
+            throw std::runtime_error("Unable to allocate memory for tileset");
         }
-        
-        // TODO Error Handling
-        std::cout << "Unable to open tile file " << tilefiles[tiles_read] << std::endl;
-        return false;
+
+        const char *tilefile_ptrs[3] = {
+            tilefiles[0].c_str(),
+            tilefiles[1].c_str(),
+            tilefiles[2].c_str()
+        };
+        int tiles_read = init_rgb_tileset(tilefile_ptrs, 3, tileset);
+
+        if(tiles_read == 3) {
+            return true;
+        } else {
+            std::cout << "Unable to open tile file " << tilefiles[tiles_read] << std::endl;
+            return false;
+        }
     }
 
     // Get the tileset as a numpy array of shape passed in as 'frame'.

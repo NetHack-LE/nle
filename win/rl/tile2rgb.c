@@ -10,9 +10,16 @@
 extern short glyph2tile[];
 extern int total_tiles_used;
 
-/* Basically want to open the files, read the pixels and be done with it */
+/* 
+Basically want to open the files, read the pixels and be done with it.
+Returns the number of files read sucessfully, so 0 == failure.
+*/
+int init_rgb_tileset(const char *filenames[], int filecount, tile_t *tileset) {
 
-int init_tileset(const char *filenames[], int filecount, tile_t *tileset) {
+   if(!filenames || filecount <= 0) {
+      // no files to read, return 0
+      return 0;
+   }
 
    if(!tileset) {
       // function was called without memory being allocated
@@ -29,7 +36,7 @@ int init_tileset(const char *filenames[], int filecount, tile_t *tileset) {
       */
       if(!fopen_text_file(filenames[f], "r")) {
          /* can't read the tiles, throw the problem back */
-         printf("init_tiles: unable to open %s\n", filenames[f]);
+         fprintf(stderr, "init_tiles: unable to open %s\n", filenames[f]);
          return f; 
       }
 
