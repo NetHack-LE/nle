@@ -373,9 +373,9 @@ class Nethack
     boolean
     setup_tileset(std::array<std::string, 3> tilefiles)
     {
-        this->tileset = (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
-        if(!this->tileset) {
-            throw std::runtime_error("Unable to allocate memory for tileset");
+        tileset = (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
+        if(!tileset) {
+            throw std::runtime_error("Unable to allocate memory for tileset.");
         }
 
         const char *tilefile_ptrs[3] = {
@@ -385,28 +385,35 @@ class Nethack
         };
         int tiles_read = init_rgb_tileset(tilefile_ptrs, 3, tileset);
 
-        if(tiles_read == 3) {
-            return true;
-        } else {
-            std::cout << "Unable to open tile file " << tilefiles[tiles_read] << std::endl;
-            return false;
-        }
+        if(tiles_read != 3) {
+            throw std::runtime_error("Unable to open tile file " + tilefiles[tiles_read] + 
+                " for reading. Check that the file exists and is readable.");
+        } 
+        
+        return true;
     }
 
     // Get the tileset as a numpy array of shape passed in as 'frame'.
     // This method is for testing the initialization of the tileset only.
     void get_tileset(py::array_t<uint8_t> frame) {
+
+        if(!tileset) {
+            throw std::runtime_error("get_tileset() called but the tileset has not been initialized.");
+        }
+
         auto buffer = frame.mutable_unchecked<3>();
-        uint8_t *pixel_rgb = (uint8_t *) this->tileset;
 
         pybind11::size_t tile_rows = buffer.shape(0) / TILE_Y;
         pybind11::size_t tile_cols = buffer.shape(1) / TILE_X;
 
         if(tile_rows * tile_cols > (pybind11::size_t) total_tiles_used) {
-            // TODO Error Handling
-            printf("Requested more tiles than available in tileset\n");
+            throw std::runtime_error("Requested more tiles than available in tileset (available: " + 
+                std::to_string(total_tiles_used) + ", requested: " + 
+                std::to_string(tile_rows * tile_cols) + ").");
             return;
         }
+
+        uint8_t *pixel_rgb = (uint8_t *) tileset;
 
         for(pybind11::ssize_t tile_row = 0; tile_row < tile_rows; tile_row++) {
             for(pybind11::ssize_t tile_col = 0; tile_col < tile_cols; tile_col++) {
@@ -421,6 +428,11 @@ class Nethack
     }
 
     void draw_frame(py::array_t<uint8_t> frame) {
+
+        if(!tileset) {
+            throw std::runtime_error("draw_frame() called but the tileset has not been initialized.");
+        }
+
         auto buffer = checked_conversion<uint8_t>(frame, { ROWNO * TILE_Y, (COLNO - 1) * TILE_X, TILE_Z });
         
         int frame_width =  (COLNO - 1) * TILE_X * TILE_Z;
@@ -436,19 +448,14 @@ class Nethack
                 }
                 int tile_index = glyph2tile[glyph];
 
-                tile_t *tile_data = &(tileset[tile_index]);
-                if(!tile_data) {
-                    // TODO Error Handling
-                    printf("No tile data for glyph %d at position (%ld,%ld)\n", glyph, tile_row, tile_col);
+                // Check tile_index is within bounds of the tileset. If not, log and skip this tile.
+                if(tile_index < 0 || tile_index >= total_tiles_used) {
+                    fprintf(stderr, "Invalid tile index %d for glyph %d at position (%ld,%ld)\n", tile_index, glyph, tile_row, tile_col);
                     continue;
                 }
 
-                uint8_t * frame_tile = buffer + (tile_row * frame_width * TILE_Y) + (tile_col * TILE_X * TILE_Z);
-                if(!frame_tile) {
-                    // TODO Error Handling
-                    printf("No frame tile pointer for glyph %d at position (%ld,%ld)\n", glyph, tile_row, tile_col);
-                    continue;
-                }
+                tile_t *tile_data = &(tileset[tile_index]);
+                uint8_t *frame_tile = buffer + (tile_row * frame_width * TILE_Y) + (tile_col * TILE_X * TILE_Z);
 
                 for(int pixel_row = 0; pixel_row < TILE_Y; pixel_row++) {
                     memcpy(frame_tile + (pixel_row * frame_width),
