@@ -259,7 +259,7 @@ int conversion_load_ttyrec(Conversion *c, FILE *f) {
   return EXIT_SUCCESS;
 }
 
-void write_to_buffers(Conversion *conv);
+int write_to_buffers(Conversion *conv);
 
 /* Returns 1 at end of buffer, 0 at end of input, -1 on failure. */
 int conversion_convert_frames(Conversion *c) {
@@ -287,12 +287,14 @@ int conversion_convert_frames(Conversion *c) {
       if (c->header.channel == 0) {
         tmt_write(c->vt, c->buf, c->header.len);
       } else {
-        write_to_buffers(c);
+        status = write_to_buffers(c);
+        if (status != CONV_OK) break;
       }
     } else if (c->version == 1) {
       /* V1: We write every frame to buffer (unclear when actions taken) */
       tmt_write(c->vt, c->buf, c->header.len);
-      write_to_buffers(c);
+      status = write_to_buffers(c);
+      if (status != CONV_OK) break;
     } else {
       perror("Unrecognized ttyrec version");
     }
@@ -301,15 +303,31 @@ int conversion_convert_frames(Conversion *c) {
   return status;
 }
 
-void write_to_buffers(Conversion *conv) {
+int write_to_buffers(Conversion *conv) {
   if (conv->version > 1)  {
     if (conv->header.channel == 2) {
       /* V3: Write just the reward. Do not write the screen. */
-      memcpy(conv->scores.cur++, conv->buf, sizeof(*conv->scores.cur));
-      return;
+      if (conv->header.len < 0
+          || (size_t) conv->header.len < sizeof(*conv->scores.cur)) {
+        fprintf(stderr,
+                "Reward frame too short (%d bytes, need at least %zu)\n",
+                conv->header.len, sizeof(*conv->scores.cur));
+        return CONV_BODY_ERROR;
+      }
+      if (conv->scores.cur >= conv->scores.end) {
+        fprintf(stderr, "Reward buffer overflow\n");
+        return CONV_BODY_ERROR;
+      }
+      memcpy(conv->scores.cur, conv->buf, sizeof(*conv->scores.cur));
+      conv->scores.cur++;
+      return CONV_OK;
     }
     if (conv->header.channel == 1) {
       /* V2: Write the action, then continue to flush the screen too. */
+      if (conv->inputs.cur >= conv->inputs.end) {
+        fprintf(stderr, "Action buffer overflow\n");
+        return CONV_BODY_ERROR;
+      }
       *conv->inputs.cur++ = conv->buf[0];
     }
   }
@@ -332,7 +350,7 @@ void write_to_buffers(Conversion *conv) {
   *conv->timestamps.cur++ = usec + (int64_t)conv->header.tv.tv_usec;
 
   --conv->remaining;
-
+  return CONV_OK;
 }
 
 int conversion_close(Conversion *c) {

@@ -1,6 +1,8 @@
 import bz2
 import os
 import re
+import subprocess
+import sys
 
 import numpy as np
 import pytest
@@ -76,6 +78,14 @@ def load_and_convert(
         remaining = converter.convert(
             chars, colors, cursors, timestamps, actions, scores
         )
+
+
+def run_script(script):
+    proc = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True
+    )
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout.strip()
 
 
 class TestConverter:
@@ -427,3 +437,74 @@ class TestConverter:
             lines = f.readlines()
             assert " ".join("%i" % a for a in actions) == lines[0].rstrip()
             assert " ".join("%i" % s for s in scores) == lines[1].rstrip()
+
+    def test_nle_v3_short_reward_frame_stops_conversion(self):
+        output = run_script(
+            """
+import bz2
+import os
+import struct
+import tempfile
+import numpy as np
+from nle.dataset import Converter
+
+frames = [
+    struct.pack('<iiiB', 1, 1, 1, 2) + b'A',
+    struct.pack('<iiiB', 1, 2, 1, 1) + b'k',
+]
+fd, path = tempfile.mkstemp(suffix='.ttyrec.bz2')
+os.close(fd)
+with open(path, 'wb') as f:
+    f.write(bz2.compress(b''.join(frames)))
+try:
+    c = Converter(1, 1, 3)
+    c.load_ttyrec(path)
+    chars = np.zeros((1, 1, 1), dtype=np.uint8)
+    colors = np.zeros((1, 1, 1), dtype=np.int8)
+    cursors = np.zeros((1, 2), dtype=np.int16)
+    timestamps = np.zeros((1,), dtype=np.int64)
+    inputs = np.zeros((1,), dtype=np.uint8)
+    scores = np.zeros((1,), dtype=np.int32)
+    remaining = c.convert(chars, colors, cursors, timestamps, inputs, scores)
+    print(remaining, int(inputs[0]), int(scores[0]))
+finally:
+    os.unlink(path)
+"""
+        )
+        assert output == "1 0 0"
+
+    def test_nle_v3_reward_buffer_overflow_stops_conversion(self):
+        output = run_script(
+            """
+import bz2
+import os
+import struct
+import tempfile
+import numpy as np
+from nle.dataset import Converter
+
+frames = [
+    struct.pack('<iiiB', 1, 1, 4, 2) + struct.pack('<i', 111),
+    struct.pack('<iiiB', 1, 2, 4, 2) + struct.pack('<i', 222),
+    struct.pack('<iiiB', 1, 3, 1, 1) + b'.',
+]
+fd, path = tempfile.mkstemp(suffix='.ttyrec.bz2')
+os.close(fd)
+with open(path, 'wb') as f:
+    f.write(bz2.compress(b''.join(frames)))
+try:
+    c = Converter(1, 1, 3)
+    c.load_ttyrec(path)
+    chars = np.zeros((1, 1, 1), dtype=np.uint8)
+    colors = np.zeros((1, 1, 1), dtype=np.int8)
+    cursors = np.zeros((1, 2), dtype=np.int16)
+    timestamps = np.zeros((1,), dtype=np.int64)
+    inputs = np.zeros((1,), dtype=np.uint8)
+    scores = np.zeros((1,), dtype=np.int32)
+    remaining = c.convert(chars, colors, cursors, timestamps, inputs, scores)
+    print(remaining, int(inputs[0]), int(scores[0]))
+finally:
+    os.unlink(path)
+"""
+        )
+        assert output == "1 0 111"
