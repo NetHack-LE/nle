@@ -65,6 +65,9 @@ class Converter
           term_rows_((term_rows != 0) ? term_rows : rows),
           term_cols_((term_cols != 0) ? term_cols : cols)          
     {
+        if (rows_ == 0 || cols_ == 0)
+            throw std::invalid_argument("rows and cols must be > 0");
+
         if (term_rows_ < 2 || term_cols_ < 2)
            throw std::invalid_argument("Terminal invalid: term_rows and term_cols must be >1");
 
@@ -117,7 +120,14 @@ class Converter
         py::array array = py::array::ensure(chars);
         if (!array.dtype().is(py::dtype::of<uint8_t>()))
             throw std::invalid_argument("Buffer dtype mismatch.");
-        size_t unroll = array.request().shape[0];
+        py::buffer_info chars_buf = array.request();
+        if (chars_buf.ndim != 3) {
+            std::ostringstream ss;
+            ss << "Array has wrong number of dimensions (expected 3, got "
+               << chars_buf.ndim << ")";
+            throw std::invalid_argument(ss.str());
+        }
+        size_t unroll = chars_buf.shape[0];
 
         conversion_set_buffers(
             conversion_,

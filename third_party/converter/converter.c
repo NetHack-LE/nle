@@ -186,6 +186,10 @@ Conversion *conversion_create(size_t rows, size_t cols, size_t term_rows,
     stripgfx_init = true;
   }
 
+  if (rows == 0 || cols == 0) {
+    return NULL;
+  }
+
   Conversion *c = malloc(sizeof(Conversion));
   if (!c) return NULL;
   c->version = version;
@@ -193,6 +197,10 @@ Conversion *conversion_create(size_t rows, size_t cols, size_t term_rows,
   c->cols = cols;
   if (!term_rows) term_rows = rows;
   if (!term_cols) term_cols = cols;
+  if (term_rows < rows || term_cols < cols) {
+    free(c);
+    return NULL;
+  }
   assert(rows <= term_rows && cols <= term_cols);
   c->chars = (UnsignedCharPtr){0};
   c->colors = (SignedCharPtr){0};

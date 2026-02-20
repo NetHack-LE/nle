@@ -190,6 +190,12 @@ class TestConverter:
         ):
             converter.load_ttyrec(fn)
 
+    def test_rejects_zero_rows_or_cols(self):
+        with pytest.raises(ValueError, match=r"rows and cols must be > 0"):
+            Converter(0, COLUMNS, TTYREC_V3, ROWS, COLUMNS)
+        with pytest.raises(ValueError, match=r"rows and cols must be > 0"):
+            Converter(ROWS, 0, TTYREC_V3, ROWS, COLUMNS)
+
     def test_illegal_buffers(self):
         converter = Converter(ROWS, COLUMNS, TTYREC_V1)
         converter.load_ttyrec(getfilename(TTYREC_2020))
@@ -282,6 +288,18 @@ class TestConverter:
 
         chars = np.uint(8)
         with pytest.raises(ValueError, match=r"Numpy array required"):
+            converter.convert(chars, colors, cursors, timestamps, actions, scores)
+
+        chars = np.array(8, dtype=np.uint8)
+        colors = np.zeros((10, ROWS, COLUMNS), dtype=np.int8)
+        cursors = np.zeros((10, 2), dtype=np.int16)
+        actions = np.zeros((10), dtype=np.uint8)
+        timestamps = np.zeros((10,), dtype=np.int64)
+        scores = np.zeros((10), dtype=np.int32)
+        with pytest.raises(
+            ValueError,
+            match=r"Array has wrong number of dimensions \(expected 3, got 0\)",
+        ):
             converter.convert(chars, colors, cursors, timestamps, actions, scores)
 
         chars = np.zeros((10, ROWS, COLUMNS), dtype=np.uint8)
