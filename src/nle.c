@@ -183,7 +183,12 @@ mainloop(fcontext_transfer_t ctx_transfer)
                                 stack->ssize);
 #endif
 
-    int len = strnlen(settings.hackdir, sizeof(settings.hackdir));
+    size_t len = strnlen(settings.hackdir, sizeof(settings.hackdir));
+
+    if (len == 0) {
+        error("HACKDIR must not be empty");
+        return;
+    }
 
     if (len >= sizeof(settings.hackdir) - 1) {
         error("HACKDIR too long");
