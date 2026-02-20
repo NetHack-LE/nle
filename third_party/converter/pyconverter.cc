@@ -133,14 +133,17 @@ class Converter
             py::gil_scoped_release release;
             status = conversion_convert_frames(conversion_);
         }
-        if (status == -1) {
-            // TODO : Better error messages
-            throw std::runtime_error("Error in file.");
-        } else if (status == -2) {
+        if (status == CONV_CRITICAL_ERROR) {
+            throw std::runtime_error("Critical converter failure.");
+        } else if (status == CONV_HEADER_ERROR) {
             // ignore: status = -2
             // This occurs when convert is called on a converter that has
             // already been exhausted. This will be common in the last
             // minibatches in a dataset.
+        } else if (status == CONV_BODY_ERROR) {
+            throw std::runtime_error("Malformed ttyrec frame body.");
+        } else if (status == CONV_FILE_ERROR) {
+            throw std::runtime_error("Malformed ttyrec input.");
         }
         return conversion_->remaining;
     }

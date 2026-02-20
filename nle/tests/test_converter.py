@@ -1,6 +1,8 @@
 import bz2
 import os
 import re
+import struct
+import tempfile
 
 import numpy as np
 import pytest
@@ -427,3 +429,53 @@ class TestConverter:
             lines = f.readlines()
             assert " ".join("%i" % a for a in actions) == lines[0].rstrip()
             assert " ".join("%i" % s for s in scores) == lines[1].rstrip()
+
+    def test_nle_v3_final_frame_at_stream_end_is_processed(self):
+        frame = struct.pack("<iiiB", 10, 20, 1, 1) + b"k"
+        fd, path = tempfile.mkstemp(suffix=".ttyrec.bz2")
+        os.close(fd)
+        with open(path, "wb") as f:
+            f.write(bz2.compress(frame))
+
+        try:
+            converter = Converter(1, 1, TTYREC_V3)
+            converter.load_ttyrec(path)
+            chars = np.full((1, 1, 1), 99, dtype=np.uint8)
+            colors = np.full((1, 1, 1), -9, dtype=np.int8)
+            cursors = np.full((1, 2), -7, dtype=np.int16)
+            timestamps = np.full((1,), -5, dtype=np.int64)
+            actions = np.zeros((1,), dtype=np.uint8)
+            scores = np.full((1,), -3, dtype=np.int32)
+
+            remaining = converter.convert(
+                chars, colors, cursors, timestamps, actions, scores
+            )
+
+            assert remaining == 0
+            assert actions.tolist() == [ord("k")]
+            assert timestamps.tolist() == [10_000_020]
+        finally:
+            os.unlink(path)
+
+    def test_malformed_header_raises_runtime_error(self):
+        bad_header = struct.pack("<iiiB", 1, 1, 0, 0)
+        fd, path = tempfile.mkstemp(suffix=".ttyrec.bz2")
+        os.close(fd)
+        with open(path, "wb") as f:
+            f.write(bz2.compress(bad_header))
+
+        try:
+            converter = Converter(1, 1, TTYREC_V3)
+            converter.load_ttyrec(path)
+
+            chars = np.zeros((1, 1, 1), dtype=np.uint8)
+            colors = np.zeros((1, 1, 1), dtype=np.int8)
+            cursors = np.zeros((1, 2), dtype=np.int16)
+            timestamps = np.zeros((1,), dtype=np.int64)
+            actions = np.zeros((1,), dtype=np.uint8)
+            scores = np.zeros((1,), dtype=np.int32)
+
+            with pytest.raises(RuntimeError, match=r"Malformed ttyrec input"):
+                converter.convert(chars, colors, cursors, timestamps, actions, scores)
+        finally:
+            os.unlink(path)

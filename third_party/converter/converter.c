@@ -121,11 +121,10 @@ vt_char_color_extract(TMTCHAR *c)
 int read_header(BZFILE *bfp, Header *h, size_t version) {
   int buf[3];
   int bzerror;
-  BZ2_bzRead(&bzerror, bfp, buf, sizeof(int) * 3);
-  if (bzerror != BZ_OK) {
-    /* This could be BZ_STREAM_END, the logical end of a stream.
-       We still stop in that case. */
-    if (bzerror == BZ_STREAM_END) return CONV_STREAM_END;
+  int length = BZ2_bzRead(&bzerror, bfp, buf, sizeof(int) * 3);
+  if (length != (int) (sizeof(int) * 3)) {
+    /* Clean stream end: no bytes for next header. */
+    if (bzerror == BZ_STREAM_END && length == 0) return CONV_STREAM_END;
     return CONV_HEADER_ERROR;
   }
 
@@ -137,9 +136,9 @@ int read_header(BZFILE *bfp, Header *h, size_t version) {
   if (version > 1) {
     /* NLE-based ttyrecs read have single-byte "channel" which codifies what 
     kind of information one is in the buffer. Here we read into the channel. */
-    BZ2_bzRead(&bzerror, bfp, &h->channel, 1);
-    if (bzerror != BZ_OK) {
-      if (bzerror == BZ_STREAM_END) return CONV_STREAM_END;
+    int channel_len = BZ2_bzRead(&bzerror, bfp, &h->channel, 1);
+    if (channel_len != 1) {
+      if (bzerror == BZ_STREAM_END && channel_len == 0) return CONV_STREAM_END;
       return CONV_HEADER_ERROR;
     }
   }
@@ -169,8 +168,16 @@ int ttyread(BZFILE *bfp, Header *h, char **buf, size_t version) {
 
   int bzerror;
   int length = BZ2_bzRead(&bzerror, bfp, *buf, h->len);
+  if (length == h->len && (bzerror == BZ_OK || bzerror == BZ_STREAM_END)) {
+    return CONV_OK;
+  }
   if (bzerror != BZ_OK || length != h->len) {
-    if (bzerror == BZ_STREAM_END) return CONV_STREAM_END;
+    if (bzerror == BZ_STREAM_END) {
+      fprintf(stderr,
+              "Unexpected end of stream in frame body (read %d/%d bytes)\n",
+              length, h->len);
+      return CONV_BODY_ERROR;
+    }
     fprintf(stderr, "bzRead failed with return code %d (read %d bytes)\n",
             bzerror, length);
     return CONV_BODY_ERROR;
