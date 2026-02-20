@@ -39,21 +39,13 @@ init_random(int FDECL((*fn), (int) ))
 
 unsigned long nle_seeds[] = { 0L, 0L, 0L };
 
-/* We define the number of dungeons explicitly here.
-   NetHack works it out from the "dungeon.def" file,
-   sadly after already sampling random numbers. This
-   means you have to make sure that if the number of
-   dungeons changes in the future then this needs to
-   be kept in sync. */
-#define NLE_NUM_DUNGEONS 8
-
 /* Base LGEN RNG state, initialised via the seed &
    used in turn to sample seed values for the RNGs
    for each dungeon. */
 static struct isaac64_ctx nle_lgen_base;
 
-/* RNG States for level generation, one for each dungeon */
-static struct isaac64_ctx nle_lgen_state[NLE_NUM_DUNGEONS];
+/* RNG states for level generation, one slot per possible dungeon index. */
+static struct isaac64_ctx nle_lgen_state[MAXDUNGEON];
 
 /* State of the NetHack CORE RNG, used to remember what
    it was before we created the level and then restored
@@ -64,6 +56,17 @@ static struct isaac64_ctx nle_core_state;
 /* Some flags to help manage the lgen seed */
 static bool lgen_initialised = false;
 static bool lgen_active = false;
+
+static bool
+nle_valid_dungeon_num(int dungeon_num)
+{
+    if (dungeon_num < 0 || dungeon_num >= MAXDUNGEON) {
+        impossible("Invalid dungeon index %d (MAXDUNGEON=%d)", dungeon_num,
+                   MAXDUNGEON);
+        return false;
+    }
+    return true;
+}
 
 /* Seeding function to initialise a fixed-level RNG state.
    Borrowed from init_isaac64 in NetHack's rnd.c */
@@ -90,7 +93,7 @@ nle_init_lgen_rng()
         nle_init_lgen_state(settings.initial_seeds.lgen_seed, &nle_lgen_base);
 
         /* generate a new RNG for each of the dungeons */
-        for (int i = 0; i < NLE_NUM_DUNGEONS; i++)
+        for (int i = 0; i < MAXDUNGEON; i++)
             nle_init_lgen_state(isaac64_next_uint64(&nle_lgen_base),
                                 &(nle_lgen_state[i]));
 
@@ -105,6 +108,9 @@ nle_init_lgen_rng()
 void
 nle_swap_to_lgen(int dungeon_num)
 {
+    if (!nle_valid_dungeon_num(dungeon_num))
+        return;
+
     if (lgen_initialised && !lgen_active) {
         int core_rng = whichrng(rn2);
 
@@ -124,6 +130,9 @@ nle_swap_to_lgen(int dungeon_num)
 void
 nle_swap_to_core(int dungeon_num)
 {
+    if (!nle_valid_dungeon_num(dungeon_num))
+        return;
+
     if (lgen_initialised && lgen_active) {
         int core_rng = whichrng(rn2);
 
