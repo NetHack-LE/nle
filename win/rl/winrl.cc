@@ -208,6 +208,7 @@ class NetHackRL
     void store_mapped_glyph(int ch, int color, int special, XCHAR_P x,
                             XCHAR_P y);
     void store_screen_description(XCHAR_P x, XCHAR_P y, int glyph);
+    static bool try_screen_offset(XCHAR_P x, XCHAR_P y, size_t *offset);
 
     void fill_obs(nle_obs *);
     int getch_method();
@@ -336,19 +337,30 @@ NetHackRL::fill_obs(nle_obs *obs)
         // TODO: This doesn't show anything in situations where there's too
         // many items at one tile, which will get displayed in a new window.
 
+        bool copied = false;
         if (in_yn_function) {
             // Special case. See tty_putstr: yn_function doesn't add to
             // toplines until after that frame is over. Use last string on
             // NHW_MESSAGE instead.
-            assert(windows_.size() > WIN_MESSAGE);
-            rl_window *win = windows_[WIN_MESSAGE].get();
-            assert(win->type == NHW_MESSAGE);
-            std::strncpy((char *) &obs->message[0],
-                         win->strings.back().c_str(), NLE_MESSAGE_SIZE);
-        } else if (ttyDisplay->toplin) {
+            if (windows_.size() > WIN_MESSAGE) {
+                rl_window *win = windows_[WIN_MESSAGE].get();
+                if (win && win->type == NHW_MESSAGE
+                    && !win->strings.empty()) {
+                    std::strncpy((char *) &obs->message[0],
+                                 win->strings.back().c_str(),
+                                 NLE_MESSAGE_SIZE);
+                    copied = true;
+                }
+            }
+        }
+        if (!copied && ttyDisplay->toplin) {
             // Copy toplines[], see topl.c.
             std::strncpy((char *) &obs->message[0], toplines,
                          NLE_MESSAGE_SIZE);
+            copied = true;
+        }
+        if (copied) {
+            obs->message[NLE_MESSAGE_SIZE - 1] = 0;
         } else {
             std::memset(obs->message, 0, NLE_MESSAGE_SIZE);
         }
@@ -461,13 +473,26 @@ NetHackRL::update_inventory_method()
     }
 }
 
+bool
+NetHackRL::try_screen_offset(XCHAR_P x, XCHAR_P y, size_t *offset)
+{
+    if (x < 1 || x >= COLNO || y < 0 || y >= ROWNO) {
+        return false;
+    }
+
+    size_t i = static_cast<size_t>(x - 1);
+    size_t j = static_cast<size_t>(y);
+    *offset = j * (COLNO - 1) + i;
+    return true;
+}
+
 void
 NetHackRL::store_glyph(XCHAR_P x, XCHAR_P y, int glyph)
 {
-    // 1 <= x < cols, 0 <= y < rows (!)
-    size_t i = (x - 1) % (COLNO - 1);
-    size_t j = y % ROWNO;
-    size_t offset = j * (COLNO - 1) + i;
+    size_t offset;
+    if (!try_screen_offset(x, y, &offset)) {
+        return;
+    }
 
     // TODO: Glyphs might be taken from gbuf[y][x].glyph.
     glyphs_[offset] = shuffled_glyph(glyph);
@@ -477,10 +502,10 @@ void
 NetHackRL::store_mapped_glyph(int ch, int color, int special, XCHAR_P x,
                               XCHAR_P y)
 {
-    // 1 <= x < cols, 0 <= y < rows (!)
-    size_t i = (x - 1) % (COLNO - 1);
-    size_t j = y % ROWNO;
-    size_t offset = j * (COLNO - 1) + i;
+    size_t offset;
+    if (!try_screen_offset(x, y, &offset)) {
+        return;
+    }
 
     chars_[offset] = ch;
     colors_[offset] = color;
@@ -490,10 +515,10 @@ NetHackRL::store_mapped_glyph(int ch, int color, int special, XCHAR_P x,
 void
 NetHackRL::store_screen_description(XCHAR_P x, XCHAR_P y, int glyph)
 {
-    // 1 <= x < cols, 0 <= y < rows (!)
-    size_t i = (x - 1) % (COLNO - 1);
-    size_t j = y % ROWNO;
-    size_t offset = j * (COLNO - 1) + i;
+    size_t offset;
+    if (!try_screen_offset(x, y, &offset)) {
+        return;
+    }
     size_t start = offset * NLE_SCREEN_DESCRIPTION_LENGTH;
 
     // see code in src/do_name.c:538 auto_describe
