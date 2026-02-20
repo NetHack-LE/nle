@@ -1,6 +1,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import os
 import random
+import subprocess
+import sys
+import textwrap
 import timeit
 import warnings
 
@@ -30,6 +33,10 @@ ACTIONS = [
     66,
     89,
 ]
+
+
+def run_python_script(script):
+    return subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
 
 
 class TestNetHack:
@@ -202,6 +209,59 @@ class TestNetHackFurther:
         game.reset()
         with pytest.raises(RuntimeError, match=r"set_buffers called after reset()"):
             game._pynethack.set_buffers()
+
+    def test_missing_nle_start_symbol_fails_without_segfault(self):
+        proc = run_python_script(
+            textwrap.dedent(
+                """
+                import os
+                import subprocess
+                import tempfile
+                from nle import _pynethack
+
+                with tempfile.TemporaryDirectory() as d:
+                    src = os.path.join(d, "fake.c")
+                    so = os.path.join(d, "libfake.so")
+                    ttyrec = os.path.join(d, "fake.ttyrec.bz2")
+                    with open(src, "w") as f:
+                        f.write("int not_nle_symbol(void) { return 0; }\\n")
+                    subprocess.run(["cc", "-shared", "-fPIC", src, "-o", so], check=True)
+                    n = _pynethack.Nethack(so, ttyrec, ".", "", True, "")
+                    n.reset()
+                """
+            )
+        )
+        assert proc.returncode == 1
+        assert "nle_start" in proc.stderr
+
+    def test_missing_nle_end_symbol_fails_without_segfault(self):
+        proc = run_python_script(
+            textwrap.dedent(
+                """
+                import os
+                import subprocess
+                import tempfile
+                from nle import _pynethack
+
+                with tempfile.TemporaryDirectory() as d:
+                    src = os.path.join(d, "fake.c")
+                    so = os.path.join(d, "libfake.so")
+                    ttyrec = os.path.join(d, "fake.ttyrec.bz2")
+                    with open(src, "w") as f:
+                        f.write(
+                            "#include <stdio.h>\\n"
+                            "void *nle_start(void *obs, FILE *ttyrec, void *settings) { return (void*)0x1234; }\\n"
+                            "void *nle_step(void *ctx, void *obs) { (void)obs; return ctx; }\\n"
+                        )
+                    subprocess.run(["cc", "-shared", "-fPIC", src, "-o", so], check=True)
+                    n = _pynethack.Nethack(so, ttyrec, ".", "", True, "")
+                    n.reset()
+                    n.close()
+                """
+            )
+        )
+        assert proc.returncode == 1
+        assert "nle_end" in proc.stderr
 
     def test_nethack_random_character(self):
         game = nethack.Nethack(playername="Hugo-@")

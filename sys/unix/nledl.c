@@ -6,6 +6,26 @@
 
 #include "nledl.h"
 
+static void
+fail_with_dlerror(const char *symbol, const char *error)
+{
+    fprintf(stderr, "failure in nledl: symbol '%s': %s\n", symbol,
+            error ? error : "unresolved symbol");
+    exit(EXIT_FAILURE);
+}
+
+static void *
+nledl_dlsym_checked(nledl_ctx *nledl, const char *symbol)
+{
+    dlerror(); /* Clear any existing error. */
+    void *sym = dlsym(nledl->dlhandle, symbol);
+    char *error = dlerror();
+    if (error != NULL || sym == NULL) {
+        fail_with_dlerror(symbol, error);
+    }
+    return sym;
+}
+
 void
 nledl_init(nledl_ctx *nledl, nle_obs *obs, nle_settings *settings)
 {
@@ -25,41 +45,39 @@ nledl_init(nledl_ctx *nledl, nle_obs *obs, nle_settings *settings)
         exit(EXIT_FAILURE);
     }
 
-    dlerror(); /* Clear any existing error */
-
     void *(*start)(nle_obs *, FILE *, nle_settings *);
-    start = dlsym(nledl->dlhandle, "nle_start");
+    start = nledl_dlsym_checked(nledl, "nle_start");
     nledl->nle_ctx = start(obs, nledl->ttyrec, settings);
-
-    char *error = dlerror();
-    if (error != NULL) {
-        fprintf(stderr, "%s\n", error);
+    if (!nledl->nle_ctx) {
+        fprintf(stderr, "failure in nledl_init: nle_start returned NULL\n");
         exit(EXIT_FAILURE);
     }
 
-    nledl->step = dlsym(nledl->dlhandle, "nle_step");
-
-    error = dlerror();
-    if (error != NULL) {
-        fprintf(stderr, "%s\n", error);
-        exit(EXIT_FAILURE);
-    }
+    nledl->step = nledl_dlsym_checked(nledl, "nle_step");
 }
 
 void
 nledl_close(nledl_ctx *nledl)
 {
-    void (*end)(void *);
+    if (!nledl || !nledl->dlhandle) {
+        fprintf(stderr, "failure in nledl_close: invalid context\n");
+        exit(EXIT_FAILURE);
+    }
+    if (!nledl->nle_ctx) {
+        fprintf(stderr, "failure in nledl_close: missing nle_ctx\n");
+        exit(EXIT_FAILURE);
+    }
 
-    end = dlsym(nledl->dlhandle, "nle_end");
+    void (*end)(void *);
+    end = nledl_dlsym_checked(nledl, "nle_end");
     end(nledl->nle_ctx);
+    nledl->nle_ctx = NULL;
 
     if (dlclose(nledl->dlhandle)) {
         fprintf(stderr, "Error in dlclose: %s\n", dlerror());
         exit(EXIT_FAILURE);
     }
-
-    dlerror();
+    nledl->dlhandle = NULL;
 }
 
 nledl_ctx *
@@ -68,6 +86,10 @@ nle_start(const char *dlpath, nle_obs *obs, FILE *ttyrec,
 {
     /* TODO: Consider getting ttyrec path from caller? */
     struct nledl_ctx *nledl = malloc(sizeof(struct nledl_ctx));
+    if (!nledl) {
+        perror("malloc");
+        exit(EXIT_FAILURE);
+    }
     nledl->ttyrec = ttyrec;
     strncpy(nledl->dlpath, dlpath, sizeof(nledl->dlpath));
 
