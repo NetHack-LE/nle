@@ -1,6 +1,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 import os
 import random
+import subprocess
+import sys
+import textwrap
 import timeit
 import warnings
 
@@ -30,6 +33,10 @@ ACTIONS = [
     66,
     89,
 ]
+
+
+def run_python_script(script):
+    return subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
 
 
 class TestNetHack:
@@ -202,6 +209,21 @@ class TestNetHackFurther:
         game.reset()
         with pytest.raises(RuntimeError, match=r"set_buffers called after reset()"):
             game._pynethack.set_buffers()
+
+    def test_too_long_dlpath_reports_error(self):
+        proc = run_python_script(
+            textwrap.dedent(
+                """
+                from nle import _pynethack
+
+                dlpath = "/" + ("a" * 2048)
+                n = _pynethack.Nethack(dlpath, "fake.ttyrec.bz2", ".", "", True, "")
+                n.reset()
+                """
+            )
+        )
+        assert proc.returncode == 1
+        assert "dlpath too long" in proc.stderr
 
     def test_nethack_random_character(self):
         game = nethack.Nethack(playername="Hugo-@")

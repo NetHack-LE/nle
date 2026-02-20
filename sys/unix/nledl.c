@@ -69,7 +69,12 @@ nle_start(const char *dlpath, nle_obs *obs, FILE *ttyrec,
     /* TODO: Consider getting ttyrec path from caller? */
     struct nledl_ctx *nledl = malloc(sizeof(struct nledl_ctx));
     nledl->ttyrec = ttyrec;
-    strncpy(nledl->dlpath, dlpath, sizeof(nledl->dlpath));
+    int len = snprintf(nledl->dlpath, sizeof(nledl->dlpath), "%s", dlpath);
+    if (len < 0 || (size_t) len >= sizeof(nledl->dlpath)) {
+        fprintf(stderr, "failure in nle_start: dlpath too long\n");
+        free(nledl);
+        exit(EXIT_FAILURE);
+    }
 
     nledl_init(nledl, obs, settings);
     return nledl;
