@@ -43,52 +43,48 @@ jobs:
     needs: test_repo
     runs-on: macos-latest
     steps:
-      - name: Setup Python 3.10 env
-        uses: actions/setup-python@v5
+      - name: Install Python 3.10 with uv
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.10'
-      - name: Ensure latest pip, wheel & setuptools
-        run: python -m pip install -q --upgrade pip wheel setuptools
       - uses: actions/checkout@v4
       - name: Generate sdist
         run: |
-          NLE_RELEASE_BUILD=1 python setup.py sdist
+          NLE_RELEASE_BUILD=1 uv build --sdist
       - name: Install from sdist
         run: |
           SDISTNAME=$(ls dist/)
           MODE="[all]"
-          pip install "dist/$SDISTNAME$MODE"
+          uv pip install "dist/$SDISTNAME$MODE"
       - name: Run tests outside repo dir
         run: |
           REPONAME=$(basename $PWD)
           pushd ..
-          python -m pytest --import-mode=append -svx $REPONAME/nle/tests
+          uv run pytest --import-mode=append -svx $REPONAME/nle/tests
           popd
   test_sdist_3_13:
     name: Test sdist on MacOS w/ Py3.13
     needs: test_repo
     runs-on: macos-latest
     steps:
-      - name: Setup Python 3.13 env
-        uses: actions/setup-python@v5
+      - name: Install Python 3.13 with uv
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: 3.13
-      - name: Ensure latest pip, wheel & setuptools
-        run: python -m pip install -q --upgrade pip wheel setuptools
       - uses: actions/checkout@v4
       - name: Generate sdist
         run: |
-          NLE_RELEASE_BUILD=1 python setup.py sdist
+          NLE_RELEASE_BUILD=1 uv build --sdist
       - name: Install from sdist
         run: |
           SDISTNAME=$(ls dist/)
           MODE="[all]"
-          pip install "dist/$SDISTNAME$MODE"
+          uv pip install "dist/$SDISTNAME$MODE"
       - name: Run tests outside repo dir
         run: |
           REPONAME=$(basename $PWD)
           pushd ..
-          python -m pytest --import-mode=append -svx $REPONAME/nle/tests
+          uv run pytest --import-mode=append -svx $REPONAME/nle/tests
           popd
       - name: Save sdist
         if: ${{ always() }}
@@ -130,12 +126,10 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Python 3.13 env
-        uses: actions/setup-python@v5
+      - name: Install Python 3.13 with uv
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: 3.13
-      - name: Ensure latest pip, wheel & setuptools
-        run: python -m pip install -q --upgrade pip wheel tools
       - uses: actions/checkout@v4
       - name: Get wheels artifacts
         uses: actions/download-artifact@v4
@@ -146,12 +140,12 @@ jobs:
         run: | 
           WHEELNAME=$(ls dist/*313*manylinux*x86_64*.whl) 
           MODE="[all]"
-          pip install "$WHEELNAME$MODE"
+          uv pip install "$WHEELNAME$MODE"
       - name: Run tests outside repo dir
         run: |
           REPONAME=$(basename $PWD)
           pushd ..
-          python -m pytest --import-mode=append -svx $REPONAME/nle/tests
+          uv run pytest --import-mode=append -svx $REPONAME/nle/tests
           popd
 
   # Use prereleases to test publish the artefacts to testpypi
