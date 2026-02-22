@@ -1,10 +1,25 @@
 [project]
 name = "nle"
+dynamic = ["version"]
 description = "The NetHack Learning Environment (NLE): a reinforcement learning environment based on NetHack"
 readme = "README.md"
 authors = [{ name = "The NLE Dev Team" }]
 requires-python = ">=3.10"
-dynamic = ["classifiers", "version"]
+classifiers = [
+  "License :: OSI Approved :: Nethack General Public License",
+  "Development Status :: 5 - Production/Stable",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: C",
+  "Programming Language :: C++",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Games/Entertainment",
+]
 dependencies = ["pybind11>=2.2", "numpy>=1.16", "gymnasium==1.2.0"]
 
 [project.license]
@@ -13,21 +28,29 @@ file = "LICENSE"
 [project.urls]
 Homepage = "https://github.com/NetHack-LE/nle"
 
+
 [build-system]
 # Lock build-deps as uv does not yet support locking of build deps: astral-sh/uv#5190
-requires = ["cmake~=4.2.1", "pybind11~=2.2", "setuptools~=80.9.0"]
-build-backend = "setuptools.build_meta"
+requires = [
+  "scikit-build-core~=0.10", 
+  "numpy", 
+  "pybind11-stubgen", 
+  "pybind11~=2.2", 
+  "setuptools-scm~=9.2.2"
+]
+build-backend = "scikit_build_core.build"
 
-[tool.setuptools.packages]
-find = { include = [
-  "nle",
-  "nle.dataset",
-  "nle.env",
-  "nle.nethack",
-  "nle.agent",
-  "nle.scripts",
-  "nle.tests",
-] }
+[tool.scikit-build]
+cmake.build-type = "Release"
+cmake.args = ["-DHACKDIR=nle/nethackdir", "-DPYTHON_PACKAGE_NAME=nle"]
+minimum-version = "build-system.requires"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+generate = [
+    {path = "nle/version.py", template = '__version__ = "${version}"'}
+]
+
+[tool.setuptools_scm]
+# This section is necessary to activate setuptools-scm, but can be empty
 
 [project.scripts]
 nle-play = "nle.scripts.play:main"
