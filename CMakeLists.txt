@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 3.28)
-file(STRINGS "version.txt" NLE_VERSION)
-# Remove any rcXX suffix from the version number as CMake doesn't like it
-string(REGEX REPLACE "rc[0-9+]$" "" CMAKE_NLE_VERSION ${NLE_VERSION})
+if(NOT DEFINED NLE_VERSION)
+  if(DEFINED SKBUILD_PROJECT_VERSION)
+    set(NLE_VERSION ${SKBUILD_PROJECT_VERSION})
+  else()
+    set(NLE_VERSION "0.0.0") # Unversioned.
+  endif()
+endif()
+
+# Extract version number (major.minor.patch) as CMake doesn't like rc/dev
+# suffixes
+string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" CMAKE_NLE_VERSION "${NLE_VERSION}")
 project(nle VERSION ${CMAKE_NLE_VERSION})
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -35,13 +43,6 @@ endif()
 message(STATUS "Building nle backend version: ${CMAKE_NLE_VERSION}")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# We use this to decide where the root of the nle/ package is. Normally it
-# shouldn't be needed, but sometimes (e.g. when using setuptools) we are
-# generating some of the files outside of the original package path.
-set(PYTHON_SRC_PARENT
-    ${nle_SOURCE_DIR}
-    CACHE STRING "Directory containing the nle package files")
 
 set(HACKDIR
     "$ENV{HOME}/nethackdir.nle"
@@ -202,3 +203,12 @@ target_link_libraries(_pyconverter PUBLIC converter)
 set_target_properties(_pyconverter PROPERTIES CXX_STANDARD 14)
 target_include_directories(
   _pyconverter PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/converter)
+
+# Only install if we are building as part of a Python project.
+if(DEFINED SKBUILD_PROJECT_VERSION)
+  install(
+    TARGETS _pynethack _pyconverter nethack
+    RUNTIME DESTINATION ${PYTHON_PACKAGE_NAME}
+    LIBRARY DESTINATION ${PYTHON_PACKAGE_NAME}
+    ARCHIVE DESTINATION ${PYTHON_PACKAGE_NAME})
+endif()
