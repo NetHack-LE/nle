@@ -32,6 +32,11 @@ jobs:
             ninja-build \
             software-properties-common
       - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+      - name: Set up a venv with uv
+        run: |
+          uv venv
+          uv pip install pybind11-stubgen numpy
       - name: Check CMake configure
         run: cmake -B build -G Ninja
       - name: CMake build

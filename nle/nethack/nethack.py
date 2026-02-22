@@ -1,5 +1,4 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
-import importlib.resources
 import os
 import shutil
 import sys
@@ -12,6 +11,7 @@ import numpy as np
 from nle import _pynethack
 
 DLPATH = os.path.join(os.path.dirname(_pynethack.__file__), "libnethack.so")
+HACKDIR = os.path.join(os.path.dirname(_pynethack.__file__), "nethackdir")
 
 DUNGEON_SHAPE = (_pynethack.nethack.ROWNO, _pynethack.nethack.COLNO - 1)
 BLSTATS_SHAPE = (_pynethack.nethack.NLE_BLSTATS_SIZE,)
@@ -66,12 +66,6 @@ NETHACKOPTIONS = (
     "showscore",
     "time",
 )
-
-try:
-    HACKDIR = str(importlib.resources.files("nle") / "nethackdir")
-except AttributeError:  # No files() function in Python 3.8.
-    with importlib.resources.path("nle", "nethackdir") as path:
-        HACKDIR = str(path)
 
 TTYREC_VERSION = 3
 
