@@ -2,7 +2,6 @@
 #include <atomic>
 #include <cstdio>
 #include <memory>
-#include <iostream>
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -28,7 +27,7 @@ extern "C" {
 #undef min
 #undef max
 
-extern short glyph2tile[]; /* in tile.c (made from tilemap.c) */
+extern short glyph2tile[];   /* in tile.c (made from tilemap.c) */
 extern int total_tiles_used; /* also in tile.c */
 
 /* Copy from dungeon.c. Necessary to add tile.c.
@@ -371,32 +370,36 @@ class Nethack
     boolean
     setup_tileset(std::array<std::string, 3> tilefiles)
     {
-        tileset = (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
-        if(!tileset) {
-            throw std::runtime_error("Unable to allocate memory for tileset.");
+        tileset =
+            (tile_t *) calloc(sizeof(tile_t), (size_t) total_tiles_used);
+        if (!tileset) {
+            throw std::runtime_error(
+                "Unable to allocate memory for tileset.");
         }
 
-        const char *tilefile_ptrs[3] = {
-            tilefiles[0].c_str(),
-            tilefiles[1].c_str(),
-            tilefiles[2].c_str()
-        };
+        const char *tilefile_ptrs[3] = { tilefiles[0].c_str(),
+                                         tilefiles[1].c_str(),
+                                         tilefiles[2].c_str() };
         int tiles_read = init_rgb_tileset(tilefile_ptrs, 3, tileset);
 
-        if(tiles_read != 3) {
-            throw std::runtime_error("Unable to open tile file " + tilefiles[tiles_read] + 
-                " for reading. Check that the file exists and is readable.");
-        } 
-        
+        if (tiles_read != 3) {
+            throw std::runtime_error("Unable to open tile file "
+                                     + tilefiles[tiles_read]
+                                     + " for reading. Check that the file "
+                                       "exists and is readable.");
+        }
+
         return true;
     }
 
     // Get the tileset as a numpy array of shape passed in as 'frame'.
     // This method is for testing the initialization of the tileset only.
-    void get_tileset(py::array_t<uint8_t> frame) {
-
-        if(!tileset) {
-            throw std::runtime_error("get_tileset() called but the tileset has not been initialized.");
+    void
+    get_tileset(py::array_t<uint8_t> frame)
+    {
+        if (!tileset) {
+            throw std::runtime_error("get_tileset() called but the tileset "
+                                     "has not been initialized.");
         }
 
         auto buffer = frame.mutable_unchecked<3>();
@@ -404,18 +407,21 @@ class Nethack
         pybind11::size_t tile_rows = buffer.shape(0) / TILE_Y;
         pybind11::size_t tile_cols = buffer.shape(1) / TILE_X;
 
-        if(tile_rows * tile_cols > (pybind11::size_t) total_tiles_used) {
-            throw std::runtime_error("Requested more tiles than available in tileset (available: " + 
-                std::to_string(total_tiles_used) + ", requested: " + 
-                std::to_string(tile_rows * tile_cols) + ").");
+        if (tile_rows * tile_cols > (pybind11::size_t) total_tiles_used) {
+            throw std::runtime_error(
+                "Requested more tiles than available in tileset (available: "
+                + std::to_string(total_tiles_used) + ", requested: "
+                + std::to_string(tile_rows * tile_cols) + ").");
             return;
         }
 
         uint8_t *pixel_rgb = (uint8_t *) tileset;
 
-        for(pybind11::ssize_t tile_row = 0; tile_row < tile_rows; tile_row++) {
-            for(pybind11::ssize_t tile_col = 0; tile_col < tile_cols; tile_col++) {
-                for(pybind11::ssize_t y = 0; y < TILE_Y; y++) {
+        for (pybind11::ssize_t tile_row = 0; tile_row < tile_rows;
+             tile_row++) {
+            for (pybind11::ssize_t tile_col = 0; tile_col < tile_cols;
+                 tile_col++) {
+                for (pybind11::ssize_t y = 0; y < TILE_Y; y++) {
                     memcpy(&buffer((tile_row * TILE_Y) + y,
                                    (tile_col * TILE_X), 0),
                            pixel_rgb, TILE_X * TILE_Z * sizeof(uint8_t));
@@ -425,45 +431,60 @@ class Nethack
         }
     }
 
-    void draw_frame(py::array_t<uint8_t> frame) {
-
-        if(!tileset) {
-            throw std::runtime_error("draw_frame() called but the tileset has not been initialized.");
+    void
+    draw_frame(py::array_t<uint8_t> frame)
+    {
+        if (!tileset) {
+            throw std::runtime_error("draw_frame() called but the tileset "
+                                     "has not been initialized.");
         }
 
-        auto buffer = checked_conversion<uint8_t>(frame, { ROWNO * TILE_Y, (COLNO - 1) * TILE_X, TILE_Z });
-        
-        int frame_width =  (COLNO - 1) * TILE_X * TILE_Z;
+        auto buffer = checked_conversion<uint8_t>(
+            frame, { ROWNO * TILE_Y, (COLNO - 1) * TILE_X, TILE_Z });
 
-        for(int tile_row = 0; tile_row < ROWNO; tile_row++) {
-            for(int tile_col = 0; tile_col < (COLNO - 1); tile_col++) {
-                // figure out which tile to copy from the glyph at this position
-                short int glyph = obs_.glyphs[(tile_row * (COLNO - 1)) + tile_col];
+        int frame_width = (COLNO - 1) * TILE_X * TILE_Z;
 
-                // only update the tile if the glyph has changed since last time
-                if(glyph == prev_glyphs[(tile_row * (COLNO - 1)) + tile_col]) {
+        for (int tile_row = 0; tile_row < ROWNO; tile_row++) {
+            for (int tile_col = 0; tile_col < (COLNO - 1); tile_col++) {
+                // figure out which tile to copy from the glyph at this
+                // position
+                short int glyph =
+                    obs_.glyphs[(tile_row * (COLNO - 1)) + tile_col];
+
+                // only update the tile if the glyph has changed since last
+                // time
+                if (glyph
+                    == prev_glyphs[(tile_row * (COLNO - 1)) + tile_col]) {
                     continue;
                 }
                 int tile_index = glyph2tile[glyph];
 
-                // Check tile_index is within bounds of the tileset. If not, log and skip this tile.
-                if(tile_index < 0 || tile_index >= total_tiles_used) {
-                    fprintf(stderr, "Invalid tile index %d for glyph %d at position (%ld,%ld)\n", tile_index, glyph, tile_row, tile_col);
+                // Check tile_index is within bounds of the tileset. If not,
+                // log and skip this tile.
+                if (tile_index < 0 || tile_index >= total_tiles_used) {
+                    fprintf(stderr,
+                            "Invalid tile index %d for glyph %d at position "
+                            "(%ld,%ld)\n",
+                            tile_index, glyph, tile_row, tile_col);
                     continue;
                 }
 
                 tile_t *tile_data = &(tileset[tile_index]);
-                uint8_t *frame_tile = buffer + (tile_row * frame_width * TILE_Y) + (tile_col * TILE_X * TILE_Z);
+                uint8_t *frame_tile = buffer
+                                      + (tile_row * frame_width * TILE_Y)
+                                      + (tile_col * TILE_X * TILE_Z);
 
-                for(int pixel_row = 0; pixel_row < TILE_Y; pixel_row++) {
+                for (int pixel_row = 0; pixel_row < TILE_Y; pixel_row++) {
                     memcpy(frame_tile + (pixel_row * frame_width),
-                           &(tile_data->tile[pixel_row][0]), TILE_X * TILE_Z * sizeof(uint8_t));
+                           &(tile_data->tile[pixel_row][0]),
+                           TILE_X * TILE_Z * sizeof(uint8_t));
                 }
             }
         }
 
         // store glyphs for faster tile rendering next time this is called
-        std::copy(obs_.glyphs, obs_.glyphs + ROWNO * (COLNO - 1), prev_glyphs);
+        std::copy(obs_.glyphs, obs_.glyphs + ROWNO * (COLNO - 1),
+                  prev_glyphs);
     }
 
   private:
@@ -484,9 +505,10 @@ class Nethack
         /* Once the seeds have been used, prevent them being reused. */
         settings_.initial_seeds.use_init_seeds = false;
         settings_.initial_seeds.use_lgen_seed = false;
-        
-        if(tileset) {
-            // reset previous glyphs to force full redraw on first draw_frame call
+
+        if (tileset) {
+            // reset previous glyphs to force full redraw on first draw_frame
+            // call
             std::fill(std::begin(prev_glyphs), std::end(prev_glyphs), 0);
         }
 
@@ -748,8 +770,8 @@ PYBIND11_MODULE(_pynethack, m)
            py::vectorize([](int glyph) { return glyph_is_warning(glyph); }));
     mn.attr("glyph2tile") =
         py::memoryview::from_buffer(glyph2tile, /*shape=*/{ MAX_GLYPH },
-                                   /*strides=*/{ sizeof(glyph2tile[0]) },
-                                   /*readonly=*/true);
+                                    /*strides=*/{ sizeof(glyph2tile[0]) },
+                                    /*readonly=*/true);
 
     py::class_<permonst>(mn, "permonst", "The permonst struct.")
         .def(
@@ -808,7 +830,7 @@ PYBIND11_MODULE(_pynethack, m)
                         "Argument should be between 0 and MAXMCLASSES ("
                         + std::to_string(MAXMCLASSES) + ") but got "
                         + std::to_string(let));
-                return &def_monsyms[(int)let];
+                return &def_monsyms[(int) let];
             },
             py::return_value_policy::reference)
         .def_static(
@@ -819,7 +841,7 @@ PYBIND11_MODULE(_pynethack, m)
                         "Argument should be between 0 and MAXOCLASSES ("
                         + std::to_string(MAXOCLASSES) + ") but got "
                         + std::to_string(olet));
-                return &def_oc_syms[(int)olet];
+                return &def_oc_syms[(int) olet];
             },
             py::return_value_policy::reference)
         .def_readonly("sym", &class_sym::sym)
