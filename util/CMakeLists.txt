@@ -92,15 +92,11 @@ add_executable(tilemap ${NLE_WIN}/share/tilemap.c)
 target_include_directories(tilemap PUBLIC ${NLE_INC} ${NLE_INC_GEN})
 add_dependencies(tilemap util)
 
-file(
-  GLOB
-  NETHACK_TILE_SRC
-  ${NLE_WIN}/rl/tile2rgb.c
-  ${NLE_WIN}/rl/nletiletxt.c
-  ${NLE_WIN}/share/tiletext.c
-)
+file(GLOB NETHACK_TILE_SRC ${NLE_WIN}/rl/tile2rgb.c ${NLE_WIN}/rl/nletiletxt.c
+     ${NLE_WIN}/share/tiletext.c)
 add_library(tile OBJECT ${NETHACK_TILE_SRC} ${NLE_SRC_GEN}/tile.c)
-target_include_directories(tile PUBLIC ${NLE_INC} ${NLE_INC_GEN} ${NLE_WIN}/share)
+target_include_directories(tile PUBLIC ${NLE_INC} ${NLE_INC_GEN}
+                                       ${NLE_WIN}/share)
 add_dependencies(tile generate_pm_h generate_tile_c)
 
 # NOTE: util is dependent on these two
