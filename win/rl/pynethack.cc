@@ -31,8 +31,6 @@ extern "C" {
 extern short glyph2tile[]; /* in tile.c (made from tilemap.c) */
 extern int total_tiles_used; /* also in tile.c */
 
-namespace fs = std::filesystem;
-
 /* Copy from dungeon.c. Necessary to add tile.c.
    Can't add dungeon.c itself as it pulls in too much. */
 

@@ -4,9 +4,9 @@ from PIL import Image
 import nle  # noqa: F401
 
 env = gym.make("NetHack-v0", render_mode="pixel")
-# env = gym.wrappers.AddRenderObservation(
-#     env, render_only=False, render_key="pixel", obs_key="glyphs"
-# )
+env = gym.wrappers.AddRenderObservation(
+    env, render_only=False, render_key="pixel", obs_key="glyphs"
+)
 env.unwrapped.seed(1234, 5678, False, 1)
 
 
