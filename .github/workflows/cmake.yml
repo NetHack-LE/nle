@@ -1,0 +1,38 @@
+---
+name: CMake Check
+on:
+  push:
+    branches: [main]
+    paths: 
+      - '.github/workflows/cmake.yml'
+      - 'CMakeLists.txt'
+      - 'src/**/*.c'
+      - 'include/nle/**/*.h'
+      - 'win/rl/**/*.cc'
+  pull_request:
+    paths: 
+      - '.github/workflows/cmake.yml'
+      - 'CMakeLists.txt'
+      - 'src/**/*.c'
+      - 'include/nle/**/*.h'
+      - 'win/rl/**/*.cc'
+jobs:
+  check_cc:
+    name: cmake-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install non-python build dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -yq \
+            apt-transport-https \
+            bison \
+            build-essential \
+            flex \
+            libbz2-dev \
+            ninja-build \
+            software-properties-common
+      - uses: actions/checkout@v4
+      - name: Check CMake configure
+        run: cmake -B build -G Ninja
+      - name: CMake build
+        run: cmake --build build

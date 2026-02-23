@@ -2,6 +2,7 @@
 repos:
   - hooks:
       - id: ruff
+        args: [--fix]
       - id: ruff-format
     repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.3
@@ -18,7 +19,11 @@ repos:
         name: clang-format
     repo: local
   - hooks:
-      - id: isort
-        name: isort (python)
-    repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+      - id: taplo-format
+    repo: https://github.com/ComPWA/taplo-pre-commit
+    rev: v0.9.3
+  - hooks:
+      - description: Ensure that the committed uv.lock file is up to date.
+        id: uv-lock
+    repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.10.0

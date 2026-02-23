@@ -43,7 +43,6 @@ dev = ["nle[dev]"]
 agent = ["torch>=1.3.1"]
 dev = [
   "pre-commit>=2.0.1",
-  "isort>=5.13.2",
   "cmake_format>=0.6.10",
   "memory-profiler>=0.60.0",
   "pytest>=6.2.5",
@@ -55,35 +54,23 @@ dev = [
 ]
 all = ["nle[agent,dev]"]
 
-[tool.black]
-line-length = 88
-target-version = ['py38']
-include = '\.pyi?$'
-exclude = '''
-/(
-    \.eggs
-  | \.git
-  | src
-  | win/rl/nethack_rl
-)/
-'''
-
-[tool.isort]
-force_single_line = true
-profile = "black"
-skip_glob = "**/__init__.py"
-
 [tool.ruff]
 # See https://docs.astral.sh/ruff/rules/.
 extend-exclude = ["third_party"]
 exclude = ["win/rl/nle"]
+
 [tool.ruff.lint]
 ignore = ["B008", "B905", "C901", "E501", "E731"]
-select = ["B", "B9", "C", "E", "F", "W", "R"]
+select = ["B", "B9", "C", "E", "F", "I", "R", "W"]
+
 [tool.ruff.lint.flake8-comprehensions]
 allow-dict-calls-with-keyword-arguments = true
+
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"] # unused-import.
+
+[tool.ruff.lint.isort]
+force-single-line = true
 
 [tool.cibuildwheel]
 # We need to build wheels for the following Python versions:
