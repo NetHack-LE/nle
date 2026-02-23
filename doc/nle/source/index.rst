@@ -16,6 +16,7 @@ resembles the one used by people when playing the game.
    :caption: Getting Started
 
    getting_started
+   tiles
 
 
 .. toctree::
