@@ -36,6 +36,9 @@ message(STATUS "Building nle backend version: ${CMAKE_NLE_VERSION}")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+add_compile_options(-Wno-deprecated-non-prototype)
+add_compile_options(-Wno-unused-variable)
+
 # We use this to decide where the root of the nle/ package is. Normally it
 # shouldn't be needed, but sometimes (e.g. when using setuptools) we are
 # generating some of the files outside of the original package path.
@@ -77,8 +80,7 @@ add_compile_definitions(
   HACKDIR="${HACKDIR}"
   DEFAULT_WINDOW_SYS="rl"
   DLB
-  NOCWD_ASSUMPTIONS
-  NLE_USE_TILES)
+  NOCWD_ASSUMPTIONS)
 
 set(NLE_SRC ${nle_SOURCE_DIR}/src)
 set(NLE_INC ${nle_SOURCE_DIR}/include)
@@ -175,8 +177,8 @@ pybind11_add_module(
   $<TARGET_OBJECTS:tile>)
 target_link_libraries(_pynethack PUBLIC nethackdl)
 set_target_properties(_pynethack PROPERTIES CXX_STANDARD 14)
-target_include_directories(_pynethack PUBLIC ${NLE_INC_GEN})
-add_dependencies(_pynethack util) # For pm.h.
+target_include_directories(_pynethack PUBLIC ${NLE_INC_GEN} ${NLE_WIN}/share)
+# add_dependencies(_pynethack util tile) # For pm.h.
 
 # ttyrec converter library
 add_library(
@@ -202,3 +204,8 @@ target_link_libraries(_pyconverter PUBLIC converter)
 set_target_properties(_pyconverter PROPERTIES CXX_STANDARD 14)
 target_include_directories(
   _pyconverter PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/converter)
+
+set(TILE_FILES "win/share/monsters.txt" "win/share/objects.txt"
+               "win/share/other.txt")
+
+install(FILES ${TILE_FILES} DESTINATION ${INSTDIR}/tiles)

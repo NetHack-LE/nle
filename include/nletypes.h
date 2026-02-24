@@ -46,8 +46,6 @@
 #define NLE_BL_CONDITION 25 /* condition bit mask */
 #define NLE_BL_ALIGN 26
 
-/* #define NLE_USE_TILES 1 */ /* Set in CMakeLists.txt. */
-
 /* NetHack defines boolean as follows:
     typedef xchar boolean;      (global.h:80)
     typedef schar xchar;        (global.h:73)

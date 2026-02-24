@@ -151,7 +151,7 @@ class NLE(gym.Env):
     # but NetHack doesn't have any. Set it to 42, because
     # that is always the answer to life, the universe and
     # everything.
-    metadata = {"render_modes": ["human", "ansi", "full"], "render_fps": 42}
+    metadata = {"render_modes": ["human", "ansi", "full", "pixel"], "render_fps": 42}
 
     class StepStatus(enum.IntEnum):
         """Specifies the status of the terminal state.
@@ -331,6 +331,12 @@ class NLE(gym.Env):
         )
 
         self.action_space = gym.spaces.Discrete(len(self.actions))
+
+        if render_mode == "pixel":
+            # Pre-load reference tilemap for pixel rendering
+            if not self.nethack.setup_tiles():
+                raise RuntimeError("Failed to setup tilemap for pixel rendering.")
+            self.rendered_frame = np.zeros(nethack.TILE_RENDER_SHAPE, dtype=np.uint8)
 
     def _get_observation(self, observation):
         return {
@@ -548,6 +554,10 @@ class NLE(gym.Env):
             chars = self.last_observation[self._observation_keys.index("chars")]
             # TODO: Why return a string here but print in the other branches?
             return "\n".join([line.tobytes().decode("utf-8") for line in chars])
+
+        if mode == "pixel":
+            self.nethack.draw_frame(buffer=self.rendered_frame)
+            return self.rendered_frame
 
         return "\nInvalid render mode: " + mode
 

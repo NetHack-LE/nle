@@ -14,6 +14,16 @@ from nle import _pynethack
 DLPATH = os.path.join(os.path.dirname(_pynethack.__file__), "libnethack.so")
 
 DUNGEON_SHAPE = (_pynethack.nethack.ROWNO, _pynethack.nethack.COLNO - 1)
+TILE_SHAPE = (
+    _pynethack.nethack.TILE_Y,
+    _pynethack.nethack.TILE_X,
+    _pynethack.nethack.TILE_Z,
+)
+TILE_RENDER_SHAPE = (
+    DUNGEON_SHAPE[0] * TILE_SHAPE[0],
+    DUNGEON_SHAPE[1] * TILE_SHAPE[1],
+    TILE_SHAPE[2],
+)
 BLSTATS_SHAPE = (_pynethack.nethack.NLE_BLSTATS_SIZE,)
 MESSAGE_SHAPE = (_pynethack.nethack.NLE_MESSAGE_SIZE,)
 PROGRAM_STATE_SHAPE = (_pynethack.nethack.NLE_PROGRAM_STATE_SIZE,)
@@ -324,3 +334,18 @@ class Nethack:
 
     def how_done(self):
         return self._pynethack.how_done()
+
+    def setup_tiles(self, tile_paths=None):
+        if tile_paths is None:
+            tile_paths = [
+                os.path.join(HACKDIR, "tiles", "monsters.txt"),
+                os.path.join(HACKDIR, "tiles", "objects.txt"),
+                os.path.join(HACKDIR, "tiles", "other.txt"),
+            ]
+        return self._pynethack.setup_tiles(tile_paths)
+
+    def get_tileset(self, buffer):
+        return self._pynethack.get_tileset(buffer)
+
+    def draw_frame(self, buffer):
+        return self._pynethack.draw_frame(buffer)
