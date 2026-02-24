@@ -1858,6 +1858,14 @@ int style;
         bhitpos.x += dx;
         bhitpos.y += dy;
 
+        /* check if the obj is not out of bounds */
+        if (!isok(bhitpos.x, bhitpos.y)) {
+            bhitpos.x -= dx;
+            bhitpos.y -= dy;
+            x2 = bhitpos.x, y2 = bhitpos.y; /* object stops here */
+            break; 
+        }
+
         if ((mtmp = m_at(bhitpos.x, bhitpos.y)) != 0) {
             if (otyp == BOULDER && throws_rocks(mtmp->data)) {
                 if (rn2(3)) {
