@@ -28,9 +28,16 @@ file = "LICENSE"
 [project.urls]
 Homepage = "https://github.com/NetHack-LE/nle"
 
+
 [build-system]
 # Lock build-deps as uv does not yet support locking of build deps: astral-sh/uv#5190
-requires = ["scikit-build-core~=0.10", "pybind11~=2.2", "setuptools-scm~=9.2.2"]
+requires = [
+  "scikit-build-core~=0.10", 
+  "numpy", 
+  "pybind11-stubgen", 
+  "pybind11~=2.2", 
+  "setuptools-scm~=9.2.2"
+]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
