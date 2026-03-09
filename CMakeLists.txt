@@ -142,6 +142,10 @@ set_target_properties(tmt PROPERTIES C_STANDARD 11)
 add_library(nethack SHARED ${NETHACK_SRC})
 add_dependencies(nethack util dat)
 set_target_properties(nethack PROPERTIES CXX_STANDARD 14 SUFFIX ".so")
+target_compile_options(
+  nethack
+  PRIVATE -Wno-deprecated-non-prototype
+  PRIVATE -Wno-unused-variable)
 target_include_directories(
   nethack
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${NLE_INC_GEN} /usr/local/include
