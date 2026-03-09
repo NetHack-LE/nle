@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 3.28)
-file(STRINGS "version.txt" NLE_VERSION)
-# Remove any rcXX suffix from the version number as CMake doesn't like it
-string(REGEX REPLACE "rc[0-9+]$" "" CMAKE_NLE_VERSION ${NLE_VERSION})
+if(NOT DEFINED NLE_VERSION)
+  if(DEFINED SKBUILD_PROJECT_VERSION)
+    set(NLE_VERSION ${SKBUILD_PROJECT_VERSION})
+  else()
+    set(NLE_VERSION "0.0.0") # Unversioned.
+  endif()
+endif()
+
+# Extract version number (major.minor.patch) as CMake doesn't like rc/dev
+# suffixes
+string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" CMAKE_NLE_VERSION "${NLE_VERSION}")
 project(nle VERSION ${CMAKE_NLE_VERSION})
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -209,3 +217,11 @@ set(TILE_FILES "win/share/monsters.txt" "win/share/objects.txt"
                "win/share/other.txt")
 
 install(FILES ${TILE_FILES} DESTINATION ${INSTDIR}/tiles)
+# Only install if we are building as part of a Python project.
+if(DEFINED SKBUILD_PROJECT_VERSION)
+  install(
+    TARGETS _pynethack _pyconverter nethack
+    RUNTIME DESTINATION ${PYTHON_PACKAGE_NAME}
+    LIBRARY DESTINATION ${PYTHON_PACKAGE_NAME}
+    ARCHIVE DESTINATION ${PYTHON_PACKAGE_NAME})
+endif()
