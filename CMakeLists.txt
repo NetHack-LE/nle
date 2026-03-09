@@ -47,13 +47,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_compile_options(-Wno-deprecated-non-prototype)
 add_compile_options(-Wno-unused-variable)
 
-# We use this to decide where the root of the nle/ package is. Normally it
-# shouldn't be needed, but sometimes (e.g. when using setuptools) we are
-# generating some of the files outside of the original package path.
-set(PYTHON_SRC_PARENT
-    ${nle_SOURCE_DIR}
-    CACHE STRING "Directory containing the nle package files")
-
 set(HACKDIR
     "$ENV{HOME}/nethackdir.nle"
     CACHE STRING "Configuration files for nethack")
