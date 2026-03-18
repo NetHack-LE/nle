@@ -31,21 +31,8 @@ jobs:
             libbz2-dev \
             ninja-build \
             software-properties-common
-      - name: Install Python 3.12 with the latest version of uv.
-        uses: astral-sh/setup-uv@v7
-        with:
-          python-version: '3.12'
       - uses: actions/checkout@v4
-      - name: Create venv and install build dependencies
-        run: |
-          uv venv --isolated
-          source .venv/bin/activate
-          uv pip install scikit-build-core~=0.10 numpy pybind11-stubgen pybind11~=2.2 setuptools-scm~=9.2.2
       - name: Check CMake configure
-        run: |
-          source .venv/bin/activate
-          cmake -B build -G Ninja
+        run: cmake -B build -G Ninja
       - name: CMake build
-        run: |
-          source .venv/bin/activate
-          cmake --build build
+        run: cmake --build build
