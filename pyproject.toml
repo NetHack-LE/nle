@@ -32,17 +32,22 @@ Homepage = "https://github.com/NetHack-LE/nle"
 [build-system]
 # Lock build-deps as uv does not yet support locking of build deps: astral-sh/uv#5190
 requires = [
-  "scikit-build-core~=0.10", 
-  "numpy", 
-  "pybind11-stubgen", 
-  "pybind11~=2.2", 
-  "setuptools-scm~=9.2.2"
+  "scikit-build-core~=0.10",
+  "numpy",
+  "pybind11-stubgen",
+  "pybind11~=2.2",
+  "setuptools-scm~=9.2.2",
 ]
 build-backend = "scikit_build_core.build"
 
 [tool.scikit-build]
 cmake.build-type = "Release"
-cmake.args = ["-DHACKDIR=nle/nethackdir", "-DPYTHON_PACKAGE_NAME=nle"]
+cmake.args = [
+  "-DHACKDIR=nle/nethackdir",
+  "-DPYTHON_PACKAGE_NAME=nle",
+  # Force CMake to ignore the cached path if it's not found
+  "-DPython_FIND_STRATEGY=LOCATION",
+]
 minimum-version = "build-system.requires"
 metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 build-dir = "build/{wheel_tag}"
