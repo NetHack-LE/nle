@@ -1,6 +1,5 @@
 import os
 import sqlite3
-import threading
 from collections import defaultdict
 from functools import partial
 
@@ -74,11 +73,11 @@ def convert_frames(
 
 
 def _ttyrec_generator(
-    batch_size, seq_length, rows, cols, load_fn, map_fn, ttyrec_version
+    batch_size, seq_length, rows, cols, load_fns, map_fn, ttyrec_version
 ):
     """A generator to fill minibatches with ttyrecs.
 
-    :param load_fn: a function to load the next ttyrec into a converter.
+    :param load_fns: a list of functions to load the next ttyrec into a converter.
        load_fn(ttyrecs.Converter conv) -> bool is_success
     :param map_fn: a function that maps a series of iterables through a fn.
        map_fn(fn, *iterables) -> <generator> (can use built-in map)
@@ -110,17 +109,18 @@ def _ttyrec_generator(
     converters = [
         converter.Converter(rows, cols, ttyrec_version) for _ in range(batch_size)
     ]
-    assert all(load_fn(c) for c in converters), "Not enough ttyrecs to fill a batch!"
+    assert all(
+        fn(c) for fn, c in zip(load_fns, converters)
+    ), "Not enough ttyrecs to fill a batch!"
 
     # Convert (at least one minibatch)
-    _convert_frames = partial(convert_frames, load_fn=load_fn)
     gameids[0, -1] = 1  # basically creating a "do-while" loop by setting an indicator
     while np.any(
         gameids[:, -1] != 0
     ):  # loop until only padding is found, i.e. end of data
         list(
             map_fn(
-                _convert_frames,
+                convert_frames,
                 converters,
                 chars,
                 colors,
@@ -130,6 +130,7 @@ def _ttyrec_generator(
                 scores,
                 resets,
                 gameids,
+                load_fns,
             )
         )
 
@@ -287,9 +288,17 @@ class TtyrecDataset:
                 self._meta[row[0]].append(row)
             self._meta_cols = [desc[0] for desc in c.description]
 
-    def _make_load_fn(self, gameids):
+    def _make_load_fns(self, gameids, batch_size):
+        """Create one closure per batch dimension."""
+        load_fns = []
+        for i in range(batch_size):
+            # Deterministically select a subset of games for this dimension.
+            my_gameids = gameids[i::batch_size]
+            load_fns.append(self._make_one_load_fn(my_gameids))
+        return load_fns
+
+    def _make_one_load_fn(self, gameids):
         """Make a closure to load the next gameid from the db into the converter."""
-        lock = threading.Lock()
         count = [0]
 
         def _load_fn(converter):
@@ -300,9 +309,8 @@ class TtyrecDataset:
 
             files = self.get_paths(gameid)
             if gameid == 0 or part >= len(files):
-                with lock:
-                    i = count[0]
-                    count[0] += 1
+                i = count[0]
+                count[0] += 1
 
                 if (not self.loop_forever) and i >= len(gameids):
                     return False
@@ -323,12 +331,14 @@ class TtyrecDataset:
         if self.shuffle:
             np.random.shuffle(gameids)
 
+        load_fns = self._make_load_fns(gameids, self.batch_size)
+
         return _ttyrec_generator(
             self.batch_size,
             self.seq_length,
             self.rows,
             self.cols,
-            self._make_load_fn(gameids),
+            load_fns,
             self._map,
             self._ttyrec_version,
         )
@@ -336,13 +346,16 @@ class TtyrecDataset:
     def get_ttyrecs(self, gameids, chunk_size=None):
         """Fetch data from a single episode, chunked into a sequence of tensors."""
         seq_length = chunk_size or self.seq_length
+        batch_size = len(gameids)
+        load_fns = self._make_load_fns(gameids, batch_size)
+
         mbs = []
         for mb in _ttyrec_generator(
-            len(gameids),
+            batch_size,
             seq_length,
             self.rows,
             self.cols,
-            self._make_load_fn(gameids),
+            load_fns,
             self._map,
             self._ttyrec_version,
         ):
