@@ -61,7 +61,8 @@ class TestDataset:
             seq_length=50,
             batch_size=4,
             threadpool=pool,
-            gameids=range(1, 8),
+            # Repeated gameids ensure enough data for batches and resets
+            gameids=[1, 4, 2, 5, 3, 6, 7, 1],
             shuffle=False,
         )
         # starting gameids = [TTYREC, TTYREC, TTYREC, TTYREC2]
@@ -70,23 +71,28 @@ class TestDataset:
         for name, array in mb.items():
             if name in ("gameids",):
                 continue
-            # Test first three rows are the same, and differ from from fourth
-            np.testing.assert_array_equal(array[0], array[1])
-            np.testing.assert_array_equal(array[0], array[2])
+            # Check data for different batch dimensions are different
             np.testing.assert_raises(
-                AssertionError, np.testing.assert_array_equal, array[0], array[3]
+                AssertionError, np.testing.assert_array_equal, array[0], array[1]
             )
 
         # Check reseting occured
         reset = np.where(mb["done"][3] == 1)[0][0]
         assert reset == 31
 
-        # Check the data at location is the same. Note reset occurs for batch 4
+        # Check that the data after the reset is from a new game.
+        # With deterministic loading, the worker for this batch dimension will switch
+        # to a new game after the reset, so the data should be different.
         seq = 10
         for name, array in mb.items():
             if name in ("done", "gameids"):
                 continue
-            np.testing.assert_array_equal(array[3][:seq], array[3][reset : reset + seq])
+            np.testing.assert_raises(
+                AssertionError,
+                np.testing.assert_array_equal,
+                array[3][:seq],
+                array[3][reset : reset + seq],
+            )
 
         # No leading 1s
         assert (mb["done"][:, 0] == 0).all()

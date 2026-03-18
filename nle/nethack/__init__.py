@@ -9,6 +9,8 @@ from nle.nethack.nethack import MESSAGE_SHAPE
 from nle.nethack.nethack import NETHACKOPTIONS
 from nle.nethack.nethack import OBSERVATION_DESC
 from nle.nethack.nethack import PROGRAM_STATE_SHAPE
+from nle.nethack.nethack import TILE_RENDER_SHAPE
+from nle.nethack.nethack import TILE_SHAPE
 from nle.nethack.nethack import TTYREC_VERSION
 from nle.nethack.nethack import Nethack
 from nle.nethack.nethack import tty_render

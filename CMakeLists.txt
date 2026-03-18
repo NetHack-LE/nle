@@ -12,6 +12,18 @@ endif()
 string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" CMAKE_NLE_VERSION "${NLE_VERSION}")
 project(nle VERSION ${CMAKE_NLE_VERSION})
 
+# Only enable ccache if this is the main project, not a sub-dependency.
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+  find_program(CCACHE_EXECUTABLE ccache)
+  if(CCACHE_EXECUTABLE)
+    message(STATUS "ccache found, enabling for C and C++")
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_EXECUTABLE}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_EXECUTABLE}")
+  else()
+    message(STATUS "ccache not found, proceeding without it")
+  endif()
+endif()
+
 if(CMAKE_BUILD_TYPE MATCHES Debug)
   message("Debug build.")
   # Unclear if this is even necessary. `dsymutil rlmain -o rlmain.dSYM` seems to
@@ -43,6 +55,9 @@ endif()
 message(STATUS "Building nle backend version: ${CMAKE_NLE_VERSION}")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+add_compile_options(-Wno-deprecated-non-prototype)
+add_compile_options(-Wno-unused-variable)
 
 set(HACKDIR
     "$ENV{HOME}/nethackdir.nle"
@@ -85,8 +100,7 @@ add_compile_definitions(
   HACKDIR="${HACKDIR}"
   DEFAULT_WINDOW_SYS="rl"
   DLB
-  NOCWD_ASSUMPTIONS
-  NLE_USE_TILES)
+  NOCWD_ASSUMPTIONS)
 
 set(NLE_SRC ${nle_SOURCE_DIR}/src)
 set(NLE_INC ${nle_SOURCE_DIR}/include)
@@ -147,6 +161,10 @@ set_target_properties(tmt PROPERTIES C_STANDARD 11)
 add_library(nethack SHARED ${NETHACK_SRC})
 add_dependencies(nethack util dat)
 set_target_properties(nethack PROPERTIES CXX_STANDARD 14 SUFFIX ".so")
+target_compile_options(
+  nethack
+  PRIVATE -Wno-deprecated-non-prototype
+  PRIVATE -Wno-unused-variable)
 target_include_directories(
   nethack
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${NLE_INC_GEN} /usr/local/include
@@ -183,8 +201,8 @@ pybind11_add_module(
   $<TARGET_OBJECTS:tile>)
 target_link_libraries(_pynethack PUBLIC nethackdl)
 set_target_properties(_pynethack PROPERTIES CXX_STANDARD 14)
-target_include_directories(_pynethack PUBLIC ${NLE_INC_GEN})
-add_dependencies(_pynethack util) # For pm.h.
+target_include_directories(_pynethack PUBLIC ${NLE_INC_GEN} ${NLE_WIN}/share)
+# add_dependencies(_pynethack util tile) # For pm.h.
 
 # ttyrec converter library
 add_library(
@@ -235,6 +253,11 @@ add_custom_target(
   my_module_stubs ALL
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pynethack/__init__.pyi
           ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pyconverter.pyi)
+
+set(TILE_FILES "win/share/monsters.txt" "win/share/objects.txt"
+               "win/share/other.txt")
+
+install(FILES ${TILE_FILES} DESTINATION ${INSTDIR}/tiles)
 
 # Only install if we are building as part of a Python project.
 if(DEFINED SKBUILD_PROJECT_VERSION)
