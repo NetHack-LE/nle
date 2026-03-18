@@ -45,7 +45,10 @@ cmake.build-type = "Release"
 cmake.args = [
   "-DHACKDIR=nle/nethackdir",
   "-DPYTHON_PACKAGE_NAME=nle",
-  # Force CMake to ignore the cached path if it's not found
+  # This policy forces CMake to look at the current PATH/environment 
+  # before checking the CMakeCache.txt for a Python interpreter.
+  "-DCMAKE_POLICY_DEFAULT_CMP0094=NEW",
+  # This ensures the search prefers the 'LOCATION' provided by the current environment.
   "-DPython_FIND_STRATEGY=LOCATION",
 ]
 minimum-version = "build-system.requires"
