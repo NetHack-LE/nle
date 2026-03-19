@@ -69,6 +69,8 @@ message(STATUS "HACKDIR set to: ${HACKDIR}")
 set(VARDIR ${HACKDIR})
 set(INSTDIR ${HACKDIR})
 
+# Use FindPython in PyBind11 to find Python.
+set(PYBIND11_FINDPYTHON NEW)
 # pybind11 via FetchContent
 include(FetchContent)
 FetchContent_Declare(
@@ -227,7 +229,7 @@ set(STUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/stubs)
 set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${STUB_DIR}")
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pyconverter.pyi
-  COMMAND Python::Interpreter -m pybind11_stubgen _pyconverter --output-dir
+  COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen _pyconverter --output-dir
           ${STUB_DIR}
   WORKING_DIRECTORY $<TARGET_FILE_DIR:_pyconverter>
   DEPENDS _pyconverter
@@ -236,7 +238,7 @@ add_custom_command(
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pynethack/__init__.pyi
-  COMMAND Python::Interpreter -m pybind11_stubgen _pynethack --output-dir
+  COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen _pynethack --output-dir
           ${STUB_DIR} --ignore-unresolved-names game_end_types
   WORKING_DIRECTORY $<TARGET_FILE_DIR:_pynethack>
   DEPENDS _pynethack
