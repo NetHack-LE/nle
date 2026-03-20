@@ -32,35 +32,21 @@ ACTIONS = [
 ]
 
 
-@pytest.fixture(autouse=True)
-def disable_ttyrec_by_default(monkeypatch):
-    """Monkeypatches Nethack to disable ttyrec recording unless specified."""
-    original_init = nethack.Nethack.__init__
-
-    def new_init(self, *args, **kwargs):
-        # If ttyrec is not explicitly passed, disable it.
-        if "ttyrec" not in kwargs:
-            kwargs["ttyrec"] = None
-        original_init(self, *args, **kwargs)
-
-    monkeypatch.setattr(nethack.Nethack, "__init__", new_init)
-
-
 class TestNetHack:
     @pytest.fixture
     def game(self):  # Make sure we close even on test failure.
-        g = nethack.Nethack(observation_keys=("chars", "blstats"))
+        g = nethack.Nethack(ttyrec=None, observation_keys=("chars", "blstats"))
         try:
             yield g
         finally:
             g.close()
 
     def test_close_and_restart(self):
-        game = nethack.Nethack()
+        game = nethack.Nethack(ttyrec=None)
         game.reset()
         game.close()
 
-        game = nethack.Nethack()
+        game = nethack.Nethack(ttyrec=None)
         game.reset()
         game.close()
 
@@ -117,7 +103,7 @@ class TestNetHack:
 
     def test_several_nethacks(self, game):
         game.reset()
-        game1 = nethack.Nethack()
+        game1 = nethack.Nethack(ttyrec=None)
         game1.reset()
 
         try:
@@ -133,7 +119,7 @@ class TestNetHack:
             game1.close()
 
     def test_set_initial_seeds(self):
-        game = nethack.Nethack(copy=True)
+        game = nethack.Nethack(ttyrec=None, copy=True)
         game.set_initial_seeds(core=42, disp=666)
         obs0 = game.reset()
         try:
@@ -207,28 +193,29 @@ class TestNetHackFurther:
     def test_illegal_filename(self):
         with pytest.raises(IOError):
             nethack.Nethack(ttyrec="")
-        game = nethack.Nethack()
+        game = nethack.Nethack(ttyrec=None)
         with pytest.raises(IOError):
             game.reset("")
 
     def test_set_buffers_after_reset(self):
-        game = nethack.Nethack()
+        game = nethack.Nethack(ttyrec=None)
         game.reset()
         with pytest.raises(RuntimeError, match=r"set_buffers called after reset()"):
             game._pynethack.set_buffers()
 
     def test_nethack_random_character(self):
-        game = nethack.Nethack(playername="Hugo-@")
+        game = nethack.Nethack(ttyrec=None, playername="Hugo-@")
         assert "race:random" in game.options
         assert "gender:random" in game.options
         assert "align:random" in game.options
 
-        game = nethack.Nethack(playername="Jurgen-wiz-gno-cha-mal")
+        game = nethack.Nethack(ttyrec=None, playername="Jurgen-wiz-gno-cha-mal")
         assert "race:random" not in game.options
         assert "gender:random" not in game.options
         assert "align:random" not in game.options
 
         game = nethack.Nethack(
+            ttyrec=None,
             playername="Albert-@",
             options=list(nethack.NETHACKOPTIONS) + ["align:lawful"],
         )
@@ -238,6 +225,7 @@ class TestNetHackFurther:
         assert "align:lawful" in game.options
 
         game = nethack.Nethack(
+            ttyrec=None,
             playername="Rachel",
             options=list(nethack.NETHACKOPTIONS) + ["gender:female"],
         )
@@ -250,7 +238,9 @@ class TestNetHackFurther:
 class TestNethackSomeObs:
     @pytest.fixture
     def game(self):  # Make sure we close even on test failure.
-        g = nethack.Nethack(observation_keys=("program_state", "message", "internal"))
+        g = nethack.Nethack(
+            ttyrec=None, observation_keys=("program_state", "message", "internal")
+        )
         try:
             yield g
         finally:
@@ -591,6 +581,7 @@ class TestNethackGlanceObservation:
     @pytest.fixture
     def game(self):  # Make sure we close even on test failure.
         g = nethack.Nethack(
+            ttyrec=None,
             playername="MonkBot-mon-hum-neu-mal",
             observation_keys=("screen_descriptions", "glyphs", "chars"),
         )
@@ -642,6 +633,7 @@ class TestNethackTerminalObservation:
     @pytest.fixture
     def game(self):  # Make sure we close even on test failure.
         g = nethack.Nethack(
+            ttyrec=None,
             playername="MonkBot-mon-hum-neu-mal",
             observation_keys=(
                 "tty_chars",
@@ -695,7 +687,9 @@ class TestNethackMiscObservation:
     @pytest.fixture
     def game(self):  # Make sure we close even on test failure.
         g = nethack.Nethack(
-            playername="MonkBot-mon-hum-neu-mal", observation_keys=("misc", "internal")
+            ttyrec=None,
+            playername="MonkBot-mon-hum-neu-mal",
+            observation_keys=("misc", "internal"),
         )
         try:
             yield g
