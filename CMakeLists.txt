@@ -238,6 +238,8 @@ add_custom_target(
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pynethack/__init__.pyi
           ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pyconverter.pyi)
 
+file(TOUCH ${CMAKE_CURRENT_BINARY_DIR}/py.typed)
+
 set(TILE_FILES "win/share/monsters.txt" "win/share/objects.txt"
                "win/share/other.txt")
 
@@ -250,6 +252,9 @@ if(DEFINED SKBUILD_PROJECT_VERSION)
     RUNTIME DESTINATION ${PYTHON_PACKAGE_NAME}
     LIBRARY DESTINATION ${PYTHON_PACKAGE_NAME}
     ARCHIVE DESTINATION ${PYTHON_PACKAGE_NAME})
+
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed
+          DESTINATION ${PYTHON_PACKAGE_NAME})
 
   install(
     DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/stubs/"
