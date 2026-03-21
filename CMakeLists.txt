@@ -57,6 +57,8 @@ message(STATUS "HACKDIR set to: ${HACKDIR}")
 set(VARDIR ${HACKDIR})
 set(INSTDIR ${HACKDIR})
 
+# Use FindPython in PyBind11 to find Python.
+set(PYBIND11_FINDPYTHON NEW)
 # pybind11 via FetchContent
 include(FetchContent)
 FetchContent_Declare(
@@ -65,6 +67,7 @@ FetchContent_Declare(
   GIT_TAG v3.0.1
   EXCLUDE_FROM_ALL)
 FetchContent_MakeAvailable(pybind11)
+message(STATUS "Python_EXECUTABLE is set to: ${Python_EXECUTABLE}")
 
 # de-boost-ified version of boost.context via FetchContent
 FetchContent_Declare(
@@ -210,10 +213,38 @@ set_target_properties(_pyconverter PROPERTIES CXX_STANDARD 14)
 target_include_directories(
   _pyconverter PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/third_party/converter)
 
+set(STUB_DIR ${CMAKE_CURRENT_BINARY_DIR}/stubs)
+set_directory_properties(PROPERTIES ADDITIONAL_CLEAN_FILES "${STUB_DIR}")
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pyconverter.pyi
+  COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen _pyconverter --output-dir
+          ${STUB_DIR}
+  WORKING_DIRECTORY $<TARGET_FILE_DIR:_pyconverter>
+  DEPENDS _pyconverter
+  COMMENT "Generating type stubs ..."
+  VERBATIM)
+
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pynethack/__init__.pyi
+  COMMAND ${Python_EXECUTABLE} -m pybind11_stubgen _pynethack --output-dir
+          ${STUB_DIR} --ignore-unresolved-names game_end_types
+  WORKING_DIRECTORY $<TARGET_FILE_DIR:_pynethack>
+  DEPENDS _pynethack
+  COMMENT "Generating type stubs ..."
+  VERBATIM)
+
+add_custom_target(
+  my_module_stubs ALL
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pynethack/__init__.pyi
+          ${CMAKE_CURRENT_BINARY_DIR}/stubs/nle/_pyconverter.pyi)
+
+file(TOUCH ${CMAKE_CURRENT_BINARY_DIR}/py.typed)
+
 set(TILE_FILES "win/share/monsters.txt" "win/share/objects.txt"
                "win/share/other.txt")
 
 install(FILES ${TILE_FILES} DESTINATION ${INSTDIR}/tiles)
+
 # Only install if we are building as part of a Python project.
 if(DEFINED SKBUILD_PROJECT_VERSION)
   install(
@@ -221,4 +252,13 @@ if(DEFINED SKBUILD_PROJECT_VERSION)
     RUNTIME DESTINATION ${PYTHON_PACKAGE_NAME}
     LIBRARY DESTINATION ${PYTHON_PACKAGE_NAME}
     ARCHIVE DESTINATION ${PYTHON_PACKAGE_NAME})
+
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/py.typed
+          DESTINATION ${PYTHON_PACKAGE_NAME})
+
+  install(
+    DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/stubs/"
+    DESTINATION ${PYTHON_PACKAGE_NAME}
+    FILES_MATCHING
+    PATTERN "*.pyi")
 endif()
