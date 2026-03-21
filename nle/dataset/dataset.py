@@ -211,13 +211,15 @@ class TtyrecDataset:
             SELECT ttyrecs.gameid, ttyrecs.part, ttyrecs.path
             FROM ttyrecs
             INNER JOIN datasets ON ttyrecs.gameid=datasets.gameid
-            WHERE datasets.dataset_name=?"""
+            WHERE datasets.dataset_name=?
+            ORDER BY ttyrecs.gameid"""
 
         meta_sql = """
             SELECT games.*
             FROM games
             INNER JOIN datasets ON games.gameid=datasets.gameid
-            WHERE datasets.dataset_name=?"""
+            WHERE datasets.dataset_name=?
+            ORDER BY games.gameid"""
 
         if subselect_sql:
             path_select = """
@@ -225,7 +227,8 @@ class TtyrecDataset:
                 FROM ttyrecs
                 INNER JOIN datasets ON ttyrecs.gameid=datasets.gameid
                 WHERE datasets.dataset_name=?
-                AND ttyrecs.gameid IN (%s)"""
+                AND ttyrecs.gameid IN (%s)
+                ORDER BY ttyrecs.gameid"""
             core_sql = path_select % subselect_sql
 
             meta_select = """
@@ -233,7 +236,8 @@ class TtyrecDataset:
                 FROM games
                 INNER JOIN datasets ON games.gameid=datasets.gameid
                 WHERE datasets.dataset_name=?
-                AND games.gameid IN (%s)"""
+                AND games.gameid IN (%s)
+                ORDER BY games.gameid"""
             meta_sql = meta_select % subselect_sql
             sql_args = subselect_sql_args if subselect_sql_args else ()
             sql_args = (dataset_name,) + sql_args
