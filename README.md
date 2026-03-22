@@ -171,7 +171,7 @@ We thank [ngoodger](https://github.com/ngoodger) for implementing the [NLE Langu
 
 ### NetHack Learning Dataset
 
-The NetHack Learning Dataset (NLD) code now ships with `NLE`, allowing users to the load large-scale datasets featured in [Dungeons and Data: A Large-Scale NetHack Dataset](), while also generating and loading their own datasets.
+The NetHack Learning Dataset (NLD) code now ships with `NLE`, allowing users to the load large-scale datasets featured in [Dungeons and Data: A Large-Scale NetHack Dataset](https://dl.acm.org/doi/10.5555/3600270.3602073), while also generating and loading their own datasets. A preprint of this paper is available [here](https://arxiv.org/abs/2211.00539) on Arxiv.
 
 ```python
 import nle.dataset as nld
