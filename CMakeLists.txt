@@ -19,16 +19,28 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
   set(CMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym")
 
-  if(0)
-    # address sanitizer.
-    set(CMAKE_CXX_FLAGS_DEBUG
-        "${CMAKE_CXX_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-    set(CMAKE_C_FLAGS_DEBUG
-        "${CMAKE_C_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address")
-    set(CMAKE_LINKER_FLAGS_DEBUG
-        "${CMAKE_LINKER_FLAGS_DEBUG} -fno-omit-frame-pointer -fsanitize=address"
-    )
+  option(ENABLE_ASAN "Enable Address Sanitizer" OFF)
+  option(ENABLE_TSAN "Enable Thread Sanitizer" OFF)
+  option(ENABLE_UBSAN "Enable Undefined Behavior Sanitizer" OFF)
+
+  if(ENABLE_ASAN)
+    message(STATUS "Enabling Address Sanitizer")
+    add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address)
   endif()
+
+  if(ENABLE_TSAN)
+    message(STATUS "Enabling Thread Sanitizer")
+    add_compile_options(-fsanitize=thread)
+    add_link_options(-fsanitize=thread)
+  endif()
+
+  if(ENABLE_UBSAN)
+    message(STATUS "Enabling Undefined Behavior Sanitizer")
+    add_compile_options(-fsanitize=undefined)
+    add_link_options(-fsanitize=undefined)
+  endif()
+
   if(MSVC)
     add_compile_options(/W4)
   else()

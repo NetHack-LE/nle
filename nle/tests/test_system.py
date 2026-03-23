@@ -1,4 +1,7 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
+
+import ctypes
+import functools
 import multiprocessing as mp
 import queue
 import random
@@ -19,17 +22,32 @@ def new_env_one_step():
     return terminated
 
 
+@functools.cache
+def is_asan():
+    """Checks if the process is running with ASAN.
+
+    See if the __asan_init symbol is present in the current process.
+    """
+
+    current_process = ctypes.CDLL(None)
+    return hasattr(current_process, "__asan_init")
+
+
 @pytest.mark.parametrize(
     "ctx", [mp.get_context(m) for m in START_METHODS], ids=START_METHODS
 )
 class TestEnvSubprocess:
     def test_env_in_subprocess(self, ctx):
+        if ctx.get_start_method() == "spawn" and is_asan():
+            pytest.skip("ASAN crashes on spawn on this environment")
         p = ctx.Process(target=new_env_one_step)
         p.start()
         p.join()
         assert p.exitcode == 0
 
     def test_env_before_and_in_subprocess(self, ctx):
+        if ctx.get_start_method() == "spawn" and is_asan():
+            pytest.skip("ASAN crashes on spawn on this environment")
         new_env_one_step()
         p = ctx.Process(target=new_env_one_step)
         p.start()
