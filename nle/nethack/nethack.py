@@ -172,6 +172,7 @@ class Nethack:
         hackdir=HACKDIR,
         spawn_monsters=True,
         scoreprefix="",
+        fix_moon_phase=False,
     ):
         self._copy = copy
 
@@ -224,7 +225,11 @@ class Nethack:
         self._nethackoptions = ",".join(self.options)
         if ttyrec is None:
             self._pynethack = _pynethack.Nethack(
-                self.dlpath, self._vardir, self._nethackoptions, spawn_monsters
+                self.dlpath,
+                self._vardir,
+                self._nethackoptions,
+                spawn_monsters,
+                fix_moon_phase,
             )
         else:
             self._pynethack = _pynethack.Nethack(
@@ -234,6 +239,7 @@ class Nethack:
                 self._nethackoptions,
                 spawn_monsters,
                 scoreprefix,
+                fix_moon_phase,
             )
         self._ttyrec = ttyrec
 

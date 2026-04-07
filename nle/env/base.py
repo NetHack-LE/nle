@@ -198,6 +198,7 @@ class NLE(gym.Env):
         allow_all_modes=False,
         spawn_monsters=True,
         render_mode="human",
+        fix_moon_phase=False,
     ):
         """Constructs a new NLE environment.
 
@@ -232,6 +233,10 @@ class NLE(gym.Env):
             render_mode (str): mode used to render the screen. One of
                 "human" | "ansi" | "full".
                 Defaults to "human", i.e. what a human would see playing the game.
+            fix_moon_phase (bool): If True and seeds are set, derive
+                deterministic time-based game effects (moon phase, friday 13th,
+                night, midnight) from the seed instead of real system time.
+                If False or no seeds are set, use real system time (default).
         """
         self.character = character
         self._max_episode_steps = max_episode_steps
@@ -317,6 +322,7 @@ class NLE(gym.Env):
             wizard=wizard,
             spawn_monsters=spawn_monsters,
             scoreprefix=scoreprefix,
+            fix_moon_phase=fix_moon_phase,
         )
         self._close_nethack = weakref.finalize(self, self.nethack.close)
 

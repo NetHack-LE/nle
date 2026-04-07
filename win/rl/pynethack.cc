@@ -104,9 +104,9 @@ class Nethack
   public:
     Nethack(std::string dlpath, std::string ttyrec, std::string hackdir,
             std::string nethackoptions, bool spawn_monsters,
-            std::string scoreprefix)
+            std::string scoreprefix, bool fix_moon_phase)
         : Nethack(std::move(dlpath), std::move(hackdir),
-                  std::move(nethackoptions), spawn_monsters)
+                  std::move(nethackoptions), spawn_monsters, fix_moon_phase)
     {
         ttyrec_ = std::fopen(ttyrec.c_str(), "a");
         if (!ttyrec_) {
@@ -133,7 +133,8 @@ class Nethack
     }
 
     Nethack(std::string dlpath, std::string hackdir,
-            std::string nethackoptions, bool spawn_monsters)
+            std::string nethackoptions, bool spawn_monsters,
+            bool fix_moon_phase)
         : dlpath_(std::move(dlpath)), obs_{}, settings_{}
     {
         if (hackdir.size() > sizeof(settings_.hackdir) - 1) {
@@ -148,6 +149,7 @@ class Nethack
         strncpy(settings_.options, nethackoptions.c_str(),
                 sizeof(settings_.options));
         settings_.spawn_monsters = spawn_monsters;
+        settings_.fix_moon_phase = fix_moon_phase;
     }
 
     ~Nethack()
@@ -296,6 +298,17 @@ class Nethack
         } catch (py::cast_error) {
             settings_.initial_seeds.lgen_seed = 0;
             settings_.initial_seeds.use_lgen_seed = false;
+        }
+
+        /* Derive a deterministic time seed from the core seed for
+           fix_moon_phase. Use an LCG step to decorrelate from the
+           core seed's direct game effects. */
+        if (settings_.fix_moon_phase) {
+            settings_.time_seed =
+                core * 6364136223846793005ULL + 1442695040888963407ULL;
+            /* Ensure non-zero so hacklib.c can distinguish "set" from "unset" */
+            if (settings_.time_seed == 0)
+                settings_.time_seed = 1;
         }
     }
 
@@ -532,13 +545,15 @@ PYBIND11_MODULE(_pynethack, m)
 
     py::class_<Nethack>(m, "Nethack")
         .def(py::init<std::string, std::string, std::string, std::string,
-                      bool, std::string>(),
+                      bool, std::string, bool>(),
              py::arg("dlpath"), py::arg("ttyrec"), py::arg("hackdir"),
              py::arg("nethackoptions"), py::arg("spawn_monsters") = true,
-             py::arg("scoreprefix") = "")
-        .def(py::init<std::string, std::string, std::string, bool>(),
+             py::arg("scoreprefix") = "",
+             py::arg("fix_moon_phase") = false)
+        .def(py::init<std::string, std::string, std::string, bool, bool>(),
              py::arg("dlpath"), py::arg("hackdir"), py::arg("nethackoptions"),
-             py::arg("spawn_monsters") = true)
+             py::arg("spawn_monsters") = true,
+             py::arg("fix_moon_phase") = false)
         .def("step", &Nethack::step, py::arg("action"))
         .def("done", &Nethack::done)
         .def("reset", py::overload_cast<>(&Nethack::reset))
