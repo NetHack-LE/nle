@@ -300,15 +300,12 @@ class Nethack
             settings_.initial_seeds.use_lgen_seed = false;
         }
 
-        /* Derive a deterministic time seed from the core seed for
-           fix_moon_phase. Use an LCG step to decorrelate from the
-           core seed's direct game effects. */
         if (settings_.fix_moon_phase) {
-            settings_.time_seed =
-                core * 6364136223846793005ULL + 1442695040888963407ULL;
-            /* Ensure non-zero so hacklib.c can distinguish "set" from "unset" */
-            if (settings_.time_seed == 0)
-                settings_.time_seed = 1;
+            /* Offset by 1 to decorrelate from the core RNG seed.
+               ISAAC64 amplifies this small difference into a
+               completely independent sequence. */
+            settings_.time_seed = core + 1;
+            settings_.time_seed_is_set = true;
         }
     }
 

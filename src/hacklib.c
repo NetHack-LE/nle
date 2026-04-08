@@ -7,6 +7,7 @@
 
 #include "hack.h" /* for config.h+extern.h */
 #include "nletypes.h"
+#include "isaac64.h"
 
 extern nle_settings settings;
 /*=
@@ -936,24 +937,28 @@ getlt()
 
 /*
  * When fix_moon_phase is enabled and a time_seed has been set,
- * return a deterministic struct tm derived from the seed.
+ * return a deterministic struct tm derived from the seed
+ * using a private ISAAC64 RNG instance.
  * Otherwise fall back to real system time via getlt().
  */
 STATIC_OVL struct tm *
-getlt_fixed()
+nle_getlt_fixed()
 {
     static struct tm fixed_tm;
-    unsigned long ts;
+    isaac64_ctx time_rng;
+    unsigned char seed_bytes[sizeof(settings.time_seed)];
 
-    if (!settings.fix_moon_phase || settings.time_seed == 0)
+    if (!settings.fix_moon_phase || !settings.time_seed_is_set)
         return getlt();
 
-    ts = settings.time_seed;
-    fixed_tm.tm_year = 100 + (int)((ts * 2654435761UL) >> 48) % 50;
-    fixed_tm.tm_mon  = (int)((ts * 2246822519UL) >> 48) % 12;
-    fixed_tm.tm_mday = 1 + (int)((ts * 3266489917UL) >> 48) % 28;
-    fixed_tm.tm_hour = (int)((ts * 668265263UL) >> 48) % 24;
-    fixed_tm.tm_wday = (int)((ts * 374761393UL) >> 48) % 7;
+    memcpy(seed_bytes, &settings.time_seed, sizeof(seed_bytes));
+    isaac64_init(&time_rng, seed_bytes, sizeof(seed_bytes));
+
+    fixed_tm.tm_year = 100 + (int)isaac64_next_uint(&time_rng, 50);
+    fixed_tm.tm_mon  = (int)isaac64_next_uint(&time_rng, 12);
+    fixed_tm.tm_mday = 1 + (int)isaac64_next_uint(&time_rng, 28);
+    fixed_tm.tm_hour = (int)isaac64_next_uint(&time_rng, 24);
+    fixed_tm.tm_wday = (int)isaac64_next_uint(&time_rng, 7);
     fixed_tm.tm_yday = fixed_tm.tm_mon * 30 + fixed_tm.tm_mday;
 
     return &fixed_tm;
@@ -1126,7 +1131,7 @@ char *buf;
 int
 phase_of_the_moon() /* 0-7, with 0: new, 4: full */
 {
-    register struct tm *lt = getlt_fixed();
+    register struct tm *lt = nle_getlt_fixed();
     register int epact, diy, goldn;
 
     diy = lt->tm_yday;
@@ -1141,7 +1146,7 @@ phase_of_the_moon() /* 0-7, with 0: new, 4: full */
 boolean
 friday_13th()
 {
-    register struct tm *lt = getlt_fixed();
+    register struct tm *lt = nle_getlt_fixed();
 
     /* tm_wday (day of week; 0==Sunday) == 5 => Friday */
     return (boolean) (lt->tm_wday == 5 && lt->tm_mday == 13);
@@ -1150,7 +1155,7 @@ friday_13th()
 int
 night()
 {
-    register int hour = getlt_fixed()->tm_hour;
+    register int hour = nle_getlt_fixed()->tm_hour;
 
     return (hour < 6 || hour > 21);
 }
@@ -1158,7 +1163,7 @@ night()
 int
 midnight()
 {
-    return (getlt_fixed()->tm_hour == 0);
+    return (nle_getlt_fixed()->tm_hour == 0);
 }
 
 /* strbuf_init() initializes strbuf state for use */

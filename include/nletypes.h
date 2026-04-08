@@ -139,7 +139,9 @@ typedef struct nle_settings {
      */
     bool fix_moon_phase;
     unsigned long time_seed;
+    bool time_seed_is_set;
 
 } nle_settings;
+
 
 #endif /* NLETYPES_H */
