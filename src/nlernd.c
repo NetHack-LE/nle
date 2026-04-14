@@ -1,6 +1,8 @@
 #include "nlernd.h"
 #include "hack.h"
 #include "isaac64.h"
+#include <string.h>
+#include <time.h>
 
 /* See rng.c. */
 struct rnglist_t {
@@ -138,6 +140,27 @@ nle_swap_to_core(int dungeon_num)
            calls to this function. */
         lgen_active = false;
     }
+}
+
+/*
+ * Fill a struct tm with deterministic values derived from the
+ * given seed using a private ISAAC64 RNG instance.
+ */
+void
+nle_fill_fixed_tm(struct tm *tm, unsigned long seed)
+{
+    isaac64_ctx time_rng;
+    unsigned char seed_bytes[sizeof(seed)];
+
+    memcpy(seed_bytes, &seed, sizeof(seed_bytes));
+    isaac64_init(&time_rng, seed_bytes, sizeof(seed_bytes));
+
+    tm->tm_year = 100 + (int) isaac64_next_uint(&time_rng, 50);
+    tm->tm_mon = (int) isaac64_next_uint(&time_rng, 12);
+    tm->tm_mday = 1 + (int) isaac64_next_uint(&time_rng, 28);
+    tm->tm_hour = (int) isaac64_next_uint(&time_rng, 24);
+    tm->tm_wday = (int) isaac64_next_uint(&time_rng, 7);
+    tm->tm_yday = tm->tm_mon * 30 + tm->tm_mday;
 }
 
 void

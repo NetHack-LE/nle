@@ -139,6 +139,113 @@ class TestNetHack:
         game.set_current_seeds(core=42, disp=666)
         assert game.get_current_seeds() == (42, 666, False, 0)
 
+    def test_fix_moon_phase_determinism(self):
+        """Same seed + fix_moon_phase should produce identical observations."""
+        results = []
+        for _ in range(2):
+            game = nethack.Nethack(
+                observation_keys=("chars", "blstats"),
+                copy=True,
+                fix_moon_phase=True,
+            )
+            game.set_initial_seeds(core=42, disp=42)
+            obs = game.reset()
+            results.append(obs)
+            game.close()
+        np.testing.assert_equal(results[0], results[1])
+
+    def test_fix_moon_phase_deterministic_moon_messages(self):
+        """Verify that fix_moon_phase produces deterministic, seed-dependent
+        moon phase effects visible in the startup messages.
+
+        seed=3  -> full moon  ("You are lucky!  Full moon tonight.")
+        seed=0  -> new moon   ("Be careful!  New moon tonight.")
+        seed=49 -> friday 13  ("Watch out!  Bad things can happen on Friday the 13th.")
+        seed=5  -> normal     (no moon/friday message)
+
+        Changing the time_seed derivation would change these mappings and
+        fail the test.
+        """
+        expected = {
+            3: "full moon",
+            0: "new moon",
+            49: "friday the 13th",
+            5: None,
+        }
+
+        for seed, expected_phrase in expected.items():
+            game = nethack.Nethack(
+                observation_keys=("message",),
+                copy=True,
+                fix_moon_phase=True,
+            )
+            game.set_initial_seeds(core=seed, disp=seed)
+            obs = game.reset()
+            try:
+                msgs = []
+                for _ in range(10):
+                    msg = (
+                        bytes(obs[0])
+                        .decode("ascii", errors="replace")
+                        .rstrip("\x00")
+                        .strip()
+                    )
+                    if msg:
+                        msgs.append(msg)
+                    obs, done = game.step(13)  # MORE
+                    if done:
+                        break
+                combined = " ".join(msgs).lower()
+                if expected_phrase is not None:
+                    assert (
+                        expected_phrase in combined
+                    ), f"seed={seed}: expected '{expected_phrase}' in: {combined}"
+                else:
+                    for phrase in ("full moon", "new moon", "friday the 13th"):
+                        assert (
+                            phrase not in combined
+                        ), f"seed={seed}: unexpected '{phrase}' in: {combined}"
+            finally:
+                game.close()
+
+    def test_fix_moon_phase_different_seeds(self):
+        """Different seeds with fix_moon_phase should produce different observations."""
+        results = []
+        for seed in [42, 123]:
+            game = nethack.Nethack(
+                observation_keys=("chars", "blstats"),
+                copy=True,
+                fix_moon_phase=True,
+            )
+            game.set_initial_seeds(core=seed, disp=seed)
+            obs = game.reset()
+            results.append(obs)
+            game.close()
+        assert any(not np.array_equal(a, b) for a, b in zip(results[0], results[1]))
+
+    def test_fix_moon_phase_without_seed(self):
+        """fix_moon_phase=True without seeds should not crash (falls back to real time)."""
+        game = nethack.Nethack(
+            observation_keys=("chars", "blstats"),
+            fix_moon_phase=True,
+        )
+        game.reset()
+        game.close()
+
+    def test_fix_moon_phase_default_off(self):
+        """fix_moon_phase defaults to False and doesn't change existing behavior."""
+        results = []
+        for _ in range(2):
+            game = nethack.Nethack(
+                observation_keys=("chars", "blstats"),
+                copy=True,
+            )
+            game.set_initial_seeds(core=42, disp=42)
+            obs = game.reset()
+            results.append(obs)
+            game.close()
+        np.testing.assert_equal(results[0], results[1])
+
 
 class TestNetHackFurther:
     def test_run(self):

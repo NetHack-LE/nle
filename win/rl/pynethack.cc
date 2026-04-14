@@ -545,8 +545,7 @@ PYBIND11_MODULE(_pynethack, m)
                       bool, std::string, bool>(),
              py::arg("dlpath"), py::arg("ttyrec"), py::arg("hackdir"),
              py::arg("nethackoptions"), py::arg("spawn_monsters") = true,
-             py::arg("scoreprefix") = "",
-             py::arg("fix_moon_phase") = false)
+             py::arg("scoreprefix") = "", py::arg("fix_moon_phase") = false)
         .def(py::init<std::string, std::string, std::string, bool, bool>(),
              py::arg("dlpath"), py::arg("hackdir"), py::arg("nethackoptions"),
              py::arg("spawn_monsters") = true,

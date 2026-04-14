@@ -143,5 +143,4 @@ typedef struct nle_settings {
 
 } nle_settings;
 
-
 #endif /* NLETYPES_H */
