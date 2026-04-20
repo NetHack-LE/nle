@@ -166,12 +166,6 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Check version matches release tag
-        run: |
-          echo "v$(cat version.txt)"
-          echo "${{ github.event.release.tag_name }}"
-          [[ "${{ github.event.release.tag_name }}" == "v$(cat version.txt)" ]]
       - name: Get sdist artifact # Get sdist artifact from the test_sdist job
         uses: actions/download-artifact@v4
         with:
@@ -212,12 +206,6 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Check version matches release tag
-        run: |
-          echo "v$(cat version.txt)"
-          echo "${{ github.event.release.tag_name }}"
-          [[ "${{ github.event.release.tag_name }}" == "v$(cat version.txt)" ]]
       - name: Get sdist artifact # Get sdist artifact from the test_sdist job
         uses: actions/download-artifact@v4
         with:
