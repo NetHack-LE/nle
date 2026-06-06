@@ -1,4 +1,4 @@
-/* NetHack 3.6	tradstdc.h	$NHDT-Date: 1555361295 2019/04/15 20:48:15 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.36 $ */
+/* NetHack 5.0	tradstdc.h	$NHDT-Date: 1744938651 2025/04/17 17:10:51 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.67 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -47,8 +47,6 @@
  * USE_VARARGS means use the <varargs.h> facilities.  Again, this should only
  * be done if the library supports it.  ANSI is *not* required for this.
  * Otherwise, the kludgy old methods are used.
- * The defaults are USE_STDARG for ANSI compilers, and USE_OLDARGS for
- * others.
  */
 
 /* #define USE_VARARGS */ /* use <varargs.h> instead of <stdarg.h> */
@@ -58,15 +56,15 @@
 #define USE_VARARGS
 #endif
 
-#if defined(NHSTDC) || defined(ULTRIX_PROTO) || defined(MAC)
-#if !defined(USE_VARARGS) && !defined(USE_OLDARGS) && !defined(USE_STDARG)
+#if !defined(USE_STDARG) && !defined(USE_VARARGS) && !defined(USE_OLDARGS)
+/* the old VARARGS and OLDARGS stuff is still here, but since we're
+   requiring C99 these days it's unlikely to be useful */
 #define USE_STDARG
-#endif
 #endif
 
 #ifdef NEED_VARARGS /* only define these if necessary */
 /*
- * These have changed since 3.4.3.  VA_END() now provides an explicit
+ * These changed in 3.6.0.  VA_END() provides a hidden
  * closing brace to complement VA_DECL()'s hidden opening brace, so code
  * started with VA_DECL() needs an extra opening brace to complement
  * the explicit final closing brace.  This was done so that the source
@@ -74,11 +72,11 @@
  * function whose opening brace was missing; there are now visible and
  * invisible braces at beginning and end.  Sample usage:
  void foo VA_DECL(int, arg)  --macro expansion has a hidden opening brace
- {  --new, explicit opening brace (actually introduces a nested block)
+ {  --explicit opening brace (actually introduces a nested block)
  VA_START(bar);
  ...code for foo...
- VA_END();  --expansion now provides a closing brace for the nested block
- }  --existing closing brace, still pairs with the hidden one in VA_DECL()
+ VA_END();  --expansion provides a closing brace for the nested block
+ }  --closing brace, pairs with the hidden one in VA_DECL()
  * Reading the code--or using source browsing tools which match braces--
  * results in seeing a matched set of braces.  Usage of VA_END() is
  * potentially trickier, but nethack uses it in a straightforward manner.
@@ -158,7 +156,8 @@ typedef const char *vA;
 
    [nethack's core doesn't use VA_NEXT() so doesn't use VA_SHIFT()
    either, and this definition is just retained for completeness.
-   lev_comp does use VA_NEXT(), but it passes all 'argX' arguments.]
+   lev_comp does use VA_NEXT(), but it passes all 'argX' arguments.
+   Note: as of 5.0.0, lev_comp doesn't exist anymore.]
  */
 #define VA_SHIFT()                                                    \
     (arg1 = arg2, arg2 = arg3, arg3 = arg4, arg4 = arg5, arg5 = arg6, \
@@ -173,107 +172,16 @@ typedef const char *vA;
 
 #endif /* NEED_VARARGS */
 
-#if defined(NHSTDC) || defined(MSDOS) || defined(MAC) \
-    || defined(ULTRIX_PROTO) || defined(__BEOS__)
-
-/*
- * Used for robust ANSI parameter forward declarations:
- * int VDECL(sprintf, (char *, const char *, ...));
- *
- * NDECL() is used for functions with zero arguments;
- * FDECL() is used for functions with a fixed number of arguments;
- * VDECL() is used for functions with a variable number of arguments.
- * Separate macros are needed because ANSI will mix old-style declarations
- * with prototypes, except in the case of varargs, and the OVERLAY-specific
- * trampoli.* mechanism conflicts with the ANSI <<f(void)>> syntax.
- */
-
-#define NDECL(f) f(void) /* overridden later if USE_TRAMPOLI set */
-
-#define FDECL(f, p) f p
-
-#if defined(MSDOS) || defined(USE_STDARG)
-#define VDECL(f, p) f p
-#else
-#define VDECL(f, p) f()
-#endif
-
-/*
- * Used for definitions of functions which take no arguments to force
- * an explicit match with the NDECL prototype.  Needed in some cases
- * (MS Visual C 2005) for functions called through pointers.
- */
-#define VOID_ARGS void
-
 /* generic pointer, always a macro; genericptr_t is usually a typedef */
 #define genericptr void *
-
-#if (defined(ULTRIX_PROTO) && !defined(__GNUC__)) || defined(OS2_CSET2)
-/* Cover for Ultrix on a DECstation with 2.0 compiler, which coredumps on
- *   typedef void * genericptr_t;
- *   extern void a(void(*)(int, genericptr_t));
- * Using the #define is OK for other compiler versions too.
- */
-/* And IBM CSet/2.  The redeclaration of free hoses the compile. */
-#define genericptr_t genericptr
-#else
-#if !defined(NHSTDC) && !defined(MAC)
-#define const
-#define signed
-#define volatile
-#endif
-#endif
-
-/*
- * Suppress `const' if necessary and not handled elsewhere.
- * Don't use `#if defined(xxx) && !defined(const)'
- * because some compilers choke on `defined(const)'.
- * This has been observed with Lattice, MPW, and High C.
- */
-#if (defined(ULTRIX_PROTO) && !defined(NHSTDC)) || defined(apollo)
-/* the system header files don't use `const' properly */
-#ifndef const
-#define const
-#endif
-#endif
-
-#else /* NHSTDC */ /* a "traditional" C  compiler */
-
-#define NDECL(f) f()
-#define FDECL(f, p) f()
-#define VDECL(f, p) f()
-
-#define VOID_ARGS /*empty*/
-
-#if defined(AMIGA) || defined(HPUX) || defined(POSIX_TYPES) \
-    || defined(__DECC) || defined(__BORLANDC__)
-#define genericptr void *
-#endif
-#ifndef genericptr
-#define genericptr char *
-#endif
-
-/*
- * Traditional C compilers don't have "signed", "const", or "volatile".
- */
-#define signed
-#define const
-#define volatile
-
-#endif /* NHSTDC */
-
 #ifndef genericptr_t
 typedef genericptr genericptr_t; /* (void *) or (char *) */
 #endif
 
-#if defined(MICRO) || defined(WIN32)
+#ifndef NO_PTR_FMT
 /* We actually want to know which systems have an ANSI run-time library
  * to know which support the %p format for printing pointers.
- * Due to the presence of things like gcc, NHSTDC is not a good test.
- * So we assume microcomputers have all converted to ANSI and bigger
- * computers which may have older libraries give reasonable results with
- * casting pointers to unsigned long int (fmt_ptr() in alloc.c).
- */
+ * Since we require C99 or later, assume the library supports it. */
 #define HAS_PTR_FMT
 #endif
 
@@ -336,13 +244,13 @@ typedef genericptr genericptr_t; /* (void *) or (char *) */
 #endif
 #endif
 
-/* These are used for arguments within FDECL/VDECL prototype declarations.
+/* These are used for arguments within VDECL prototype declarations.
  */
 #ifdef UNWIDENED_PROTOTYPES
 #define CHAR_P char
 #define SCHAR_P schar
 #define UCHAR_P uchar
-#define XCHAR_P xchar
+#define XCHAR_P coordxy
 #define SHORT_P short
 #ifndef SKIP_BOOLEAN
 #define BOOLEAN_P boolean
@@ -361,7 +269,7 @@ typedef genericptr genericptr_t; /* (void *) or (char *) */
 #define ALIGNTYP_P int
 #else
 /* Neither widened nor unwidened prototypes.  Argument list expansion
- * by FDECL/VDECL always empty; all xxx_P vanish so defs aren't needed. */
+ * by VDECL always empty; all xxx_P vanish so defs aren't needed. */
 #endif
 #endif
 
@@ -394,14 +302,8 @@ typedef genericptr genericptr_t; /* (void *) or (char *) */
  * include files have prototypes and the compiler also complains that
  * prototyped and unprototyped declarations don't match.
  */
-#undef NDECL
-#undef FDECL
 #undef VDECL
-#define NDECL(f) f()
-#define FDECL(f, p) f()
 #define VDECL(f, p) f()
-#undef VOID_ARGS
-#define VOID_ARGS /*empty*/
 #endif
 #endif
 
@@ -411,43 +313,271 @@ typedef genericptr genericptr_t; /* (void *) or (char *) */
 #undef signed
 #endif
 
+/*
+ * Language
+ * Standard
+ *
+ *          NetHack 5.0 range
+ *         /
+ *        /
+ *   C2y X      NetHack 3.6 and earlier range
+ *   C23 X     /
+ *   C17 X    X
+ *   C11 X    X
+ *   C99 X    X
+ *   C89      X
+ *
+ *
+ * The NetHack 5.0 source code currently makes use of the following
+ * C99 (and above) language features:
+ *
+ *     commas at the end of enumerator lists
+ *     variable declarations in for loop initializers
+ *     mixing declarations and code
+ *     variadic macros
+ *     'long long'
+ *
+ * The NetHack 5.0 source code adheres to the following greater-than C99
+ * language restrictions:
+ *
+ *     Removal of K&R function definitions
+ *     Removal of implicit int
+ */
+
+/*
+ * Provide a shorthand way of checking for a certain C standard
+ * in the NetHack header files by always setting NH_C to one
+ * of three possible values (as of January 2025):
+ *
+ * NH_C >= 202300L     Being compiled under C23 or greater
+ * NH_C >= 199900L     Being compiled under C99 or greater
+ * NH_C >= 198900L     Being compiled under C89 or greater,
+ *                     or C std could not be determined.
+ */
+#if defined(__STDC_VERSION__)
+#if (__STDC_VERSION__ >= 202000L)
+#define NH_C 202300L
+#else
+#define NH_C 199900L
+#endif  /* C23 or C99 */
+#else   /* __STDC_VERSION not defined */
+#define NH_C 198900L
+#endif  /* __STDC_VERSION not defined */
+#ifndef NH_C
+#define NH_C 198900L
+#endif
+
+/* NH_C is now defined to 198900L or 199900L or 202300L */
+
+#if NH_C >= 202300L
+/* Give first priority to standard */
+#ifndef __has_c_attribute
+#define __has_c_attribute(x) 0
+#endif
+/*
+ * noreturn
+ */
+#ifndef ATTRNORETURN
+#define ATTRNORETURN [[noreturn]]
+/* #warning [[noreturn]] from C23 */
+#endif  /* ATTRNORETURN not defined */
+/*
+ * fallthrough
+ */
+#if __has_c_attribute(fallthrough)
+/* Standard attribute is available, use it. */
+#define FALLTHROUGH [[fallthrough]]
+/* #warning [[fallthrough]] from C23 */
+#endif  /* __has_c_attribute(fallthrough) */
+/*
+ * maybe_unused
+ */
+#if __has_c_attribute(maybe_unused)
+#ifndef ATTRUNUSED
+#define ATTRUNUSED [[maybe_unused]]
+#endif
+#endif  /* __has_c_attribute(maybe_unused) */
+#endif  /* NH_C >= 202300L */
+
+/*
+ * Compiler-specific
+ */
+
 #ifdef __clang__
 /* clang's gcc emulation is sufficient for nethack's usage */
 #ifndef __GNUC__
-#define __GNUC__ 4
+#define __GNUC__ 5 /* high enough for returns_nonnull */
 #endif
 #endif
 
 /*
- * Allow gcc2 to check parameters of printf-like calls with -Wformat;
- * append this to a prototype declaration (see pline() in extern.h).
+ * gcc (and also clang which masquerades as__GNUC__==5 due to #define above)
+ *
+ * Allow gcc2 and above to check parameters of printf-like calls with
+ * -Wformat; append this to a prototype declaration (see pline() in extern.h).
  */
 #ifdef __GNUC__
 #if (__GNUC__ >= 2) && !defined(USE_OLDARGS)
 #define PRINTF_F(f, v) __attribute__((format(printf, f, v)))
 #endif
+#if (__GNUC__ > 3) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)
+#define PRINTF_F_PTR(f, v) PRINTF_F(f, v)
+#endif
 #if __GNUC__ >= 3
+#ifndef ATTRUNUSED
 #define UNUSED __attribute__((unused))
+#endif
+#ifndef ATTRNORETURN
+#ifndef NORETURN
 #define NORETURN __attribute__((noreturn))
-#if defined(GCC_URWARN)
+/* #warning NORETURN __attribute__((noreturn)) from __GNUC__ >= 3 */
+#endif  /* NORETURN */
+#endif  /* ATTRNORETURN */
+#endif  /* __GNUC__ >= 3 */
+#if __GNUC__ >= 5
+#ifndef NONNULLS_DEFINED
+#define DO_DEFINE_NONNULLS
+#endif  /* !NONNULLS_DEFINED */
+/* #pragma message is available */
+#define NH_PRAGMA_MESSAGE 1
+#endif  /* __GNUC__ greater than or equal to 5 */
+#if (!defined(__linux__) && !defined(MACOS)) || defined(GCC_URWARN)
 /* disable gcc's __attribute__((__warn_unused_result__)) since explicitly
-   discarding the result by casting to (void) is not accepted as a 'use'.
-   This appears to be a problem for both Linux and M1 Macs.
-*/
+   discarding the result by casting to (void) is not accepted as a 'use' */
 #define __warn_unused_result__ /*empty*/
 #define warn_unused_result /*empty*/
+#endif  /* GCC_URWARN || !__linux || !MACOS */
+#endif  /* __GNUC__ || clang masquerading as __GNUC__==5 */
+
+/*
+ * clang-specific
+ *
+ */
+#if defined(__clang__)
+#ifndef FALLTHROUGH
+#if defined(__clang_major__)
+#if __clang_major__ >= 9
+#define FALLTHROUGH __attribute__((fallthrough))
+/* #warning FALLTHROUGH __attribute__((fallthrough)) from clang */
+#endif  /* __clang_major__ greater than or equal to 9 */
+#endif  /* __clang_major__ is defined */
+#endif  /* FALLTHROUGH */
+#if !defined(DO_DEFINE_NONNULLS)
+#define DO_DEFINE_NONNULLS
 #endif
+#endif  /* __clang__ */
+
+/*
+ * NONNULL args
+ */
+#if defined(DO_DEFINE_NONNULLS) && !defined(NONNULLS_DEFINED)
+#define NONNULL __attribute__((returns_nonnull))
+#define NONNULLPTRS __attribute__((nonnull))
+#define NONNULLARG1 __attribute__((nonnull (1)))
+#define NONNULLARG2 __attribute__((nonnull (2)))
+#define NONNULLARG3 __attribute__((nonnull (3)))
+#define NONNULLARG4 __attribute__((nonnull (4)))
+#define NONNULLARG5 __attribute__((nonnull (5)))
+#define NONNULLARG6 __attribute__((nonnull (6)))
+#define NONNULLARG7 __attribute__((nonnull (7))) /* for bhit() */
+#define NONNULLARG12 __attribute__((nonnull (1, 2)))
+#define NONNULLARG23 __attribute__((nonnull (2, 3)))
+#define NONNULLARG123 __attribute__((nonnull (1, 2, 3)))
+#define NONNULLARG13 __attribute__((nonnull (1, 3)))
+#define NONNULLARG14 __attribute__((nonnull (1, 4))) /* for query_category */
+#define NONNULLARG134 __attribute__((nonnull (1, 3, 4))) /* for do_stone_mon */
+#define NONNULLARG145 __attribute__((nonnull (1, 4, 5))) /* find_roll_to_hit */
+#define NONNULLARG17 __attribute__((nonnull (1, 7))) /* for askchain() */
+#define NONNULLARG24 __attribute__((nonnull (2, 4))) /* query_objlist() */
+#define NONNULLARG45 __attribute__((nonnull (4, 5))) /* do_screen_descri... */
+#define NONNULLS_DEFINED
+#undef DO_DEFINE_NONNULLS
+#endif  /* DO_DEFINE_NONNULLS && !NONNULLS_DEFINED */
+
+/*
+ * Microsoft compiler
+ */
+#ifdef _MSC_VER
+#ifndef ATTRNORETURN
+#define ATTRNORETURN __declspec(noreturn)
+/* #warning ATTRNORETURN __declspec(noreturn) from _MSC_VER */
 #endif
+/* #pragma message is available */
+#define NH_PRAGMA_MESSAGE 1
+#endif  /* _MSC_VER */
+
+#if !defined(UNUSED) && defined(ATTRUNUSED)
+#define UNUSED ATTRUNUSED
 #endif
 
+/* Fallback implementations */
 #ifndef PRINTF_F
 #define PRINTF_F(f, v)
+#endif
+#ifndef PRINTF_F_PTR
+#define PRINTF_F_PTR(f, v)
 #endif
 #ifndef UNUSED
 #define UNUSED
 #endif
+#ifndef ATTRUNUSED
+#define ATTRUNUSED
+#endif
+#ifndef FALLTHROUGH
+#define FALLTHROUGH
+#endif
+#ifndef ATTRNORETURN
+#define ATTRNORETURN
+#endif
 #ifndef NORETURN
 #define NORETURN
 #endif
+#ifndef NONNULLS_DEFINED
+#define NONNULL
+#define NONNULLPTRS
+#define NONNULLARG1
+#define NONNULLARG2
+#define NONNULLARG3
+#define NONNULLARG4
+#define NONNULLARG5
+#define NONNULLARG6
+#define NONNULLARG7
+#define NONNULLARG12
+#define NONNULLARG23
+#define NONNULLARG123
+#define NONNULLARG13
+#define NONNULLARG14
+#define NONNULLARG134
+#define NONNULLARG145
+#define NONNULLARG17
+#define NONNULLARG24
+#define NONNULLARG45
+#define NONNULLS_DEFINED
+#endif  /* NONNULLS_DEFINED */
+#ifndef NO_NNARGS
+#define NO_NNARGS /*empty*/
+#endif  /* NO_NNARGS */
+
+/*
+ * Allow gcc and clang to catch the use of non-C99 functions that
+ * NetHack has replaced with a C99 standard function. The old non-C99
+ * function will cause a link failure on non-Unix platforms,
+ * so it is preferrable to catch it early, during compile.
+ */
+#if !defined(X11_BUILD) && !defined(__cplusplus)
+#if defined(__GNUC__) && !defined(__clang__)
+#if __GNUC__ >= 12
+extern char *index(const char *s, int c) __attribute__ ((unavailable));
+extern char *rindex(const char *s, int c) __attribute__ ((unavailable));
+#endif
+#endif
+#if defined(__clang__)
+#if __clang_major__ >= 7
+extern char *index(const char *s, int c) __attribute__ ((unavailable));
+extern char *rindex(const char *s, int c) __attribute__ ((unavailable));
+#endif
+#endif
+#endif
+
 
 #endif /* TRADSTDC_H */
