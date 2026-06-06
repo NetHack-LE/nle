@@ -1,5 +1,5 @@
-/* NetHack 3.6	youprop.h	$NHDT-Date: 1568831820 2019/09/18 18:37:00 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.27 $ */
-/* Copyright (c) 1989 Mike Threepoint				  */
+/* NetHack 5.0	youprop.h	$NHDT-Date: 1725653018 2024/09/06 20:03:38 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.45 $ */
+/* Copyright (c) 1989 Mike Threepoint                             */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #ifndef YOUPROP_H
@@ -8,7 +8,6 @@
 #include "prop.h"
 #include "permonst.h"
 #include "mondata.h"
-#include "pm.h"
 
 /* KMH, intrinsics patch.
  * Reorganized and rewritten for >32-bit properties.
@@ -65,10 +64,12 @@
 #define EStone_resistance u.uprops[STONE_RES].extrinsic
 #define Stone_resistance (HStone_resistance || EStone_resistance)
 
-/* Intrinsics only */
 #define HSick_resistance u.uprops[SICK_RES].intrinsic
-#define Sick_resistance (HSick_resistance || defends(AD_DISE, uwep))
+#define ESick_resistance u.uprops[SICK_RES].extrinsic
+#define Sick_resistance (HSick_resistance || ESick_resistance \
+                         || defended(&gy.youmonst, AD_DISE))
 
+/* Intrinsics only */
 #define Invulnerable u.uprops[INVULNERABLE].intrinsic /* [Tom] */
 
 /*** Troubles ***/
@@ -82,20 +83,28 @@
 #define HConfusion u.uprops[CONFUSION].intrinsic
 #define Confusion HConfusion
 
-#define Blinded u.uprops[BLINDED].intrinsic
-#define Blindfolded (ublindf && ublindf->otyp != LENSES)
-/* ...means blind because of a cover */
-#define Blind                                     \
-    ((u.uroleplay.blind || Blinded || Blindfolded \
-      || !haseyes(youmonst.data))                 \
-     && !(ublindf && ublindf->oartifact == ART_EYES_OF_THE_OVERWORLD))
-/* ...the Eyes operate even when you really are blind
-    or don't have any eyes */
-#define Blindfolded_only                                            \
-    (Blindfolded && ublindf->oartifact != ART_EYES_OF_THE_OVERWORLD \
-     && !u.uroleplay.blind && !Blinded && haseyes(youmonst.data))
-/* ...blind because of a blindfold, and *only* that */
+/* Blindness is more complex than other properties */
+#define HBlinded u.uprops[BLINDED].intrinsic /* TIMEOUT|FROMOUTSIDE|FROMFORM */
+#define EBlinded u.uprops[BLINDED].extrinsic /* W_TOOL */
+        /* wearing the Eyes of the Overworld overrides blindness */
+#define BBlinded u.uprops[BLINDED].blocked   /* W_TOOL */
+        /* non-blindfold: timed effect | u.uroleplay.blind | !haseyes() */
+#define Blinded (HBlinded && !BBlinded)
+#define BlindedTimeout (HBlinded & TIMEOUT)
+#define PermaBlind ((HBlinded & FROMOUTSIDE) != 0L) /* OPTIONS:blind */
+        /* worn blindfold (or towel; lenses don't set [BLINDED].extrinsic) */
+#define Blindfolded EBlinded
+#define Blindfolded_only (Blindfolded && !Blinded)
+        /* '#define Blind (Blinded || Blindfolded)' would work, but only
+           because BBlinded (conferred by artifact lenses) and Blindfolded
+           are mutually exclusive; explicitly applying !BBlinded to both
+           internal and external blindness should be more robust in case
+           of future changes */
+#define Blind ((HBlinded || EBlinded) && !BBlinded)
 
+/*
+ * Maladies
+ */
 #define Sick u.uprops[SICK].intrinsic
 #define Stoned u.uprops[STONED].intrinsic
 #define Strangled u.uprops[STRANGLED].intrinsic
@@ -113,16 +122,22 @@
 /* Timeout, plus a worn mask */
 #define HDeaf u.uprops[DEAF].intrinsic
 #define EDeaf u.uprops[DEAF].extrinsic
-#define Deaf (HDeaf || EDeaf)
+#define Deaf (HDeaf || EDeaf || u.uroleplay.deaf)
 
 #define HFumbling u.uprops[FUMBLING].intrinsic
 #define EFumbling u.uprops[FUMBLING].extrinsic
 #define Fumbling (HFumbling || EFumbling)
 
+/* HWounded_legs indicates whether wounded leg(s) condition exists and
+   holds the timeout for recovery; EWounded_legs uses the worn-ring bits
+   to track left vs right vs both and is meaningless when HWounded_legs
+   is zero except when timeout has just decremented that to 0 and calls
+   heal_legs(); both values apply to steed rather than to hero when riding */
 #define HWounded_legs u.uprops[WOUNDED_LEGS].intrinsic
 #define EWounded_legs u.uprops[WOUNDED_LEGS].extrinsic
 #define Wounded_legs (HWounded_legs || EWounded_legs)
 
+/* Sleepy: prone to falling asleep periodically; not necessarily asleep now */
 #define HSleepy u.uprops[SLEEPY].intrinsic
 #define ESleepy u.uprops[SLEEPY].extrinsic
 #define Sleepy (HSleepy || ESleepy)
@@ -140,6 +155,10 @@
 #define ETelepat u.uprops[TELEPAT].extrinsic
 #define Blind_telepat (HTelepat || ETelepat)
 #define Unblind_telepat (ETelepat)
+
+#define HBlnd_resist u.uprops[BLND_RES].intrinsic /* from form */
+#define EBlnd_resist u.uprops[BLND_RES].extrinsic /* wielding Sunsword */
+#define Blnd_resist (HBlnd_resist || EBlnd_resist)
 
 #define HWarning u.uprops[WARNING].intrinsic
 #define EWarning u.uprops[WARNING].extrinsic
@@ -180,11 +199,13 @@
 #define Invisible (Invis && !See_invisible)
 /* Note: invisibility also hides inventory and steed */
 
-#define EDisplaced u.uprops[DISPLACED].extrinsic
-#define Displaced EDisplaced
+#define HDisplaced u.uprops[DISPLACED].intrinsic /* timed from corpse */
+#define EDisplaced u.uprops[DISPLACED].extrinsic /* worn cloak */
+#define Displaced (HDisplaced || EDisplaced)
 
 #define HStealth u.uprops[STEALTH].intrinsic
 #define EStealth u.uprops[STEALTH].extrinsic
+/* BStealth has FROMOUTSIDE set if mounted on non-flying steed */
 #define BStealth u.uprops[STEALTH].blocked
 #define Stealth ((HStealth || EStealth) && !BStealth)
 
@@ -234,8 +255,9 @@
      && !BFlying)
 /* May touch surface; does not override any others */
 
+#define HWwalking u.uprops[WWALKING].intrinsic /* see lava_effects() */
 #define EWwalking u.uprops[WWALKING].extrinsic
-#define Wwalking (EWwalking && !Is_waterlevel(&u.uz))
+#define Wwalking ((HWwalking || EWwalking) && !Is_waterlevel(&u.uz))
 /* Don't get wet, can't go under water; overrides others except levitation */
 /* Wwalking is meaningless on water level */
 
@@ -248,11 +270,11 @@
 #define HMagical_breathing u.uprops[MAGICAL_BREATHING].intrinsic
 #define EMagical_breathing u.uprops[MAGICAL_BREATHING].extrinsic
 #define Amphibious \
-    (HMagical_breathing || EMagical_breathing || amphibious(youmonst.data))
+    (HMagical_breathing || EMagical_breathing || amphibious(gy.youmonst.data))
 /* Get wet, may go under surface */
 
 #define Breathless \
-    (HMagical_breathing || EMagical_breathing || breathless(youmonst.data))
+    (HMagical_breathing || EMagical_breathing || breathless(gy.youmonst.data))
 
 #define Underwater (u.uinwater)
 /* Note that Underwater and u.uinwater are both used in code.
@@ -368,10 +390,19 @@
  * Some pseudo-properties.
  */
 
+/* the code will needs lots of updating to use this so leave it commented
+#define Riding (u.usteed != NULL)
+*/
+
 /* unconscious() includes u.usleep but not is_fainted(); the multi test is
    redundant but allows the function calls to be skipped most of the time */
-#define Unaware (multi < 0 && (unconscious() || is_fainted()))
+#define Unaware (gm.multi < 0 && (unconscious() || is_fainted()))
 
-#define Hate_silver (u.ulycn >= LOW_PM || hates_silver(youmonst.data))
+#define Hate_silver (u.ulycn >= LOW_PM || hates_silver(gy.youmonst.data))
+
+/* _The_Hitchhikers_Guide_to_the_Galaxy_ on uses for 'towel': "wrap it round
+   your head to ward off noxious fumes" [we require it to be damp or wet] */
+#define Half_gas_damage \
+    (ublindf && ublindf->otyp == TOWEL && ublindf->spe > 0)
 
 #endif /* YOUPROP_H */

@@ -1,4 +1,4 @@
-/* NetHack 3.6	trap.h	$NHDT-Date: 1547255912 2019/01/12 01:18:32 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.17 $ */
+/* NetHack 5.0	trap.h	$NHDT-Date: 1670316586 2022/12/06 08:49:46 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.31 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Pasi Kallinen, 2016. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -17,19 +17,20 @@ union vlaunchinfo {
 
 struct trap {
     struct trap *ntrap;
-    xchar tx, ty;
-    d_level dst; /* destination for portals */
+    coordxy tx, ty;
+    d_level dst; /* destination for portals/holes/trapdoors */
     coord launch;
+#define teledest launch /* x,y destination for teleport traps, if > 0 */
     Bitfield(ttyp, 5);
     Bitfield(tseen, 1);
     Bitfield(once, 1);
     Bitfield(madeby_u, 1); /* So monsters may take offence when you trap
-                              them.  Recognizing who made the trap isn't
-                              completely unreasonable, everybody has
-                              their own style.  This flag is also needed
-                              when you untrap a monster.  It would be too
-                              easy to make a monster peaceful if you could
-                              set a trap for it and then untrap it. */
+                            * them.  Recognizing who made the trap isn't
+                            * completely unreasonable; everybody has
+                            * their own style.  This flag is also needed
+                            * when you untrap a monster.  It would be too
+                            * easy to make a monster peaceful if you could
+                            * set a trap for it and then untrap it. */
     union vlaunchinfo vl;
 #define launch_otyp vl.v_launch_otyp
 #define launch2 vl.v_launch2
@@ -37,7 +38,6 @@ struct trap {
 #define tnote vl.v_tnote
 };
 
-extern struct trap *ftrap;
 #define newtrap() (struct trap *) alloc(sizeof(struct trap))
 #define dealloc_trap(trap) free((genericptr_t)(trap))
 
@@ -55,6 +55,7 @@ extern struct trap *ftrap;
 
 /* unconditional traps */
 enum trap_types {
+    ALL_TRAPS    = -1, /* mon_knows_traps(), mon_learns_traps() */
     NO_TRAP      =  0,
     ARROW_TRAP   =  1,
     DART_TRAP    =  2,
@@ -78,12 +79,50 @@ enum trap_types {
     MAGIC_TRAP   = 20,
     ANTI_MAGIC   = 21,
     POLY_TRAP    = 22,
-    VIBRATING_SQUARE = 23,
+    VIBRATING_SQUARE = 23, /* not a trap but shown/remembered as if one
+                            * once it has been discovered */
 
-    TRAPNUM      = 24
+    /* trapped door and trapped chest aren't traps on the map, but they
+       might be shown/remembered as such after trap detection until hero
+       comes in view of them and sees the feature or object;
+       key-using or door-busting monsters who survive a door trap learn
+       to avoid other such doors [not implemented] */
+    TRAPPED_DOOR = 24, /* part of door; not present on map as a trap */
+    TRAPPED_CHEST = 25, /* part of object; not on map */
+
+    TRAPNUM = 26
 };
+
+/* some trap-related function return results */
+enum trap_result {
+    Trap_Effect_Finished = 0,
+    Trap_Is_Gone = 0,
+    Trap_Caught_Mon = 1,
+    Trap_Killed_Mon = 2,
+    Trap_Moved_Mon = 3, /* new location, or new level */
+};
+
+/* return codes from immune_to_trap() */
+enum trap_immunities {
+    TRAP_NOT_IMMUNE = 0,
+    TRAP_CLEARLY_IMMUNE = 1,
+    TRAP_HIDDEN_IMMUNE = 2,
+};
+
 
 #define is_pit(ttyp) ((ttyp) == PIT || (ttyp) == SPIKED_PIT)
 #define is_hole(ttyp)  ((ttyp) == HOLE || (ttyp) == TRAPDOOR)
+#define unhideable_trap(ttyp) ((ttyp) == HOLE) /* visible traps */
+#define undestroyable_trap(ttyp) ((ttyp) == MAGIC_PORTAL         \
+                                  || (ttyp) == VIBRATING_SQUARE)
+#define is_magical_trap(ttyp) ((ttyp) == TELEP_TRAP     \
+                               || (ttyp) == LEVEL_TELEP \
+                               || (ttyp) == MAGIC_TRAP  \
+                               || (ttyp) == ANTI_MAGIC  \
+                               || (ttyp) == POLY_TRAP)
+/* "transportation" traps */
+#define is_xport(ttyp) ((ttyp) >= TELEP_TRAP && (ttyp) <= MAGIC_PORTAL)
+#define fixed_tele_trap(t) ((t)->ttyp == TELEP_TRAP \
+                            && isok((t)->teledest.x,(t)->teledest.y))
 
 #endif /* TRAP_H */

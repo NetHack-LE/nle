@@ -1,4 +1,4 @@
-/* NetHack 3.6	dungeon.h	$NHDT-Date: 1447755969 2015/11/17 10:26:09 $  $NHDT-Branch: master $:$NHDT-Revision: 1.24 $ */
+/* NetHack 5.0	dungeon.h	$NHDT-Date: 1685863327 2023/06/04 07:22:07 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.47 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -6,19 +6,21 @@
 #ifndef DUNGEON_H
 #define DUNGEON_H
 
+typedef struct d_level { /* basic dungeon level element */
+    xint16 dnum;          /* dungeon number */
+    xint16 dlevel;        /* level number */
+} d_level;
+
+#if !defined(MAKEDEFS_C) && !defined(MDLIB_C)
+
 typedef struct d_flags {     /* dungeon/level type flags */
     Bitfield(town, 1);       /* is this a town? (levels only) */
     Bitfield(hellish, 1);    /* is this part of hell? */
     Bitfield(maze_like, 1);  /* is this a maze? */
     Bitfield(rogue_like, 1); /* is this an old-fashioned presentation? */
     Bitfield(align, 3);      /* dungeon alignment. */
-    Bitfield(unused, 1);     /* etc... */
+    Bitfield(unconnected, 1); /* dungeon not connected to any branch */
 } d_flags;
-
-typedef struct d_level { /* basic dungeon level element */
-    xchar dnum;          /* dungeon number */
-    xchar dlevel;        /* level number */
-} d_level;
 
 typedef struct s_level { /* special dungeon level element */
     struct s_level *next;
@@ -29,12 +31,6 @@ typedef struct s_level { /* special dungeon level element */
     d_flags flags;  /* type flags */
 } s_level;
 
-typedef struct stairway { /* basic stairway identifier */
-    xchar sx, sy;         /* x / y location of the stair */
-    d_level tolev;        /* where does it go */
-    char up;              /* what type of stairway (up/down) */
-} stairway;
-
 /* level region types */
 enum level_region_types {
     LR_DOWNSTAIR = 0,
@@ -43,24 +39,35 @@ enum level_region_types {
     LR_BRANCH,
     LR_TELE,
     LR_UPTELE,
-    LR_DOWNTELE
+    LR_DOWNTELE,
+    LR_MONGEN,
 };
 
 typedef struct dest_area { /* non-stairway level change identifier */
-    xchar lx, ly;          /* "lower" left corner (near [0,0]) */
-    xchar hx, hy;          /* "upper" right corner (near [COLNO,ROWNO]) */
-    xchar nlx, nly;        /* outline of invalid area */
-    xchar nhx, nhy;        /* opposite corner of invalid area */
+    coordxy lx, ly;          /* "lower" left corner (near [0,0]) */
+    coordxy hx, hy;          /* "upper" right corner (near [COLNO,ROWNO]) */
+    coordxy nlx, nly;        /* outline of invalid area */
+    coordxy nhx, nhy;        /* opposite corner of invalid area */
 } dest_area;
+
+/* teleportation exclusion zones in the level */
+typedef struct exclusion_zone {
+    xint16 zonetype; /* level_region_types */
+    coordxy lx, ly;
+    coordxy hx, hy;
+    struct exclusion_zone *next;
+} exclusion_zone;
 
 typedef struct dungeon {   /* basic dungeon identifier */
     char dname[24];        /* name of the dungeon (eg. "Hell") */
     char proto[15];        /* name of prototype file (eg. "tower") */
+    char fill_lvl[15];     /* name of "fill" level protype file */
+    char themerms[15];     /* lua file name containing themed rooms */
     char boneid;           /* character to id dungeon in bones files */
     d_flags flags;         /* dungeon flags */
-    xchar entry_lev;       /* entry level */
-    xchar num_dunlevs;     /* number of levels in this dungeon */
-    xchar dunlev_ureached; /* how deep you have been in this dungeon */
+    xint16 entry_lev;       /* entry level */
+    xint16 num_dunlevs;     /* number of levels in this dungeon */
+    xint16 dunlev_ureached; /* how deep you have been in this dungeon */
     int ledger_start,      /* the starting depth in "real" terms */
         depth_start;       /* the starting depth in "logical" terms */
 } dungeon;
@@ -132,6 +139,7 @@ typedef struct branch {
 #define In_sokoban(x) ((x)->dnum == sokoban_dnum)
 #define Inhell In_hell(&u.uz) /* now gehennom */
 #define In_endgame(x) ((x)->dnum == astral_level.dnum)
+#define In_tutorial(x) ((x)->dnum == tutorial_dnum)
 
 #define within_bounded_area(X, Y, LX, LY, HX, HY) \
     ((X) >= (LX) && (X) <= (HX) && (Y) >= (LY) && (Y) <= (HY))
@@ -151,27 +159,18 @@ typedef struct branch {
 #define MIGR_WITH_HERO 9    /* mon: followers; obj: trap door */
 #define MIGR_NOBREAK 1024   /* bitmask: don't break on delivery */
 #define MIGR_NOSCATTER 2048 /* don't scatter on delivery */
-#define MIGR_TO_SPECIES 4096 /* migrating to species as they are made */ 
+#define MIGR_TO_SPECIES 4096 /* migrating to species as they are made */
 #define MIGR_LEFTOVERS 8192  /* grab remaining MIGR_TO_SPECIES objects */
 /* level information (saved via ledger number) */
 
 struct linfo {
     unsigned char flags;
 #define VISITED 0x01      /* hero has visited this level */
-#define FORGOTTEN 0x02    /* hero will forget this level when reached */
+/* 0x02 was FORGOTTEN, when amnesia made you forget maps */
 #define LFILE_EXISTS 0x04 /* a level file exists for this level */
         /* Note:  VISITED and LFILE_EXISTS are currently almost always
-         * set at the same time.  However they _mean_ different things.
+         * set at the same time.  However, they _mean_ different things.
          */
-#ifdef MFLOPPY
-#define FROMPERM 1 /* for ramdisk use */
-#define TOPERM 2   /* for ramdisk use */
-#define ACTIVE 1
-#define SWAPPED 2
-    int where;
-    long time;
-    long size;
-#endif /* MFLOPPY */
 };
 
 /* types and structures for dungeon map recording
@@ -187,71 +186,77 @@ struct linfo {
  * fountains").  This makes it also subject to player conditions (amnesia).
  */
 
-/* Because clearly Nethack needs more ways to specify alignment */
-#define Amask2msa(x) ((x) == 4 ? 3 : (x) &AM_MASK)
-#define Msa2amask(x) ((x) == 3 ? 4 : (x))
-#define MSA_NONE 0 /* unaligned or multiple alignments */
-#define MSA_LAWFUL 1
-#define MSA_NEUTRAL 2
-#define MSA_CHAOTIC 3
-
 /* what the player knows about a single dungeon level */
 /* initialized in mklev() */
+struct mapseen_feat {
+    /* feature knowledge that must be calculated from levl array */
+    Bitfield(nfount, 2);
+    Bitfield(nsink, 2);
+    Bitfield(naltar, 2);
+    Bitfield(nthrone, 2);
+
+    Bitfield(ngrave, 2);
+    Bitfield(ntree, 2);
+    Bitfield(water, 2);
+    Bitfield(lava, 2);
+
+    Bitfield(ice, 2);
+    /* calculated from rooms array */
+    Bitfield(nshop, 2);
+    Bitfield(ntemple, 2);
+    /* altar alignment; MSA_NONE if there is more than one and
+       they aren't all the same */
+    Bitfield(msalign, 2);
+
+    Bitfield(shoptype, 5);
+};
+struct mapseen_flags {
+    Bitfield(notreachable, 1); /* can't get back to this level */
+    Bitfield(forgot, 1);       /* player has forgotten about this level */
+    Bitfield(knownbones, 1);   /* player aware of bones */
+    Bitfield(oracle, 1);
+    Bitfield(sokosolved, 1);
+    Bitfield(bigroom, 1);
+    Bitfield(castle, 1);
+    Bitfield(castletune, 1); /* add tune hint to castle annotation */
+
+    Bitfield(valley, 1);
+    Bitfield(msanctum, 1);
+    Bitfield(ludios, 1);
+    Bitfield(roguelevel, 1);
+    /* quest annotations: quest_summons is for main dungeon level
+       with entry portal and is reset once quest has been finished;
+       questing is for quest home (level 1) */
+    Bitfield(quest_summons, 1); /* heard summons from leader */
+    Bitfield(questing, 1);      /* quest leader has unlocked quest stairs */
+    /* "gateway to sanctum" */
+    Bitfield(vibrating_square, 1); /* found vibrating square 'trap';
+                                    * flag cleared once the msanctum
+                                    * annotation has been added (on
+                                    * the next dungeon level; temple
+                                    * entered or high altar mapped) */
+    Bitfield(spare1, 1);           /* not used */
+};
+
+struct mapseen_rooms {
+    Bitfield(seen, 1);
+    Bitfield(untended, 1); /* flag for shop without shk */
+};
+
 typedef struct mapseen {
     struct mapseen *next; /* next map in the chain */
     branch *br;           /* knows about branch via taking it in goto_level */
     d_level lev;          /* corresponding dungeon level */
-    struct mapseen_feat {
-        /* feature knowledge that must be calculated from levl array */
-        Bitfield(nfount, 2);
-        Bitfield(nsink, 2);
-        Bitfield(naltar, 2);
-        Bitfield(nthrone, 2);
-
-        Bitfield(ngrave, 2);
-        Bitfield(ntree, 2);
-        Bitfield(water, 2);
-        Bitfield(lava, 2);
-
-        Bitfield(ice, 2);
-        /* calculated from rooms array */
-        Bitfield(nshop, 2);
-        Bitfield(ntemple, 2);
-        /* altar alignment; MSA_NONE if there is more than one and
-           they aren't all the same */
-        Bitfield(msalign, 2);
-
-        Bitfield(shoptype, 5);
-    } feat;
-    struct mapseen_flags {
-        Bitfield(unreachable, 1); /* can't get back to this level */
-        Bitfield(forgot, 1);      /* player has forgotten about this level */
-        Bitfield(knownbones, 1);  /* player aware of bones */
-        Bitfield(oracle, 1);
-        Bitfield(sokosolved, 1);
-        Bitfield(bigroom, 1);
-        Bitfield(castle, 1);
-        Bitfield(castletune, 1); /* add tune hint to castle annotation */
-
-        Bitfield(valley, 1);
-        Bitfield(msanctum, 1);
-        Bitfield(ludios, 1);
-        Bitfield(roguelevel, 1);
-        /* quest annotations: quest_summons is for main dungeon level
-           with entry portal and is reset once quest has been finished;
-           questing is for quest home (level 1) */
-        Bitfield(quest_summons, 1); /* heard summons from leader */
-        Bitfield(questing, 1); /* quest leader has unlocked quest stairs */
-    } flags;
+    struct mapseen_feat feat;
+    struct mapseen_flags flags;
     /* custom naming */
     char *custom;
     unsigned custom_lth;
-    struct mapseen_rooms {
-        Bitfield(seen, 1);
-        Bitfield(untended, 1);         /* flag for shop without shk */
-    } msrooms[(MAXNROFROOMS + 1) * 2]; /* same size as rooms[] */
+    struct mapseen_rooms msrooms[(MAXNROFROOMS + 1) * 2]; /* same size as svr.rooms[] */
     /* dead heroes; might not have graves or ghosts */
     struct cemetery *final_resting_place; /* same as level.bonesinfo */
 } mapseen;
+
+#endif /* !MAKEDEFS_C && !MDLIB_C */
 
 #endif /* DUNGEON_H */

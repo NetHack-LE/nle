@@ -1,11 +1,11 @@
-/* NetHack 3.6	sys.h	$NHDT-Date: 1449296291 2015/12/05 06:18:11 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.27 $ */
+/* NetHack 5.0	sys.h	$NHDT-Date: 1693083207 2023/08/26 20:53:27 $  $NHDT-Branch: keni-crashweb2 $:$NHDT-Revision: 1.41 $ */
 /* Copyright (c) Kenneth Lorber, Kensington, Maryland, 2008. */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #ifndef SYS_H
 #define SYS_H
 
-struct sysopt {
+struct sysopt_s {
     char *support; /* local support contact */
     char *recover; /* how to run recover - may be overridden by win port */
     char *wizards; /* space-separated list of usernames */
@@ -15,6 +15,7 @@ struct sysopt {
     char *shellers;   /* like wizards, for ! command (-DSHELL); also ^Z */
     char *genericusers; /* usernames that prompt for user name */
     char *debugfiles; /* files to show debugplines in. '*' is all. */
+    char *msghandler;
 #ifdef DUMPLOG
     char *dumplogfile; /* where the dump file is saved */
 #endif
@@ -28,6 +29,7 @@ struct sysopt {
     int check_save_uid; /* restoring savefile checks UID? */
     int check_plname; /* use plname for checking wizards/explorers/shellers */
     int bones_pools;
+    long livelog; /* LL_foo events to livelog */
 
     /* record file */
     int persmax;
@@ -39,17 +41,26 @@ struct sysopt {
     /* panic options */
     char *gdbpath;
     char *greppath;
+    char *crashreporturl;
     int panictrace_gdb;
     int panictrace_libc;
+
+    /* save and bones format */
+    int saveformat[2];    /* primary and onetime conversion */
+    int bonesformat[2];   /* primary and onetime conversion */
 
     /* enable accessibility options */
     int accessibility;
 #ifdef WIN32
-    int portable_device_paths;  /* nethack configuration for a portable device */
+    int portable_device_paths;  /* nethack config for a portable device */
 #endif
+
+    /* nethack's interactive help menu */
+    int hideusage;      /* 0: include 'command-line usage' entry in help menu;
+                         * 1: suppress it */
 };
 
-extern struct sysopt sysopt;
+extern struct sysopt_s sysopt;
 
 #define SYSOPT_SEDUCE sysopt.seduce
 

@@ -1,4 +1,4 @@
-/* NetHack 3.6	objclass.h	$NHDT-Date: 1547255901 2019/01/12 01:18:21 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.20 $ */
+/* NetHack 5.0	objclass.h	$NHDT-Date: 1596498553 2020/08/03 23:49:13 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.22 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Pasi Kallinen, 2018. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -10,6 +10,7 @@
    (liquid potion inside glass bottle, metal arrowhead on wooden shaft)
    and object definitions only specify one type on a best-fit basis */
 enum obj_material_types {
+    NO_MATERIAL =  0,
     LIQUID      =  1, /* currently only for venom */
     WAX         =  2,
     VEGGY       =  3, /* foodstuffs */
@@ -50,11 +51,11 @@ struct objclass {
     Bitfield(oc_name_known, 1);     /* discovered */
     Bitfield(oc_merge, 1);          /* merge otherwise equal objects */
     Bitfield(oc_uses_known, 1);     /* obj->known affects full description;
-                                       otherwise, obj->dknown and obj->bknown
-                                       tell all, and obj->known should always
-                                       be set for proper merging behavior. */
-    Bitfield(oc_pre_discovered, 1); /* Already known at start of game;
-                                       won't be listed as a discovery. */
+                                     * otherwise, obj->dknown and obj->bknown
+                                     * tell all, and obj->known should always
+                                     * be set for proper merging behavior. */
+    Bitfield(oc_encountered, 1);    /* hero has observed such an item at least
+                                       once (perhaps without naming it) */
     Bitfield(oc_magic, 1);          /* inherently magical object */
     Bitfield(oc_charged, 1);        /* may have +n or (n) charges */
     Bitfield(oc_unique, 1);         /* special one-of-a-kind object */
@@ -65,38 +66,20 @@ struct objclass {
 #define oc_bulky oc_big    /* for armor */
     Bitfield(oc_tough, 1); /* hard gems/rings */
 
-    Bitfield(oc_dir, 2);
-#define NODIR 1     /* for wands/spells: non-directional */
-#define IMMEDIATE 2 /*               directional */
-#define RAY 3       /*               zap beams */
+    Bitfield(oc_spare1, 6);         /* padding to align oc_dir + oc_material;
+                                     * can be cannibalized for other use;
+                                     * aka 6 free bits */
 
-#define PIERCE 1 /* for weapons & tools used as weapons */
-#define SLASH 2  /* (latter includes iron ball & chain) */
-#define WHACK 0
-
-    /* 4 free bits */
-
+    Bitfield(oc_dir, 3);
+    /* oc_dir: zap style for wands and spells */
+#define NODIR     1 /* non-directional */
+#define IMMEDIATE 2 /* directional beam that doesn't ricochet */
+#define RAY       3 /* beam that does bounce off walls */
+    /* overloaded oc_dir: strike mode bit mask for weapons and weptools */
+#define PIERCE    1 /* pointed weapon punctures target */
+#define SLASH     2 /* sharp weapon cuts target */
+#define WHACK     4 /* blunt weapon bashes target */
     Bitfield(oc_material, 5); /* one of obj_material_types */
-
-#define is_organic(otmp) (objects[otmp->otyp].oc_material <= WOOD)
-#define is_metallic(otmp)                    \
-    (objects[otmp->otyp].oc_material >= IRON \
-     && objects[otmp->otyp].oc_material <= MITHRIL)
-
-/* primary damage: fire/rust/--- */
-/* is_flammable(otmp), is_rottable(otmp) in mkobj.c */
-#define is_rustprone(otmp) (objects[otmp->otyp].oc_material == IRON)
-
-/* secondary damage: rot/acid/acid */
-#define is_corrodeable(otmp)                   \
-    (objects[otmp->otyp].oc_material == COPPER \
-     || objects[otmp->otyp].oc_material == IRON)
-
-#define is_damageable(otmp)                                        \
-    (is_rustprone(otmp) || is_flammable(otmp) || is_rottable(otmp) \
-     || is_corrodeable(otmp))
-
-    /* 3 free bits */
 
     schar oc_subtyp;
 #define oc_skill oc_subtyp  /* Skills of weapons, spellbooks, tools, gems */
@@ -108,7 +91,7 @@ struct objclass {
     uchar oc_color; /* color of the object */
 
     short oc_prob;            /* probability, used in mkobj() */
-    unsigned short oc_weight; /* encumbrance (1 cn = 0.1 lb.) */
+    unsigned oc_weight;       /* encumbrance (1 cn = 0.1 lb.) */
     short oc_cost;            /* base cost in shops */
     /* Check the AD&D rules!  The FIRST is small monster damage. */
     /* for weapons, and tools, rocks, and gems useful as weapons */
@@ -121,6 +104,11 @@ struct objclass {
 #define oc_level oc_oc2 /* books: spell level */
 
     unsigned short oc_nutrition; /* food value */
+
+    unsigned long oc_sell_minseen;
+    unsigned long oc_sell_maxseen;
+    unsigned long oc_buy_minseen;
+    unsigned long oc_buy_maxseen;
 };
 
 struct class_sym {
@@ -134,68 +122,44 @@ struct objdescr {
     const char *oc_descr; /* description when name unknown */
 };
 
-extern NEARDATA struct objclass objects[];
-extern NEARDATA struct objdescr obj_descr[];
-
 /*
  * All objects have a class. Make sure that all classes have a corresponding
  * symbol below.
  */
-enum obj_class_types {
-    RANDOM_CLASS =  0, /* used for generating random objects */
-    ILLOBJ_CLASS =  1,
-    WEAPON_CLASS =  2,
-    ARMOR_CLASS  =  3,
-    RING_CLASS   =  4,
-    AMULET_CLASS =  5,
-    TOOL_CLASS   =  6,
-    FOOD_CLASS   =  7,
-    POTION_CLASS =  8,
-    SCROLL_CLASS =  9,
-    SPBOOK_CLASS = 10, /* actually SPELL-book */
-    WAND_CLASS   = 11,
-    COIN_CLASS   = 12,
-    GEM_CLASS    = 13,
-    ROCK_CLASS   = 14,
-    BALL_CLASS   = 15,
-    CHAIN_CLASS  = 16,
-    VENOM_CLASS  = 17,
 
-    MAXOCLASSES  = 18
+enum objclass_defchars {
+#define OBJCLASS_DEFCHAR_ENUM
+#include "defsym.h"
+#undef OBJCLASS_DEFCHAR_ENUM
 };
 
-#define ALLOW_COUNT (MAXOCLASSES + 1) /* Can be used in the object class    */
-#define ALL_CLASSES (MAXOCLASSES + 2) /* input to getobj().                 */
-#define ALLOW_NONE  (MAXOCLASSES + 3)
+enum objclass_classes {
+    RANDOM_CLASS =  0, /* used for generating random objects */
+#define OBJCLASS_CLASS_ENUM
+#include "defsym.h"
+#undef OBJCLASS_CLASS_ENUM
+    MAXOCLASSES
+};
 
-#define BURNING_OIL (MAXOCLASSES + 1) /* Can be used as input to explode.   */
+/* Default characters for object classes */
+enum objclass_syms {
+#define OBJCLASS_S_ENUM
+#include "defsym.h"
+#undef OBJCLASS_S_ENUM
+};
+
+/* for mkobj() use ONLY! odd '-SPBOOK_CLASS' is in case of unsigned enums */
+#define SPBOOK_no_NOVEL (0 - (int) SPBOOK_CLASS)
+
+#define BURNING_OIL (MAXOCLASSES + 1) /* Can be used as input to explode    */
 #define MON_EXPLODE (MAXOCLASSES + 2) /* Exploding monster (e.g. gas spore) */
+#define TRAP_EXPLODE (MAXOCLASSES + 3)
 
 #if 0 /* moved to decl.h so that makedefs.c won't see them */
 extern const struct class_sym
         def_oc_syms[MAXOCLASSES];       /* default class symbols */
 extern uchar oc_syms[MAXOCLASSES];      /* current class symbols */
 #endif
-
-/* Default definitions of all object-symbols (must match classes above). */
-
-#define ILLOBJ_SYM ']' /* also used for mimics */
-#define WEAPON_SYM ')'
-#define ARMOR_SYM '['
-#define RING_SYM '='
-#define AMULET_SYM '"'
-#define TOOL_SYM '('
-#define FOOD_SYM '%'
-#define POTION_SYM '!'
-#define SCROLL_SYM '?'
-#define SPBOOK_SYM '+'
-#define WAND_SYM '/'
-#define GOLD_SYM '$'
-#define GEM_SYM '*'
-#define ROCK_SYM '`'
-#define BALL_SYM '0'
-#define CHAIN_SYM '_'
-#define VENOM_SYM '.'
 
 struct fruit {
     char fname[PL_FSIZ];
@@ -205,6 +169,46 @@ struct fruit {
 #define newfruit() (struct fruit *) alloc(sizeof(struct fruit))
 #define dealloc_fruit(rind) free((genericptr_t)(rind))
 
+enum objects_nums {
+#define OBJECTS_ENUM
+#include "objects.h"
+#undef OBJECTS_ENUM
+    NUM_OBJECTS
+};
+
+enum misc_object_nums {
+    NUM_REAL_GEMS  = (LAST_REAL_GEM - FIRST_REAL_GEM + 1),
+    NUM_GLASS_GEMS = (LAST_GLASS_GEM - FIRST_GLASS_GEM + 1),
+    /* LAST_SPELL is SPE_BLANK_PAPER, guaranteeing that spl_book[] will
+       have at least one unused slot at end to be used as a terminator */
+    MAXSPELL       = (LAST_SPELL - FIRST_SPELL + 1),
+};
+
+extern NEARDATA struct objclass objects[NUM_OBJECTS + 1];
+extern NEARDATA struct objdescr obj_descr[NUM_OBJECTS + 1];
+
 #define OBJ_NAME(obj) (obj_descr[(obj).oc_name_idx].oc_name)
 #define OBJ_DESCR(obj) (obj_descr[(obj).oc_descr_idx].oc_descr)
+
+#define is_organic(otmp) (objects[otmp->otyp].oc_material <= WOOD)
+#define is_metallic(otmp) \
+    (objects[otmp->otyp].oc_material >= IRON            \
+     && objects[otmp->otyp].oc_material <= MITHRIL)
+
+/* primary damage: fire/rust/--- */
+/* is_flammable(otmp), is_rottable(otmp) in mkobj.c */
+#define is_rustprone(otmp) (objects[otmp->otyp].oc_material == IRON)
+#define is_crackable(otmp) \
+    (objects[(otmp)->otyp].oc_material == GLASS         \
+     && (otmp)->oclass == ARMOR_CLASS) /* erosion_matters() */
+/* secondary damage: rot/acid/acid */
+#define is_corrodeable(otmp) \
+    (objects[otmp->otyp].oc_material == COPPER          \
+     || objects[otmp->otyp].oc_material == IRON)
+/* subject to any damage */
+#define is_damageable(otmp) \
+    (is_rustprone(otmp) || is_flammable(otmp)           \
+     || is_rottable(otmp) || is_corrodeable(otmp)       \
+     || is_crackable(otmp))
+
 #endif /* OBJCLASS_H */
