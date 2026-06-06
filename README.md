@@ -192,7 +192,7 @@ For information on how to download NLD-AA and NLD-NAO, see the dataset doc [here
 Otherwise checkout the tutorial Colab notebook [here](https://colab.research.google.com/drive/1GRP15SbOEDjbyhJGMDDb2rXAptRQztUD?usp=sharing).
 
 # Papers using the NetHack Learning Environment
-- Matthews, et al., [Revisiting The NetHack Learning Environment](https://iclr-blogposts.github.io/2026/blog/2026/revisiting-the-nle/#conclusion), ICLR Blogposts, 2026.
+- Henaff et al. [Scalable Option Learning in High-Throughput Environments](https://arxiv.org/abs/2509.00338), arXiv:2509.00338 \[cs.LG\].
 - Paglieri et al. [BALROG: Benchmarking Agentic LLM and VLM Reasoning On Games](https://arxiv.org/abs/2411.13543) (UCL, IDEAS NCBR, NYU, Oxford, Anthropic, ICLR 2025)
 - Klissarov et al. [MaestroMotif: Skill Design from Artificial Intelligence Feedback](https://arxiv.org/abs/2412.08542) (Mila, FAIR, UT Austin, Alberta, Amii, ICLR 2025) 
 - Klissarov et al. [Motif: Intrinsic Motivation from Artificial Intelligence Feedback](https://arxiv.org/abs/2310.00166) (Mila, FAIR, UT Austin, ICLR 2024) 
