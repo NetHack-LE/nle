@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# NetHack 3.6  NHsubst       $NHDT-Date: 1524689631 2018/04/25 20:53:51 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.4 $
+# NetHack 3.7  NHsubst       $NHDT-Date: 1596498407 2020/08/03 23:46:47 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.5 $
 # Copyright (c) 2015 by Kenneth Lorber, Kensington, Maryland
 # NetHack may be freely redistributed.  See license for details.
 
@@ -17,24 +17,24 @@ my $dbgfile = ($^O eq "MSWin32") ? "$ENV{TEMP}.$$" : "/tmp/trace.$$";
 open TRACE, ">>", $rawin?"/dev/tty":(($debug==0)? $sink : $dbgfile);
 print TRACE "TEST TRACE\n";
 if($debug){
-	print TRACE "START CLIENT ARGV:\n";
-	print TRACE "[0] $0\n";
-	my $x1;
-	for(my $x=0;$x<scalar @ARGV;$x++){
-		$x1 = $x+1;
-		print TRACE "[$x1] $ARGV[$x]\n";
-	}
-	print TRACE "ENV:\n";
-	foreach my $k (sort keys %ENV){
-		next unless ($k =~ m/^GIT_/);
-		print TRACE " $k => $ENV{$k}\n";
-	}
-	print TRACE "CWD: " . `pwd`;
-	&dumpfile($ARGV[0], "[0O]");
-	&dumpfile($ARGV[1], "[1A]");
-	&dumpfile($ARGV[2], "[2B]");
-	print TRACE "L=$ARGV[3]\n";
-	print TRACE "END\n";
+    print TRACE "START CLIENT ARGV:\n";
+    print TRACE "[0] $0\n";
+    my $x1;
+    for(my $x=0;$x<scalar @ARGV;$x++){
+	$x1 = $x+1;
+	print TRACE "[$x1] $ARGV[$x]\n";
+    }
+    print TRACE "ENV:\n";
+    foreach my $k (sort keys %ENV){
+	next unless ($k =~ m/^GIT_/);
+	print TRACE " $k => $ENV{$k}\n";
+    }
+    print TRACE "CWD: " . `pwd`;
+    &dumpfile($ARGV[0], "[0O]");
+    &dumpfile($ARGV[1], "[1A]");
+    &dumpfile($ARGV[2], "[2B]");
+    print TRACE "L=$ARGV[3]\n";
+    print TRACE "END\n";
 }
 
 my $mark_len = $ARGV[3];
@@ -47,37 +47,37 @@ my $mark_end = '>' x $mark_len;
 my $PREFIX;
 # pick up the prefix for substitutions in this repo
 if($rawin){
-	$PREFIX = "TEST";
+    $PREFIX = "TEST";
 } else {
-	$PREFIX = `git config --local --get nethack.substprefix`;
-	chomp($PREFIX);
+    $PREFIX = `git config --local --get nethack.substprefix`;
+    chomp($PREFIX);
 }
 
 my @out;
 my $cntout;
 if($rawin){
-	@out = <STDIN>;
+    @out = <STDIN>;
 } else {
-	#system "git merge-file -p .... > temp
-	my $tags = "-L CURRENT -L ANCESTOR -L OTHER";	# XXX should "CURRENT" be "MINE"?
-	@out = `git merge-file -p $tags $ARGV[1] $ARGV[0] $ARGV[2]`;
+    #system "git merge-file -p .... > temp
+    my $tags = "-L CURRENT -L ANCESTOR -L OTHER";	# XXX should "CURRENT" be "MINE"?
+    @out = `git merge-file -p $tags $ARGV[1] $ARGV[0] $ARGV[2]`;
 	#NB: we don't check the exit value because it's useless
-	print TRACE "MERGE-FILE START\n".join("",@out)."MERGE-FILE END\n";
+    print TRACE "MERGE-FILE START\n".join("",@out)."MERGE-FILE END\n";
 }
 
 ($cntout,@out) = &edit_merge(@out);
 
 if($rawin){
-	print "COUNT: $cntout\n";
-	print @out;
+    print "COUNT: $cntout\n";
+    print @out;
 } else {
-	# spit @out to $ARGV[1]  (careful: what about EOL character?)
-	open OUT, ">$ARGV[1]" or die "Can't open $ARGV[1]";
-	print OUT @out;
-	close OUT;
+    # spit @out to $ARGV[1]  (careful: what about EOL character?)
+    open OUT, ">$ARGV[1]" or die "Can't open $ARGV[1]";
+    print OUT @out;
+    close OUT;
 
-	print TRACE "WRITING START ($ARGV[1])\n".join("",@out)."WRITING END\n";
-	&dumpfile($ARGV[1], "READBACK");
+    print TRACE "WRITING START ($ARGV[1])\n".join("",@out)."WRITING END\n";
+    &dumpfile($ARGV[1], "READBACK");
 }
 print TRACE "COUNT: $cntout\n";
 
@@ -95,37 +95,37 @@ exit( ($cntout>0) ? 1 : 0);
 # keep failing so we don't need to keep changing the setup while building this script
 
 sub dumpfile {
-	my($file, $tag) = @_;
-	print TRACE "FILE $tag START\n";
-	print TRACE `hexdump -C $file`;
-	print TRACE "FILE END\n";
+    my($file, $tag) = @_;
+    print TRACE "FILE $tag START\n";
+    print TRACE `hexdump -C $file`;
+    print TRACE "FILE END\n";
 }
 
 sub edit_merge {
-	my(@input) = @_;
-					# $::count is a bit ugly XXX
-	local $::count = 0;		# we need the number of conflicts for exit()
-	my @out;
+    my(@input) = @_;
+				# $::count is a bit ugly XXX
+    local $::count = 0;		# we need the number of conflicts for exit()
+    my @out;
 
-	local $_;
-	while($_ = shift @input){
-		if(m/^$mark_start /){
-			print TRACE "FOUND A CONFLICT\n";
-			my @conflict;
-			push(@conflict, $_);
-			while($_ = shift @input){
-				push(@conflict, $_);
-				if(m/^$mark_end /){
-					last;
-				}
-			}
-			push(@out, &edit_conflict(@conflict));
-		} else {
-			push(@out, $_);
+    local $_;
+    while($_ = shift @input){
+	if(m/^$mark_start /){
+	    print TRACE "FOUND A CONFLICT\n";
+	    my @conflict;
+	    push(@conflict, $_);
+	    while($_ = shift @input){
+		push(@conflict, $_);
+		if(m/^$mark_end /){
+		    last;
 		}
+	    }
+	    push(@out, &edit_conflict(@conflict));
+	} else {
+	    push(@out, $_);
 	}
-	print TRACE "RETURN count=$::count\n";
-	return($::count, @out);
+    }
+    print TRACE "RETURN count=$::count\n";
+    return($::count, @out);
 }
 
 sub edit_conflict {
@@ -305,41 +305,41 @@ print TRACE "MVM: -$varname-$oursval-$theirval-\n";
 package PREFIX;
 # Resolve the conflict of a single var's 2 values.  Return undef to leave the conflict.
 sub Date {
-	my($PREFIX, $varname, $mine, $theirs) = @_;
-	my $m = ($mine =~ m/(\d+)/)[0];
-	my $t = ($theirs =~ m/(\d+)/)[0];
-	return undef unless ($m>0) && ($t>0);
+    my($PREFIX, $varname, $mine, $theirs) = @_;
+    my $m = ($mine =~ m/(\d+)/)[0];
+    my $t = ($theirs =~ m/(\d+)/)[0];
+    return undef unless ($m>0) && ($t>0);
 
-	return "\$$PREFIX-$varname: " . (($m>$t)?$mine:$theirs) .' $';
+    return "\$$PREFIX-$varname: " . (($m>$t)?$mine:$theirs) .' $';
 }
 
 #sub Header {
 #sub Author {
 
 sub Branch {
-	my($PREFIX, $varname, $mine, $theirs) = @_;
-	$mine =~ s/^\s+//;	$mine =~ s/\s+$//;
-	$theirs =~ s/^\s+//;	$theirs =~ s/\s+$//;
-	return "\$$PREFIX-$varname: $mine \$" if(length $mine);
-	return "\$$PREFIX-$varname: $theirs \$" if(length $theirs);
-	return "\$$PREFIX-$varname\$" if(length $theirs);
+    my($PREFIX, $varname, $mine, $theirs) = @_;
+    $mine =~ s/^\s+//;	$mine =~ s/\s+$//;
+    $theirs =~ s/^\s+//;	$theirs =~ s/\s+$//;
+    return "\$$PREFIX-$varname: $mine \$" if(length $mine);
+    return "\$$PREFIX-$varname: $theirs \$" if(length $theirs);
+    return "\$$PREFIX-$varname\$" if(length $theirs);
 }
 
 sub Revision {
-	my($PREFIX, $varname, $mine, $theirs) = @_;
-	my($m) = ($mine =~ m/1.(\d+)/);
-	my($t) = ($theirs =~ m/1.(\d+)/);
-	if($m > 0 && $t > 0){
-		my $q = ($m > $t) ? $m : $t;
-		return "\$$PREFIX-$varname: 1.$q \$";
-	}
-	if($m > 0){
-		return "\$$PREFIX-$varname: 1.$m \$";
-	}
-	if($t > 0){
-		return "\$$PREFIX-$varname: 1.$t \$";
-	}
-	return "\$$PREFIX-$varname\$";
+    my($PREFIX, $varname, $mine, $theirs) = @_;
+    my($m) = ($mine =~ m/1.(\d+)/);
+    my($t) = ($theirs =~ m/1.(\d+)/);
+    if($m > 0 && $t > 0){
+	my $q = ($m > $t) ? $m : $t;
+	return "\$$PREFIX-$varname: 1.$q \$";
+    }
+    if($m > 0){
+	return "\$$PREFIX-$varname: 1.$m \$";
+    }
+    if($t > 0){
+	return "\$$PREFIX-$varname: 1.$t \$";
+    }
+    return "\$$PREFIX-$varname\$";
 }
 __END__
 
@@ -392,7 +392,21 @@ $TEST-Branch: theirs $
 
 TEST 8:
 <<< d1
-/* NetHack 3.6        objnam.c        $TEST-Date$ $TEST-Branch$:$TEST-Revision$ */
+/* NetHack 5.0        objnam.c        $TEST-Date$ $TEST-Branch$:$TEST-Revision$ */
 ===
-/* NetHack 3.6        objnam.c        $TEST-Date: 1426977394 2015/03/21 22:36:34 $  $TEST-Branch: master $:$TEST-Revision: 1.108 $ */
+/* NetHack 5.0        objnam.c        $TEST-Date: 1426977394 2015/03/21 22:36:34 $  $TEST-Branch: master $:$TEST-Revision: 1.108 $ */
 >>> d3
+
+=for nhgitset NHsubst NetHack merge driver
+
+=head1 NAME
+
+C<NHsubst> - NetHack merge driver
+
+=head1 SYNOPSIS
+
+(called from C<git>, do not invoke directly)
+        
+=head1 DESCRIPTION
+
+This is invoked by git through .git/config.

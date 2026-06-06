@@ -1,0 +1,79 @@
+#!/usr/bin/perl
+# $NHDT-Date: 1730238507 2024/10/29 21:48:27 $ $NHDT-Brev: keni-gitset:1.0 $
+# Copyright (c) 2024 by Kenneth Lorber, Kensington, Maryland
+# NetHack may be freely redistributed.  See license for details.
+
+# This deals with a git problem: there is no way to do:
+#   git help alias-name
+# (yes, that will show the definition of the alias, but not show an actual
+# help document).
+#
+# So we implement this:
+#  nhhelp
+#	With no arguments, run perldoc on this file.
+#  nhhelp FOO
+#	Run perldoc on .git/hooks/FOO (if it exists).
+
+if($#ARGV == -1){
+    system("perldoc $0")==0 or die "perldoc error: $!\n";
+    exit 0;
+}
+if($#ARGV == 0){
+    if($ARGV[0] eq "-a"){
+	&listhelp;
+	exit 0;
+    }
+
+    chomp(my $target = `git config nethack.aliashelp.$ARGV[0]`);
+    my $file = ".git/hooks/$target";
+    if(-f $file){
+	system("perldoc $file")==0 or die "perldoc error: $!\n";
+    } else {
+	print "Unknown name '$ARGV[0]'\n";
+	&usage;
+    }
+    exit 0;
+}
+&usage;
+exit 0;
+
+sub usage {
+print <<E_O_M;
+usage: git nhhelp [<nhcmd>|-a]
+E_O_M
+}
+
+sub listhelp {
+    print "nhhelp is available for:\n";
+    my @namelist = `git config --name-only --get-regexp 'nethack.aliashelp.*'`;
+    print "NAMELIST $?\n" if($?);
+    @namelist = map {
+	if(m/^nethack.aliashelp.(.*)/){
+	    chomp(my $x = `git config 'nethack.aliasdesc.$1'`);
+	    sprintf("%-12s %s",$1,$x);
+	}
+    } sort @namelist;
+    print "    " . join("\n    ", @namelist)."\n";
+    exit 0;
+}
+
+__END__
+=for nhgitset nhhelp Help on NetHack git commands
+
+=head1 NAME
+
+C<nhhelp> - NetHack git command for help on NetHack git commands
+
+=head1 SYNOPSIS
+        
+C<git nhhelp [nhcmd|-a]>
+        
+=head1 DESCRIPTION
+
+With no arguments, print this message.
+
+With one argument matching a NetHack git command, print the
+documentation for that command.
+
+With the argument C<-a>, show all available nhhelp topics with one line
+summaries.

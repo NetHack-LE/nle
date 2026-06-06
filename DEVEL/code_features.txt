@@ -1,4 +1,4 @@
-# NetHack 3.6  code_features.txt $NHDT-Date: 1524689669 2018/04/25 20:54:29 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.3 $
+# NetHack 5.0  code_features.txt $NHDT-Date: 1596498264 2020/08/03 23:44:24 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.6 $
 # Copyright (c) 2015 by Michael Allison
 # NetHack may be freely redistributed.  See license for details.
 
@@ -100,6 +100,23 @@ engine are incompatible.
 
 Additional regular expression implementations can be written. The full
 interface documentation is in sys/share/posixregex.c
+
+===========================================================
+HEADER FILE NOTES
+
+hack.h defines values that are available to all NetHack source files,
+contains enums for use in all NetHack source files, and contains a
+number of struct definitions for use in all NetHack source files.
+hack.h does not contain variable declarations or variable definitions.
+
+decl.h and decl.c are related: decl.h contains the extern declarations
+for variables that are defined in decl.c. These variables are global
+and available to all NetHack source files.
+decl.c variable definitions are generally laid out in much the same
+order as their corresponding declarations in decl.h.
+
+A new header file cstd.h was added to coincide with 5.0's switch to
+C99. It contains calls to some C99 standard header files.
 
 =================== NEXT FEATURE ==========================
 

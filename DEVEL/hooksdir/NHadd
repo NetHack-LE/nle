@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# NetHack 3.6  NHadd       $NHDT-Date: 1524689631 2018/04/25 20:53:51 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.1 $
+# NetHack 3.7  NHadd       $NHDT-Date: 1596498406 2020/08/03 23:46:46 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.2 $
 # Copyright (c) 2015 by Kenneth Lorber, Kensington, Maryland
 # NetHack may be freely redistributed.  See license for details.
 
@@ -12,11 +12,32 @@ die "Bad subcommand '$ARGV[0]'" unless $ok{$ARGV[0]};
 # we won't fail on a failure, so just system()
 $rv = system('.git/hooks/nhsub',"--$ARGV[0]",@ARGV[1..$#ARGV]);
 if($rv){
-        print "warning: nhsub failed: $rv $!\n";
+    print "warning: nhsub failed: $rv $!\n";
 }
 
 if(length $ENV{GIT_PREFIX}){
-        chdir($ENV{GIT_PREFIX}) or die "Can't chdir $ENV{GIT_PREFIX}: $!";
+    chdir($ENV{GIT_PREFIX}) or die "Can't chdir $ENV{GIT_PREFIX}: $!";
 }
 
 exec "git", @ARGV or die "Can't exec git: $!";
+
+__END__
+=for nhgitset nhadd Add file contents to the index with NetHack additions
+=for nhgitset nhcommit Record changes to the repository with NetHack additions
+
+=head1 NAME
+
+C<NHadd> - NetHack internal common code for nhadd and nhcommit
+
+=head1 SYNOPSIS
+
+C<git nhadd E<lt>git add optionsE<gt>>
+
+C<git nhcommit E<lt>git add optionsE<gt>>
+
+=head1 DESCRIPTION
+
+Run nhsub with the given arguments, then run C<git add> or C<git commit>
+with the given arguments.  Note that only basic arguments for those commands
+are understood; more complex situations may be handled by running C<git nhsub>
+manually before running C<git add> or C<git commit>.

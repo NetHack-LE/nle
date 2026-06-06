@@ -4,7 +4,7 @@
  |___/\___|\_/\___|_\___/ .__/\___|_|
                         |_|
 
-# NetHack 3.6  Developer.txt       $NHDT-Date: 1524689668 2018/04/25 20:54:28 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.13 $
+# NetHack 3.7  Developer.txt       $NHDT-Date: 1596498265 2020/08/03 23:44:25 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.19 $
 # Copyright (c) 2015 by Kenneth Lorber, Kensington, Maryland
 # NetHack may be freely redistributed.  See license for details.
 
@@ -35,8 +35,7 @@ while.  Please do not send save files, binary screen grabs, or other large
 things.
 ------------------------------------------------------------------------------
 2. git repositories
-A public repository of the latest NetHack code that we've made 
-available can be obtained via git from either of two locations:
+The public NetHack git repository is available (read-only) at:
     https://github.com/NetHack/NetHack
      or
     https://sourceforge.net/p/nethack/NetHack/
@@ -59,6 +58,11 @@ NOTE: These instructions assume you are on the default branch; this _is_
 NOTE: The following instructions require perl.  If you do not have perl on
       your system, please install it before proceeding.
 
+NOTE: More information on nhgitset.pl is available before installation via:
+           perldoc DEVEL/nhgitset.pl
+      After installation, the same information is available with:
+           git nhhelp nhgitset
+
 A. If you have never set up git on this machine before:
    (This assumes you will only be using git for NetHack.  If you are going to
    use it for other projects as well, think before you type.)
@@ -66,11 +70,24 @@ A. If you have never set up git on this machine before:
 		git config --global user.name "MY NAME"
 		git config --global user.email USER@EXAMPLE.COM
    You probably want to set up a credential cache.
-	Mac OS X:
-		git config --global credential.helper osxkeychain
-	Windows:
-		git config --global credential.helper store
-XXX linux
+	macOS (10 or greater):
+	    git config --global credential.helper osxkeychain
+	Linux:
+	    (This will vary by distribution.)
+	    cd /usr/share/doc/git/contrib/credential/libsecret
+	    sudo apt-get install libglib-2.0-dev libsecret-1-dev
+	    sudo make
+	    git config --global credential.helper `pwd`/git-credential-libsecret
+		OR
+	    sudo yum install git-credential-libsecret
+	    git config --global credential.helper /usr/libexec/git-core/git-credential-libsecret
+	Windows: (The following three assume that Git for Windows is already installed on
+	          the underlying Windows system https://git-scm.com/download/win):
+	    git config --global credential.helper store
+          MSYS2 UCRT64 bash shell:
+            git config --global credential.helper "/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe"
+	  Windows Subsystem for Linux 2 (WSL2) bash shell:
+            git config --global credential.helper "/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe"
 B. Specify the prefix for variable substitution:
    (This assumes you are not a member of DevTeam or any variant's development
    team.  If you are, this may be wrong.  Look for more specific documentation.
@@ -80,10 +97,11 @@ B. Specify the prefix for variable substitution:
 	tree you cloned from git.  I use ~/nethack/GITADDDIR; for that base,
 	create the needed directories and edit the file:
 		~/nethack/GITADDDIR/DOTGIT/PRE
-	Put this in it (if your OS is not Unix-like you may need to change
-	the first line):
+	Put this in it, adapting it to your variant (if your OS is not Unix-like
+	you may need to change the first line):
 		#!/bin/sh
 		git config nethack.substprefix MINE
+		git config nethack.projectname MineHack
 	Now make it executable:
 		chmod +x ~/nethack/GITADDDIR/DOTGIT/PRE
 C. Configure the repository:
@@ -157,8 +175,8 @@ A. Introduction
    The PREFIX is the value in the git config variable nethack.substprefix.
    VARNAME is one of:
 	Date
-	Branch (experimental)
-	Revision (experimental)
+	Branch
+	Revision
    other names will give a warning.
 
 B. Enabling variable expansion

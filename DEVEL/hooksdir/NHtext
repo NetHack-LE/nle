@@ -1,7 +1,9 @@
 #!/usr/bin/perl
-# NetHack 3.6  NHtext       $NHDT-Date: 1524689631 2018/04/25 20:53:51 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.8 $
+# NetHack 3.7  NHtext       $NHDT-Date: 1596498408 2020/08/03 23:46:48 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.9 $
 # Copyright (c) 2015 by Kenneth Lorber, Kensington, Maryland
 # NetHack may be freely redistributed.  See license for details.
+
+# Not in use as of v3, but could come back in the future.
 
 # clean/smudge filter for handling substitutions
 use strict;
@@ -54,9 +56,9 @@ if($ARGV[0] eq "--clean"){
 	exit 1;
 }
 
-# XXX for now, there isn't any - if we get called, we subst.  No options for now.
-# get relevent config info
-#XXX
+# XX for now, there isn't any - if we get called, we subst.  No options for now.
+# get relevant config info
+#XX
 #git check-attr -a $ARGV[1]
 
 # Process stdin to stdout.
@@ -109,7 +111,7 @@ sub Date {
 	my($val, $mode, $submode) = @_;
 	if($mode eq "c"){
 		if($submode==0){
-			# we add this to make merge easier for now XXX
+			# we add this to make merge easier for now XX
 			my $now = time; # not %s below - may not be portable
 			# YYYY/MM/DD HH:MM:SS
 			$val = "$now " . strftime("%Y/%m/%d %H:%M:%S", gmtime($now));

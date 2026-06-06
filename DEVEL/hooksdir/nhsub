@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $NHDT-Date: 1524689646 2018/04/25 20:54:06 $ Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.7 $
+# $NHDT-Date: 1524689646 2018/04/25 20:54:06 $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.7 $
 # Copyright (c) 2015 by Kenneth Lorber, Kensington, Maryland
 # NetHack may be freely redistributed.  See license for details.
 
@@ -8,9 +8,11 @@
 use strict;
 our %opt;	#cmd v n f F m (other single char, but we don't care)
 my $mode;	# a c d f (add, commit, date, date -f)
+our $count;
+our $skip;
 
 if(length $ENV{GIT_PREFIX}){
-        chdir($ENV{GIT_PREFIX}) or die "Can't chdir $ENV{GIT_PREFIX}: $!";
+    chdir($ENV{GIT_PREFIX}) or die "Can't chdir $ENV{GIT_PREFIX}: $!";
 }
 
 #SO how do we know if a file has changed?
@@ -23,74 +25,78 @@ if(length $ENV{GIT_PREFIX}){
 # (see "git help status" for table)
 # No default.  Undef means something unexpected happened.
 my %codes = (
-	'f M'=>1, 'f D'=>1,		#           [MD]   not updated
-	'a M'=>0, 'a D'=>0,
-	'd M'=>0, 'd D'=>0,
-	'c M'=>0, 'c D'=>0,
+	    #           [MD]   not updated
+    'f M'=>1, 'f D'=>1,
+    'a M'=>0, 'a D'=>0,
+    'd M'=>0, 'd D'=>0,
+    'c M'=>0, 'c D'=>0,
 
-	'dM '=>0, 'dMM'=>1, 'dMD'=>0,
-	'aM '=>0, 'aMM'=>1, 'aMD'=>0,
-	'cM '=>0, 'cMM'=>1, 'cMD'=>0,
-	'fM '=>0, 'fMM'=>1, 'fMD'=>0,
-				#           M        [ MD]   updated in index
+    'dM '=>0, 'dMM'=>1, 'dMD'=>0,
+    'aM '=>0, 'aMM'=>1, 'aMD'=>0,
+    'cM '=>0, 'cMM'=>1, 'cMD'=>0,
+    'fM '=>0, 'fMM'=>1, 'fMD'=>0,
+	    #           M        [ MD]   updated in index
 
-	'dA '=>1, 'dAM'=>1, 'dAD'=>1,
-	'aA '=>1, 'aAM'=>1, 'aAD'=>1,
-	'cA '=>1, 'cAM'=>1, 'cAD'=>1,
-	'fA '=>1, 'fAM'=>1, 'fAD'=>1,
-				   # A        [ MD]   added to index
+    'dA '=>1, 'dAM'=>1, 'dAD'=>1,
+    'aA '=>1, 'aAM'=>1, 'aAD'=>1,
+    'cA '=>1, 'cAM'=>1, 'cAD'=>1,
+    'fA '=>1, 'fAM'=>1, 'fAD'=>1,
+	   #		A        [ MD]   added to index
 
-	'dD '=>0, 'dDM'=>0,
-	'aD '=>1, 'aDM'=>1,
-	'cD '=>0, 'cDM'=>0,
-	'fD '=>1, 'fDM'=>1,
-				   # D         [ M]   deleted from index
+    'dD '=>0, 'dDM'=>0,
+    'aD '=>1, 'aDM'=>1,
+    'cD '=>0, 'cDM'=>0,
+    'fD '=>1, 'fDM'=>1,
+	   # D         [ M]   deleted from index
 
-	'dR '=>0, 'dRM'=>1, 'dRD'=>0,
-	'aR '=>0, 'aRM'=>1, 'aRD'=>0,
-	'cR '=>0, 'cRM'=>1, 'cRD'=>0,
-	'fR '=>0, 'fRM'=>1, 'fRD'=>0,
-				#           R        [ MD]   renamed in index
+    'dR '=>0, 'dRM'=>1, 'dRD'=>0,
+    'aR '=>0, 'aRM'=>1, 'aRD'=>0,
+    'cR '=>0, 'cRM'=>1, 'cRD'=>0,
+    'fR '=>0, 'fRM'=>1, 'fRD'=>0,
+	    #           R        [ MD]   renamed in index
 
-	'dC '=>0, 'dCM'=>1, 'dCD'=>0,
-	'aC '=>0, 'aCM'=>1, 'aCD'=>0,
-	'cC '=>0, 'cCM'=>1, 'cCD'=>0,
-	'fC '=>0, 'fCM'=>1, 'fCD'=>0,
-				#           C        [ MD]   copied in index
+    'dC '=>0, 'dCM'=>1, 'dCD'=>0,
+    'aC '=>0, 'aCM'=>1, 'aCD'=>0,
+    'cC '=>0, 'cCM'=>1, 'cCD'=>0,
+    'fC '=>0, 'fCM'=>1, 'fCD'=>0,
+	    #           C        [ MD]   copied in index
 
-	'aM '=>1, 'aA '=>1, 'aR '=>1, 'aC '=>1,
-	'fM '=>1, 'fA '=>1, 'fR '=>1, 'fC '=>1,
-				   # [MARC]          index and work tree matches
+    'aM '=>1, 'aA '=>1, 'aR '=>1, 'aC '=>1,
+    'fM '=>1, 'fA '=>1, 'fR '=>1, 'fC '=>1,
+	   # [MARC]          index and work tree matches
 
-	'd M'=>1, 'dMM'=>1, 'dAM'=>1, 'dRM'=>1, 'dCM'=>1,
-	'a M'=>1, 'aMM'=>1, 'aAM'=>1, 'aRM'=>1, 'aCM'=>1,
-	'c M'=>1, 'cMM'=>1, 'cAM'=>1, 'cRM'=>1, 'cCM'=>1,
-	'f M'=>1, 'fMM'=>1, 'fAM'=>1, 'fRM'=>1, 'fCM'=>1,
-				   # [ MARC]     M work tree changed since index
+    'd M'=>1, 'dMM'=>1, 'dAM'=>1, 'dRM'=>1, 'dCM'=>1,
+    'a M'=>1, 'aMM'=>1, 'aAM'=>1, 'aRM'=>1, 'aCM'=>1,
+    'c M'=>1, 'cMM'=>1, 'cAM'=>1, 'cRM'=>1, 'cCM'=>1,
+    'f M'=>1, 'fMM'=>1, 'fAM'=>1, 'fRM'=>1, 'fCM'=>1,
+	   # [ MARC]     M work tree changed since index
 
-	'd D'=>0, 'dMD'=>0, 'dAD'=>0, 'dRD'=>0, 'dCD'=>0,
-	'a D'=>0, 'aMD'=>0, 'aAD'=>0, 'aRD'=>0, 'aCD'=>0,
-	'c D'=>0, 'cMD'=>0, 'cAD'=>0, 'cRD'=>0, 'cCD'=>0,
-	'f D'=>0, 'fMD'=>0, 'fAD'=>0, 'fRD'=>0, 'fCD'=>0,
-				   # [ MARC]     D    deleted in work tree
+    'd D'=>0, 'dMD'=>0, 'dAD'=>0, 'dRD'=>0, 'dCD'=>0,
+    'a D'=>0, 'aMD'=>0, 'aAD'=>0, 'aRD'=>0, 'aCD'=>0,
+    'c D'=>0, 'cMD'=>0, 'cAD'=>0, 'cRD'=>0, 'cCD'=>0,
+    'f D'=>0, 'fMD'=>0, 'fAD'=>0, 'fRD'=>0, 'fCD'=>0,
+	   # [ MARC]     D    deleted in work tree
 
-           # -------------------------------------------------
-           # DD    unmerged, both deleted
-           # AU    unmerged, added by us
-           # UD    unmerged, deleted by them
-           # UA    unmerged, added by them
-           # DU    unmerged, deleted by us
-           # AA    unmerged, both added
-           # UU    unmerged, both modified
-           # -------------------------------------------------
-        'a??'=>1, 'f??'=>1,		# ??    untracked
-	'd??'=>0, 'c??'=>0,
+        # -------------------------------------------------
+        # DD    unmerged, both deleted
+        # AU    unmerged, added by us
+        # UD    unmerged, deleted by them
+        # UA    unmerged, added by them
+        # DU    unmerged, deleted by us
+        # AA    unmerged, both added
+        # UU    unmerged, both modified
+	# -------------------------------------------------
+	    # ??    untracked
+    'a??'=>1, 'f??'=>1,
+    'd??'=>0, 'c??'=>0,
 
-	'f!!'=>1,			# !!    ignored
-	'a!!'=>0, 'd!!'=>0, 'c!!'=>0,
+	    # !!    ignored
+    'f!!'=>1,
 
-	'f@@'=>1,			# @@    internal ignored
-	'a@@'=>0, 'd@@'=>0, 'c@@'=>0
+    'a!!'=>0, 'd!!'=>0, 'c!!'=>0,
+
+    'f@@'=>1,			# @@    internal ignored
+    'a@@'=>0, 'd@@'=>0, 'c@@'=>0
 );
 
 # OS hackery
@@ -123,309 +129,430 @@ my @rawlist0 = &cmdparse(@ARGV);
 # Let's try this for all commands.
 my @rawlist;
 foreach my $e (@rawlist0){
-	if($e =~ m/[?*[\\]/){
-		my @rv = &lsfiles(undef, $e);
-		push(@rawlist, @rv) if(@rv);
-		if($opt{f}){
-			my @rv = &lsfiles('-i', $e);
-			push(@rawlist, @rv) if(@rv);
-		}
-	} else {
-		push(@rawlist, $e);
+    if($e =~ m/[?*[\\]/){
+	my @rv = &lsfiles(undef, $e);
+	push(@rawlist, @rv) if(@rv);
+	if($opt{f}){
+	    my @rv = &lsfiles('-i', $e);
+	    push(@rawlist, @rv) if(@rv);
 	}
+    } else {
+	push(@rawlist, $e);
+    }
 }
 
 push(@rawlist,'.') if($#rawlist == -1);
 
 # pick up the prefix for substitutions in this repo
-#TEST my $PREFIX = &git_config('nethack','substprefix');
-my $PREFIX = "NHDT";
+my $PREFIX = &git_config('nethack','substprefix');
+die "nethack.substprefix not set in git config" unless(length($PREFIX) > 0);
 print "PREFIX: '$PREFIX'\n" if($opt{v});
 
 while(@rawlist){
-	my $raw = shift @rawlist;
-	if(-f $raw){
+    my $raw = shift @rawlist;
+    if(-f $raw){
 		&schedule_work($raw);
 		next;
+    }
+    if(-d $raw){
+	if($raw =~ m!$PDS.git$!o){
+		print "SKIP $raw\n" if($opt{v}>=2);
+		next;
 	}
-	if(-d $raw){
-		if($raw =~ m!$PDS.git$!o){
-			print "SKIP $raw\n" if($opt{v}>=2);
-			next;
-		}
-		opendir RDIR,$raw or die "Can't opendir: $raw";
-		local($_);	# needed until perl 5.11.2
-		while($_ = readdir RDIR){
-			next if(m/^\.\.?$/);
-			if(m/^\./ && $opt{f}){
-				print "       IGNORE-f: $raw$PDS$_\n" if($opt{v}>=2);
-				next;
-			}
-			push(@rawlist, $raw.$PDS.$_);
-		}
-		closedir RDIR;
+	opendir RDIR,$raw or die "Can't opendir: $raw";
+	local($_);	# needed until perl 5.11.2
+	while($_ = readdir RDIR){
+	    next if(m/^\.\.?$/);
+	    if(m/^\./ && $opt{f}){
+		print "       IGNORE-f: $raw$PDS$_\n" if($opt{v}>=2);
+		next;
+	    }
+	    push(@rawlist, $raw.$PDS.$_);
 	}
+	closedir RDIR;
+    }
 	# ignore other file types
-	if(! -e $raw){
-		print "warning: missing file $raw\n";
+    if(! -e $raw){
+	print "warning: missing file $raw\n";
+    }
+}
+
+sub checkattr {
+    my($kw, $file) = @_;
+    my $attr = `git check-attr $kw -- $file`;
+    if($attr =~ m/$kw:\s+(.*)/){
+		    # This is a bug in git.  What if the value of an attribute is the
+		    # string "unset"?  Sigh.
+	if(! $opt{F}){
+	    if($1 eq "unset" || $1 eq "unspecified"){
+		    print "       NOATTR: $attr" if($opt{v}>=2);
+		    return 0;
+		}
 	}
+	return 1;
+    }
+    return 0;
 }
 
 # XXX could batch things up - later
-
 sub schedule_work {
-	my($file) = @_;
-	print "CHECK: '$file'\n" if($opt{v}>=2);
-	local($_) = `git status --porcelain --ignored -- $file`;
-	my $key = $mode . join('',(m/^(.)(.)/));
-	if(length $key == 1){
+    my($file) = @_;
+    print "CHECK: '$file'\n" if($opt{v}>=2);
+    local($_) = `git status --porcelain --ignored -- $file`;
+    my $key = $mode . join('',(m/^(.)(.)/));
+    if(length $key == 1){
 		# Hack.  An unmodified, tracked file produces no output from
 		# git status.  Treat as another version of 'ignored'.
-		$key .= '@@';
+	$key .= '@@';
+    }
+    $key =~ s/-/ /g;	# for Keni's locally mod'ed git
+    if(!exists $codes{$key}){
+	die "I'm lost.\nK='$key' F=$file\nST=$_";
+    }
+    if($codes{$key}==0){
+	if($opt{v}>=2){
+	    print "       IGNORE: $_" if(length);
+	    print "       IGNORE: !! $file\n" if(!length);
 	}
-	$key =~ s/-/ /g;	# for Keni's locally mod'ed git
-	if(!exists $codes{$key}){
-		die "I'm lost.\nK='$key' F=$file\nST=$_";
-	}
-	if($codes{$key}==0){
-		if($opt{v}>=2){
-			print "       IGNORE: $_" if(length);
-			print "       IGNORE: !! $file\n" if(!length);
-		}
+	return;
+    }
+    if($opt{F}){
+	    my $ign = `git check-ignore $file`;
+	    if($ign !~ m/^\s*$/){
+		print "       IGNORE-F: $ign" if($opt{v}>=2);
 		return;
-	}
-	if($opt{F}){
-		my $ign = `git check-ignore $file`;
-		if($ign !~ m/^\s*$/){
-			print "       IGNORE-F: $ign" if($opt{v}>=2);
-			return;
-		}
-	}
-# FALLTHROUGH and continue
-#print     "ACCEPT TEST\n";	# XXXXXXXXXX TEST
-#return;
+	    }
+    }
 
-	my $attr = `git check-attr NHSUBST -- $file`;
-	if($attr =~ m/NHSUBST:\s+(.*)/){
-# XXX this is a bug in git.  What if the value of an attribute is the
-# string "unset"?  Sigh.
-		if(! $opt{F}){
-			if($1 eq "unset" || $1 eq "unspecified"){
-				print "       NOATTR: $attr" if($opt{v}>=2);
-				return;
-			}
-		}
-		&process_file($file);
-		return;
-	}
-	die "Can't parse check-attr return: $attr\n";
+    my $do_nhsubst = &checkattr('NHSUBST', $file);
+    my $do_nhdatesub = &checkattr('NH_DATESUB', $file);
+    &process_file($file, $do_nhsubst, $do_nhdatesub);
+# XXX no longer reachable - parse errors not caught properly?
+#	die "Can't parse check-attr return: $attr\n";
 }
 
 sub process_file {
-	my($file) = @_;
-	print "DOFIL: $file\n" if($opt{v}>=1);
+    my($file, $do_nhsubst, $do_nhdatesub) = @_;
+    print "DOFIL: $file\n" if($opt{v}>=1);
+    $count=0;  # if we don't change anything, don't re-write the file
 
-	# For speed we read in the entire file then do the substitutions.
-	local($_) = '';
-	my $len;
-	open INFILE, "<", $file or die "Can't open $file: $!";
-	while(1){
-			# On at least some systems we only get 64K.
-		my $len = sysread(INFILE, $_, 999999, length($_));
-		last if($len == 0);
-		die "read failed: $!" unless defined($len);
-	}
-	close INFILE;
+    # For speed we read in the entire file then do the substitutions.
+    local($_) = '';
+    my $len;
+    open INFILE, "<", $file or die "Can't open $file: $!";
+    while(1){
+	    # On at least some systems we only get 64K.
+	my $len = sysread(INFILE, $_, 999999, length($_));
+	last if($len == 0);
+	die "read failed: $!" unless defined($len);
+    }
+    close INFILE;
 
-	local $::current_file = $file;	# used under handlevar
-	# $1 - var and value (including trailing space but not $)
-	# $2 - var
-	# $4 - value or undef
-#s/\$$PREFIX-(([A-Za-z][A-Za-z0-9_]*)(: ([^\N{DOLLAR SIGN}]+))?)\$/&handlevar($2,$4)/eg;
-my $count = s/\$$PREFIX-(([A-Za-z][A-Za-z0-9_]*)(: ([^\x24]+))?)\$/&handlevar($2,$4)/eg;
-# XXX had o modifier, why?
-	return unless($count>0);
-	return if($opt{n});
-	my $mode = 0777 & (stat($file))[2];
+    local $::current_file = $file;	# used under handle*
+    if($do_nhsubst){
+	    # TODO: This doesn't handle PREFIX-Assert.  To do that,
+	    #  we need to capture an entire line, call new sub handlevars()
+	    #  and let it iterate across all PREFIX-Foo while
+	    #  maintaining $::skip and reverting (like &handledatesub does).
+	    #  Also: capture optional arg: $NHDT-Foo(arg)$ $NHDT-Foo(arg): value $
 
-	my $ofile = $file . ".nht";
-	open(TOUT, ">", $ofile) or die "Can't open $ofile";
+	    # $1 - var and value (including trailing space but not $)
+	    # $2 - var
+	    # $4 - value or undef
+	    # \x24 == $
+	s/\$$PREFIX-(([A-Za-z][A-Za-z0-9_]*)(: ([^\x24]+) )?)\$/&handlevar($2,$4,1)/eg;
+    }
 
-#	die "write failed: $!" unless defined syswrite(TOUT, $_);
-	my $offset = 0;
-	my $sent;
-#print STDERR "L=",length,"\n";
-	while($offset < length){
-		$sent = syswrite(TOUT, $_, (length($_) - $offset), $offset);
-		die "write failed: $!" unless defined($sent);
-#print STDERR "rv=$sent\n";
-		last if($sent == (length($_) - $offset));
-		$offset += $sent;
-#print STDERR "loop: O=$offset\n";
-	}
+    if($do_nhdatesub){
+	# e.g:
+	#.\"DO NOT REMOVE NH_DATESUB .TH MAKEDEFS 6 "DATE(%-d %B %Y)" NETHACK
+	#.TH MAKEDEFS 6 "8 February 2022" NETHACK
 
-	close TOUT or die "Can't close $ofile";
-		# Do the right thing for *nix and hope for the best elsewhere:
-	chmod($mode, $ofile)==1 or warn "Can't set filemode on $ofile";
-	rename $ofile, $file or die "Can't rename $ofile to $file";
+	# locate the keyword and the rest of the line, capturing the rest of the line (the pattern)
+	# use zero width assertions so we can capture them but not replace them (DOES THIS WORK?)
+	#and grab the next line (the replaced text)
+
+	# $1 - pattern
+	# $2 - the next line (the expanded pattern)
+	s/
+	    \sNH_DATESUB\s+     # our trigger
+	    (.*)[\n\r]+         # save the pattern in $1
+	    \K                  # but don't replace it
+	    (.*)                # save the oldvalue in $2
+	    /
+	    &handledatesub($2, $1)      # replace oldvalue
+	/emxg;
+
+	#/m  so ^$ match at each line
+	#/x  this will be a mess, so attempt to comment it
+    }
+
+#print STDERR "COUNT = $count\n";
+    return unless($count>0);
+    return if($opt{n});
+
+    my $ofile = $file . ".nht";
+    my $mode = 0777 & (stat($file))[2];	# save the original mode
+    open(TOUT, ">", $ofile) or die "Can't open $ofile";
+
+    my $offset = 0;
+    my $sent;
+    while($offset < length){
+	$sent = syswrite(TOUT, $_, (length($_) - $offset), $offset);
+	die "write failed: $!" unless defined($sent);
+	last if($sent == (length($_) - $offset));
+	$offset += $sent;
+    }
+
+    close TOUT or die "Can't close $ofile";
+	# Do the right thing for *nix and hope for the best elsewhere:
+    chmod($mode, $ofile)==1 or warn "Can't set filemode on $ofile";
+    rename $ofile, $file or die "Can't rename $ofile to $file";
 }
 
-# XXX docs for --fixup and --squash are wrong in git's synopsis. --file missing
-#   --message --template -t
 sub cmdparse {
-	my(@in) = @_;
+    my(@in) = @_;
 
-		# What are we doing?
-	$opt{cmd} = 'date';	# really nhsub
-	if($in[0] eq '--add'){
-		$opt{cmd} = 'add';
-		shift @in;
-	}
-	if($in[0] eq '--commit'){
-		$opt{cmd} = 'commit';
-		shift @in;
-	}
+	# What are we doing?
+    $opt{cmd} = 'date';	# really nhsub
+    if($in[0] eq '--add'){
+	$opt{cmd} = 'add';
+	shift @in;
+    }
+    if($in[0] eq '--commit'){
+	$opt{cmd} = 'commit';
+	shift @in;
+    }
 
 # add: -n -v
 # commit: --dry-run -v
 # nhsub: -n -v
-	while($in[0] =~ m/^-/){
-		local($_) = $in[0];
-		if($_ eq '--'){
-			shift @in;
-			last;
-		}
-		if(m/^--/){
-			if($opt{cmd} eq 'add' && $_ eq '--dry-run'){
-				exit 0;
-			}
-			if($opt{cmd} eq 'commit' && $_ eq '--dry-run'){
-				exit 0;
-			}
-			if($opt{cmd} eq 'add' && $_ eq '--refresh'){
-				exit 0;
-			}
-			shift @in;
-			next;
-		}
-# XXX this is messy - time for a rewrite?
-		if(m/^-(.*)/){
-			foreach my $single ( split(//,$1) ){
-					# don't do -v here from add/commit
-				if($single ne 'v'){
-					# don't use -m from add/commit
-					if($opt{cmd} eq 'date' || $single ne 'm'){
-						$opt{$single}++;
-					}
-				} elsif($opt{cmd} eq 'date'){
-					$opt{$single}++;
-				}
+    while($in[0] =~ m/^-/){
+	local($_) = $in[0];
+	if($_ eq '--'){
+	    shift @in;
+	    last;
+	}
+	if(m/^--/){
+	    if($opt{cmd} eq 'add' && $_ eq '--dry-run'){
+		    exit 0;
+	    }
+	    if($opt{cmd} eq 'commit' && $_ eq '--dry-run'){
+		    exit 0;
+	    }
+	    if($opt{cmd} eq 'add' && $_ eq '--refresh'){
+		    exit 0;
+	    }
+	    shift @in;
+	    next;
+	}
 
-				if($opt{cmd} eq 'add' && $single eq 'n'){
-					exit 0;
-				}
+	if(m/^-(.*)/){
+	    foreach my $single ( split(//,$1) ){
+			# don't do -v here from add/commit
+		if($single ne 'v'){
+			    # don't use -m from add/commit
+		    if($opt{cmd} eq 'date' || $single ne 'm'){
+			$opt{$single}++;
+		    }
+		} elsif($opt{cmd} eq 'date'){
+		    $opt{$single}++;
+		}
+
+		if($opt{cmd} eq 'add' && $single eq 'n'){
+		    exit 0;
+		}
 #need to deal with options that eat a following element (-m, -F etc etc)
 #add: nothing?
 #commit: -c -C  -F -m 
 #   -u<mode> mode is optional
 # -S<keyid>  keyid is optional
-				if($opt{cmd} eq 'commit'){
-					if($single =~ m/[uS]/){
-						last;
-					}
-					if($single =~ m/[cCFm]/){
-#XXX this will be a mess if the argument is wrong, but can we tell?  No.
-						shift @in;
-						last;
-					}
-				}
-			}
+		if($opt{cmd} eq 'commit'){
+		    if($single =~ m/[uS]/){
+			last;
+		    }
+		    if($single =~ m/[cCFm]/){
+			    # This will be a mess if the argument is wrong, but can we tell?  No.
+			    shift @in;
+			    last;
+		    }
 		}
-		shift @in;
+	    }
 	}
+	shift @in;
+    }
 
-	($mode) = ($opt{cmd} =~ m/^(.)/);
-	$mode = 'f' if($opt{cmd} eq 'date' && ($opt{f}||$opt{F}));
-	$mode = 'f' if($opt{cmd} eq 'add' && $opt{f});
+    ($mode) = ($opt{cmd} =~ m/^(.)/);
+    $mode = 'f' if($opt{cmd} eq 'date' && ($opt{f}||$opt{F}));
+    $mode = 'f' if($opt{cmd} eq 'add' && $opt{f});
 
-	if($opt{cmd} eq 'add' && $#in == -1){
-		exit 0;
-	}
-	if($opt{cmd} eq 'commit' && $#in == -1){
-		exit 0;
-	}
-	if($opt{cmd} eq 'add' && $opt{a} && $#in != -1){
-		exit 0;
-	}
-	if($opt{cmd} eq 'add' && $opt{a}){
-		my $x = `git rev-parse --show-toplevel`;
-		$x =~ s/[\n\r]+$//;
-		push(@in, $x);
-	}
-	return @in;	# this is our file list
+    if($opt{cmd} eq 'add' && $#in == -1){
+	    # "git nhadd" with no files has nothing to work on
+	exit 0;
+    }
+    if($opt{cmd} eq 'commit' && $#in == -1){
+	    # "git nhcommit" with no args handles files already
+	    # added, we assume with "git nhadd"
+	exit 0;
+    }
+    if($opt{cmd} eq 'commit' && $opt{a} && $#in == -1){
+		# "git commit -a" does multiple things; we only care
+		# about modified files.
+#XXX this assumes $RS is set properly for Windows - need to check that
+	    my @x = split(/$::RS/,`git ls-files -m`);
+	    chomp(@x);
+	    push(@in, @x);
+    }
+    if($opt{cmd} eq 'commit' && $opt{a} && $#in != -1){
+		# Let git complain about this for us.
+	exit 0;
+    }
+# "git add" doesn't have a -a option
+#	if($opt{cmd} eq 'add' && $opt{a} && $#in != -1){
+#		exit 0;
+#	}
+# I don't know what this was trying to do, but it's wrong.
+#	if($opt{cmd} eq 'add' && $opt{a}){
+#		my $x = `git rev-parse --show-toplevel`;
+#		$x =~ s/[\n\r]+$//;
+#		push(@in, $x);
+#	}
+    return @in;	# this is our file list
 }
 
 sub git_config {
-	my($section, $var) = @_;
-	my $raw = `git config --local --get $section.$var`;
-	$raw =~ s/[\r\n]*$//g;
-	return $raw if(length $raw);
-	die "Missing config var: [$section] $var\n";
+    my($section, $var) = @_;
+    my $raw = `git config --local --get $section.$var`;
+    $raw =~ s/[\r\n]*$//g;
+    return $raw if(length $raw);
+    die "Missing config var: [$section] $var\n";
 }
 
-sub handlevar {
-	my($var, $val) = @_;
-#	print "HIT '$var' '$val'\n" if($debug2);
+# (oldvalue, pattern)
+sub handledatesub {
+    my $oldval = $_[0];	# used if assert fails
+    $skip = 0;	# one if assert fails
+    my $out = $_[1];	    # the pattern, which we'll edit in place
+#print "OLD: '$oldval;\n";
+#print "PAT: '$out'\n";
+    my $newvalue = $_[1];
+    $out =~ s/
+	\b	    # don't substitute on a partial word
+	(Assert|Date|Branch|Revision|Brev|Project)  # $1 - keyword
+	\(					    # (
+	([^)]*)					    # $2 - argument
+	\)					    # )
+	/&onedatesub($1,$2)
+	/egx;
 
-	my $subname = "PREFIX::$var";
-	if(defined &$subname){
-		no strict;
-		print "   SUBIN: $var '$val'\n" if($opt{v}>=3);
-		$val =~ s/\s+$//;
-		$val = &$subname($val);
-		print "   SUBOT: $var '$val'\n" if($opt{v}>=3);
-	} else {
-		warn "No handler for \$$PREFIX-$var\n";
+    {
+	local $::x = $_[0] ne $out;
+	if ($::x){
+	    $count += $::x;
+#	    warn "COUNT++";
 	}
+    }
+#print STDERR "OUT SKIP=$skip count=$count\n";
+#print STDERR "OUT old='$oldval'\n    new='$out'\n";
+    return ($skip>0 or $count==0) ? $oldval : $out;
 
+}
+
+sub onedatesub {
+    my($kw, $arg) = @_;
+    my $sname = "PREFIX::$kw";
+    die "internal error, '$sname' not defined" unless defined(&$sname);
+
+    no strict;
+    my $rv = &$sname(undef, $arg);
+    return $rv;
+}
+
+#    Assert(P=prefix)
+#    Date(format)
+#    Branch()
+#    Revision()
+#    Brev()	Branch:Rev (aBREViated)
+
+sub handlevar {
+    my($var, $val, $wrap) = @_;
+#print "HV '$var' '$val'\n";
+    my $oldval = $val;
+    my $subname = "PREFIX::$var";
+    if(defined &$subname){
+	no strict;
+	print "   SUBIN: $var '$val'\n" if($opt{v}>=3);
+	$val =~ s/\s+$//;
+	$val = &$subname($val, undef);
+	print "   SUBOT: $var '$val'\n" if($opt{v}>=3);
+	{
+	    local $::x =  ($oldval ne $val);
+	    if ($::x){
+		$count += $::x;
+#		warn "COUNT2++ o='$oldval' v='$val'";
+	    }
+	}
+    } else {
+	warn "No handler for \$$PREFIX-$var\n";
+    }
+
+    if($wrap){
 	if(length $val){
 		return "\$$PREFIX-$var: $val \$";
 	} else {
 		return "\$$PREFIX-$var\$";
 	}
+    } else {
+	return $val;
+    }
 }
 
 sub lsfiles {
-	my ($flags, $ps) = @_;
-	open RV, "-|", "git ls-files $flags '$ps'" or die "Can't ls-files";
-	my @rv = <RV>;
-	map { s/[\r\n]+$// } @rv;
-	if(!close RV){
-		return undef if($! == 0);
-		die "close ls-files failed: $!";
-	}
-	return undef if($#rv == -1);
-	return @rv;
+    my ($flags, $ps) = @_;
+    open RV, "-|", "git ls-files $flags '$ps'" or die "Can't ls-files";
+    my @rv = <RV>;
+    map { s/[\r\n]+$// } @rv;
+    if(!close RV){
+	return undef if($! == 0);
+	die "close ls-files failed: $!";
+    }
+    return undef if($#rv == -1);
+    return @rv;
 }
 
 package PREFIX;
 use POSIX qw(strftime);
 
-# On push, put in the current date because we changed the file.
-# On pull, keep the current value so we can see the last change date.
 sub Date {
-	my($val) = @_;
-	my $now;
-	if($opt{m}){
-		my $hash = `git log -1 '--format=format:%H' $::current_file`;
-			#author keni <keni@his.com> 1429884677 -0400
-		chomp($now = `git cat-file -p $hash | awk '/author/{print \$4}'`);
+    my(undef, $val) = @_;
+    my $now;
+
+# DONE XXX after several bug fixes, this set of ifs needs some cleanup
+my $hash = `git log -1 '--format=format:%H' $::current_file`;
+    $now = $^T;
+#    if($opt{m} or not defined $hash){
+
+	    # cope with file not yet added to git
+    if(not defined $hash){
+	if(-f $::current_file){
+	    $now = (stat($::current_file))[9];
 	} else {
-		$now = time;
+	    die "Can't find file '$::current_file'\n";
 	}
+    } elsif($opt{m}) {
+	    #author keni <keni@his.com> 1429884677 -0400
+	chomp($now = `git cat-file -p $hash | awk '/author/{print \$4}'`);
+    }
+#    } else {
+#    }
+
+# DONE XXX simplify this with %s ?
+#    my $fmt = length $val ? $val : "%Y/%m/%d %H:%M:%S";
+    my $fmt = length $val ? $val : "%s %Y/%m/%d %H:%M:%S";
 	# YYYY/MM/DD HH:MM:SS
-	$val = "$now " . strftime("%Y/%m/%d %H:%M:%S", gmtime($now));
-	return $val;
+#    $val = ((length $val==0)?"$now ":"") . strftime($fmt, gmtime($now));
+    $val = strftime($fmt, gmtime($now));
+    return $val;
 }
 
 #sub Header {
@@ -434,26 +561,84 @@ sub Date {
 #}
 
 # NB: the standard-ish Revision line isn't enough - you need Branch:Revision -
-#     but we split it into 2 so we can use the standard processing code on Revision
-#     and just slip Branch in.
+#     but we split it into 2 so we can use the standard processing code on
+#     Revision and just slip Branch in.
+# But see new Brev below.
 sub Branch {
-	my($val) = @_;
-	$val = `git symbolic-ref -q --short HEAD`;
-	$val =~ s/[\n\r]*$//;
-	$val =~ s/^\*\s*//;
-	$val = "(unknown)" unless($val =~ m/^[[:print:]]+$/);
-	return $val;
+    my $val;
+    $val = `git symbolic-ref -q --short HEAD`;
+    $val =~ s/[\n\r]*$//;
+    $val =~ s/^\*\s*//;
+    $val = "(unknown)" unless($val =~ m/^[[:print:]]+$/);
+    return $val;
 }
 
 sub Revision {
-	my($val) = @_;
-	my @val = `git log --follow --oneline $::current_file`;
-	my $ver = 0+$#val;
-	$ver = 0 if($ver < 0);
-	$val = "1.$ver";
-	return $val;
+    my $val;
+    my @val = `git log --follow --oneline $::current_file`;
+    my $ver = 0+$#val;
+    $ver = 0 if($ver < 0);
+    $val = "1.$ver";
+    return $val;
 }
+
+sub Brev {
+    my $branch;
+    $branch = `git symbolic-ref -q --short HEAD`;
+    $branch =~ s/[\n\r]*$//;
+    $branch =~ s/^\*\s*//;
+    $branch = "(unknown)" unless($branch =~ m/^[[:print:]]+$/);
+
+    my @val = `git log --follow --oneline $::current_file`;
+    my $ver = 0+$#val;
+    $ver = 0 if($ver < 0);
+    $ver = "1.$ver";
+
+    my $val = "$branch:$ver";
+
+    return $val;
+}
+
+sub Project {
+    my(undef, $arg) = @_;
+    my $pn = &::git_config('nethack','projectname');
+    if(length $arg == 0){
+	;
+    } elsif($arg eq 'uc'){
+	$pn = uc($pn);
+    } else {
+	warn "unknown argument '$arg' to Project()\n";
+    }
+    return $pn;
+}
+
+
+sub Assert {
+    my(undef, $val) = @_;
+
+    my($key, $arg) = ($val =~ m/^(.)=(.*)/);
+    if(!defined $arg){
+	warn "syntax error: Assert($val)\n";
+	$::skip = 1;
+    }
+    my $prefix = $2;
+
+    # P assert arg matches saved prefix
+    if('P' eq $key){
+	my $repoid = &::git_config('nethack','substprefix');
+	if($repoid ne $prefix){
+	    $::skip = 1
+	}
+	return '';
+    }
+
+    warn "Unknown Assert type '$key'\n";
+
+    return '';
+}
+
 __END__
+=for nhgitset nhsub Update substitution variables
 
 =head1 NAME
 
@@ -473,9 +658,15 @@ commands.
 
 The program re-writes those files listed on the command line; if the file
 is actually a directory, the program recurses into that directory tree.
-Not all files found are re-written; some are ignored and those with no
-substitution variables are not re-written.  Unless changed by the options,
-files that have not changed are not affected.
+Not all files found are re-written; only those with the attribute
+NHSUBST (for inline substitutions) or NH_DATESUB (for template
+substitution) are considered; finally those with no substitution
+variables or no changes due to substitution variables are not
+re-written.  Unless changed by the options, files that have not
+changed are not affected.
+
+As a special case, a file not yet added to Git may be the target of
+C<nhsub>.
 
 If no files are listed on the command line, the current directory is
 checked as if specified as C<.>.
@@ -519,3 +710,83 @@ updated when last changed. (Do not use C<git nhadd>/C<git nhcommit> after C<nhsu
 or the changes will be overwritten with the current date.)
 
 =back
+
+=head1 SUBSTITUTION VARIABLES
+
+=over
+
+=item Assert(type=value)
+
+If the assertion fails, no substitutions occur on this line.
+
+If the assertion passes, substitutions occur as usual.
+
+(There is no PREFIX-Assert form at this time, as it would make no sense
+for the one Assert type currently implemented.)
+
+=over
+
+=item P
+
+Type C<P> assertions compare the current Git config variable
+C<nethack.substprefix>
+with the C<value> and succeed if they are identical.
+
+=back
+
+=item Date(format) / PREFIX-Date
+
+This variable usually substitutes the current time but see C<-m> above.
+
+The format of the resulting date varies.  For C<PREFIX-Date> or C<Date()> with
+no format, "%s %Y/%m/%d %H:%M:%S" is used.  Otherwise the given strftime
+format is used.
+
+=item Branch() / PREFIX-Branch
+
+This variable is replaced with the name of the currently checked out Git
+branch.
+
+=item Revision() / PREFIX-Revision
+
+This variable's value emulates a RCS or CVS style revision number.
+It consists of "1." followed by the number of commits affecting the
+current file.
+
+=item Brev() / PREFIX-Brev
+
+This is a convenience variable that concatenates C<Branch>, a colon, and
+C<Revision>.  Short for "aBREViated".
+
+=item Project()
+
+Returns git variable nethack.projectname.  If given the argument C<uc>, returns
+an upper-case version of nethack.projectname.
+
+=back
+
+=head1 SUBSTITUTION STYLES
+
+=head2 Prefix Substitution
+
+If a file has the Git attribute C<NHSUBST>, any 
+text that looks like a RCS/CVS variable substitution will perform
+that substitution.  That is, either of the following forms:
+
+ $Var$
+ $Var: Value $
+
+=head2 Template Substitution
+
+If a file has the Git attribute C<NH_DATESUB>, any line that has
+the token C<NH_DATESUB> will replace the I<next> line with the
+variable expansion of everything after that token.  For example:
+
+ .\"DO NOT REMOVE NH_DATESUB .ds f2 DATE(%B %-d, %Y)
+ .ds f2 September 13, 2024
+
+=head1 SEE ALSO
+
+git help gitattributes
+
+perldoc nhgitset.pl
