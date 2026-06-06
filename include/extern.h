@@ -1,143 +1,237 @@
-/* NetHack 3.6	extern.h	$NHDT-Date: 1573940539 2019/11/16 21:42:19 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.741 $ */
-/* Copyright (c) Steve Creps, 1988.				  */
+/* NetHack 5.0	extern.h	$NHDT-Date: 1770949988 2026/02/12 18:33:08 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.1523 $ */
+/* Copyright (c) Steve Creps, 1988.                               */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #ifndef EXTERN_H
 #define EXTERN_H
 
-#define E extern
+/*
+ * The placements of the NONNULLARG* and NONNULLPTRS macros were done
+ * using the following rules:
+ * These were the rules that were followed when determining which function
+ * parameters should be nonnull, and which are nullable:
+ *
+ *   1. If the first use of, or reference to, the pointer parameter in the
+ *      function is a dereference, then the parameter will be considered
+ *      nonnull.
+ *
+ *   2. If there is code in the function that tests for the pointer parameter
+ *      being null, and adjusts the code-path accordingly so that no segfault
+ *      will occur, then the parameter will not be considered nonnull (it can
+ *      be null).
+ *
+ * Note that if an arg is declared nonnull, any tests inside the function
+ * for the variable being null, will likely trigger a compiler warning
+ * diagnostic about the unnecessary test.
+ *
+ * Description of the NONNULL macros:
+ *
+ *  NONNULL         The function return value is never NULL.
+ *  NONNULLPTRS     Every pointer argument is declared nonnull.
+ *  NONNULLARG1     The 1st argument is declared nonnull.
+ *  NONNULLARG2     The 2nd argument is declared nonnull.
+ *  NONNULLARG3     The 3rd argument is declared nonnull.
+ *  NONNULLARG4     The 4th argument is declared nonnull (not used).
+ *  NONNULLARG5     The 5th argument is declared nonnull.
+ *  NONNULLARG6     The 6th argument is declared nonnull.
+ *  NONNULLARG7     The 7th argument is declared nonnull (bhit).
+ *  NONNULLARG12    The 1st and 2nd arguments are declared nonnull.
+ *  NONNULLARG23    The 2nd and 3rd arguments are declared nonnull.
+ *  NONNULLARG13    The 1st and 3rd arguments are declared nonnull.
+ *  NONNULLARG123   The 1st, 2nd and 3rd arguments are declared nonnull.
+ *  NONNULLARG14    The 1st and 4th arguments are declared nonnull.
+ *  NONNULLARG134   The 1st, 3rd and 4th arguments are declared nonnull.
+ *  NONNULLARG17    The 1st and 7th arguments are declared nonnull (this
+ *                  was a special-case added for askchain(), where the
+ *                  arguments are spread out that way. This macro
+ *                  could be removed if the askchain arguments in the
+ *                  prototype and callers were changed to make the
+ *                  nonnull arguments side-by-side).
+ *  NONNULLARG145   The 1st, 4th and 5th arguments are declared nonnull
+ *                  (this was a special-case added for find_roll_to_hit(),
+ *                  in uhitm.c, where the arguments are spread out that way.
+ *                  We can't just use NONNULLPTRS there because the 3rd
+ *                  argument 'weapon' can be NULL).
+ *  NONNULLARG24    The 2nd and 4th arguments are declared nonnull (this
+ *                  was a special-case added for query_objlist() in invent.c).
+ *  NONNULLARG45    The 4th and 5th arguments are declared nonnull (this
+ *                  was a special-case added for do_screen_description(),
+ *                  in pager.c, where the arguments are spread out that way.
+ *                  We can't just use NONNULLPTRS there because the 6th
+ *                  argument can be NULL).
+ *  NO_NNARGS       This macro expands to nothing. It is just used to
+ *                  mark that analysis has been done on the function,
+ *                  and concluded that none of the arguments could be
+ *                  marked nonnull.That distinguishes a function that has
+ *                  not been analyzed (yet), from one that has.
+ *
+ */
+
+#ifndef ARTIFACT_H
+#include "artifact.h"
+#endif
+
+#ifndef MFNDPOS_H
+#include "mfndpos.h"
+#endif
 
 /* ### alloc.c ### */
 
 #if 0
-E long *FDECL(alloc, (unsigned int));
+/* routines in alloc.c depend on MONITOR_HEAP and are declared in global.h */
+extern long *alloc(unsigned int) NONNULL;
 #endif
-E char *FDECL(fmt_ptr, (const genericptr));
+extern char *fmt_ptr(const void *) NONNULL;
+/* moved from hacklib.c to alloc.c so that utility programs have access */
+#define FITSint(x) FITSint_(x, __func__, __LINE__)
+extern int FITSint_(long long, const char *, int) NONNULLARG2;
+#define FITSuint(x) FITSuint_(x, __func__, __LINE__)
+extern unsigned FITSuint_(unsigned long long, const char *, int) NONNULLARG2;
+/* for Strlen() which returns unsigned instead of size_t and panics for
+   strings of length INT_MAX (32K - 1) or longer */
+
+#include "hacklib.h"
 
 /* This next pre-processor directive covers almost the entire file,
  * interrupted only occasionally to pick up specific functions as needed. */
-#if !defined(MAKEDEFS_C) && !defined(LEV_LEX_C)
+#if !defined(MAKEDEFS_C) && !defined(MDLIB_C) && !defined(CPPREGEX_C)
 
 /* ### allmain.c ### */
 
-E void FDECL(moveloop, (BOOLEAN_P));
-E void NDECL(stop_occupation);
-E void NDECL(display_gamewindows);
-E void NDECL(newgame);
-E void FDECL(welcome, (BOOLEAN_P));
-E time_t NDECL(get_realtime);
-E int FDECL(argcheck, (int, char **, enum earlyarg));
+extern void early_init(int, char *[]);
+extern void moveloop_core(void);
+extern void moveloop(boolean);
+extern void stop_occupation(void);
+extern void init_sound_disp_gamewindows(void);
+extern void newgame(void);
+extern void welcome(boolean);
+extern long timet_to_seconds(time_t);
+extern long timet_delta(time_t, time_t);
 
 /* ### apply.c ### */
 
-E int NDECL(doapply);
-E int NDECL(dorub);
-E int NDECL(dojump);
-E int FDECL(jump, (int));
-E int NDECL(number_leashed);
-E void FDECL(o_unleash, (struct obj *));
-E void FDECL(m_unleash, (struct monst *, BOOLEAN_P));
-E void NDECL(unleash_all);
-E boolean FDECL(leashable, (struct monst *));
-E boolean NDECL(next_to_u);
-E struct obj *FDECL(get_mleash, (struct monst *));
-E const char *NDECL(beautiful);
-E void FDECL(check_leash, (XCHAR_P, XCHAR_P));
-E boolean FDECL(um_dist, (XCHAR_P, XCHAR_P, XCHAR_P));
-E boolean FDECL(snuff_candle, (struct obj *));
-E boolean FDECL(snuff_lit, (struct obj *));
-E boolean FDECL(catch_lit, (struct obj *));
-E void FDECL(use_unicorn_horn, (struct obj *));
-E boolean FDECL(tinnable, (struct obj *));
-E void NDECL(reset_trapset);
-E void FDECL(fig_transform, (ANY_P *, long));
-E int FDECL(unfixable_trouble_count, (BOOLEAN_P));
+extern void do_blinding_ray(struct obj *) NONNULLPTRS;
+extern int doapply(void);
+extern int dorub(void);
+extern int dojump(void);
+extern int jump(int);
+extern int number_leashed(void);
+extern void o_unleash(struct obj *) NONNULLPTRS;
+extern void m_unleash(struct monst *, boolean) NONNULLPTRS;
+extern void unleash_all(void);
+extern boolean leashable(struct monst *) NONNULLARG1;
+extern boolean next_to_u(void);
+extern struct obj *get_mleash(struct monst *) NONNULLARG1;
+extern const char *beautiful(void);
+extern void check_leash(coordxy, coordxy);
+extern boolean um_dist(coordxy, coordxy, xint16);
+extern boolean snuff_candle(struct obj *) NONNULLPTRS;
+extern boolean snuff_lit(struct obj *) NONNULLPTRS;
+extern boolean splash_lit(struct obj *) NONNULLPTRS;
+extern boolean catch_lit(struct obj *) NONNULLPTRS;
+extern void use_unicorn_horn(struct obj **);
+extern boolean tinnable(struct obj *) NONNULLPTRS;
+extern void reset_trapset(void);
+extern int use_whip(struct obj *) NONNULLPTRS;
+extern boolean could_pole_mon(void);
+extern int use_pole(struct obj *, boolean) NONNULLPTRS;
+extern void maybe_dunk_boulders(coordxy, coordxy);
+extern void fig_transform(union any *, long) NONNULLARG1;
+extern int unfixable_trouble_count(boolean);
 
 /* ### artifact.c ### */
 
-E void NDECL(init_artifacts);
-E void FDECL(save_artifacts, (int));
-E void FDECL(restore_artifacts, (int));
-E const char *FDECL(artiname, (int));
-E struct obj *FDECL(mk_artifact, (struct obj *, ALIGNTYP_P));
-E const char *FDECL(artifact_name, (const char *, short *));
-E boolean FDECL(exist_artifact, (int, const char *));
-E void FDECL(artifact_exists, (struct obj *, const char *, BOOLEAN_P));
-E int NDECL(nartifact_exist);
-E boolean FDECL(arti_immune, (struct obj *, int));
-E boolean FDECL(spec_ability, (struct obj *, unsigned long));
-E boolean FDECL(confers_luck, (struct obj *));
-E boolean FDECL(arti_reflects, (struct obj *));
-E boolean FDECL(shade_glare, (struct obj *));
-E boolean FDECL(restrict_name, (struct obj *, const char *));
-E boolean FDECL(defends, (int, struct obj *));
-E boolean FDECL(defends_when_carried, (int, struct obj *));
-E boolean FDECL(protects, (struct obj *, BOOLEAN_P));
-E void FDECL(set_artifact_intrinsic, (struct obj *, BOOLEAN_P, long));
-E int FDECL(touch_artifact, (struct obj *, struct monst *));
-E int FDECL(spec_abon, (struct obj *, struct monst *));
-E int FDECL(spec_dbon, (struct obj *, struct monst *, int));
-E void FDECL(discover_artifact, (XCHAR_P));
-E boolean FDECL(undiscovered_artifact, (XCHAR_P));
-E int FDECL(disp_artifact_discoveries, (winid));
-E boolean FDECL(artifact_hit, (struct monst *, struct monst *, struct obj *,
-                               int *, int));
-E int NDECL(doinvoke);
-E boolean FDECL(finesse_ahriman, (struct obj *));
-E void FDECL(arti_speak, (struct obj *));
-E boolean FDECL(artifact_light, (struct obj *));
-E long FDECL(spec_m2, (struct obj *));
-E boolean FDECL(artifact_has_invprop, (struct obj *, UCHAR_P));
-E long FDECL(arti_cost, (struct obj *));
-E struct obj *FDECL(what_gives, (long *));
-E const char *FDECL(glow_color, (int));
-E const char *FDECL(glow_verb, (int, BOOLEAN_P));
-E void FDECL(Sting_effects, (int));
-E int FDECL(retouch_object, (struct obj **, BOOLEAN_P));
-E void FDECL(retouch_equipment, (int));
-E void NDECL(mkot_trap_warn);
-E boolean FDECL(is_magic_key, (struct monst *, struct obj *));
-E struct obj *FDECL(has_magic_key, (struct monst *));
+extern void init_artifacts(void);
+extern void save_artifacts(NHFILE *);
+extern void restore_artifacts(NHFILE *);
+extern const char *artiname(int);
+extern struct obj *mk_artifact(struct obj *, aligntyp, uchar, boolean);
+extern const char *artifact_name(const char *, short *, boolean) NONNULLARG1;
+extern boolean exist_artifact(int, const char *) NONNULLPTRS;
+extern void artifact_exists(struct obj *, const char *, boolean, unsigned) ;
+extern void found_artifact(int);
+extern void find_artifact(struct obj *) NONNULLPTRS;
+extern int nartifact_exist(void);
+extern void artifact_origin(struct obj *, unsigned) NONNULLPTRS;
+extern boolean arti_immune(struct obj *, int);
+extern boolean spec_ability(struct obj *, unsigned long);
+extern boolean confers_luck(struct obj *) NONNULLPTRS;
+extern boolean arti_reflects(struct obj *);
+extern boolean shade_glare(struct obj *) NONNULLPTRS;
+extern boolean restrict_name(struct obj *, const char *) NONNULLPTRS;
+extern boolean attacks(int, struct obj *);
+extern boolean defends(int, struct obj *);
+extern boolean defends_when_carried(int, struct obj *);
+extern boolean protects(struct obj *, boolean);
+extern void set_artifact_intrinsic(struct obj *, boolean, long);
+extern int touch_artifact(struct obj *, struct monst *) NONNULLARG2;
+extern int spec_abon(struct obj *, struct monst *) NONNULLARG2;
+extern int spec_dbon(struct obj *, struct monst *, int) NONNULLARG2;
+extern void discover_artifact(xint16);
+extern boolean undiscovered_artifact(xint16);
+extern int disp_artifact_discoveries(winid);
+extern void dump_artifact_info(winid);
+extern boolean artifact_hit(struct monst *, struct monst *, struct obj *,
+                            int *, int) NONNULLARG2;
+extern int doinvoke(void);
+extern boolean finesse_ahriman(struct obj *);
+extern int arti_speak(struct obj *);
+extern boolean artifact_light(struct obj *);
+extern long spec_m2(struct obj *);
+extern boolean artifact_has_invprop(struct obj *, uchar);
+extern long arti_cost(struct obj *) NONNULLARG1;
+extern struct obj *what_gives(long *) NONNULLARG1;
+extern const char *glow_color(int);
+extern const char *glow_verb(int, boolean);
+extern void Sting_effects(int);
+extern int retouch_object(struct obj **, boolean) NONNULLARG1;
+extern void retouch_equipment(int);
+extern void mkot_trap_warn(void);
+extern boolean is_magic_key(struct monst *, struct obj *);
+extern struct obj *has_magic_key(struct monst *);
+extern boolean is_art(struct obj *, int);
+extern boolean permapoisoned(struct obj *);
 
 /* ### attrib.c ### */
 
-E boolean FDECL(adjattrib, (int, int, int));
-E void FDECL(gainstr, (struct obj *, int, BOOLEAN_P));
-E void FDECL(losestr, (int));
-E void FDECL(poisontell, (int, BOOLEAN_P));
-E void FDECL(poisoned, (const char *, int, const char *, int, BOOLEAN_P));
-E void FDECL(change_luck, (SCHAR_P));
-E int FDECL(stone_luck, (BOOLEAN_P));
-E void NDECL(set_moreluck);
-E void NDECL(restore_attrib);
-E void FDECL(exercise, (int, BOOLEAN_P));
-E void NDECL(exerchk);
-E void FDECL(init_attr, (int));
-E void NDECL(redist_attr);
-E void FDECL(adjabil, (int, int));
-E int NDECL(newhp);
-E schar FDECL(acurr, (int));
-E schar NDECL(acurrstr);
-E boolean FDECL(extremeattr, (int));
-E void FDECL(adjalign, (int));
-E int FDECL(is_innate, (int));
-E char *FDECL(from_what, (int));
-E void FDECL(uchangealign, (int, int));
+extern boolean adjattrib(int, int, int);
+extern void gainstr(struct obj *, int, boolean);
+extern void losestr(int, const char *, schar);
+extern void poison_strdmg(int, int, const char *, schar);
+extern void poisontell(int, boolean);
+extern void poisoned(const char *, int, const char *, int, boolean) NONNULLARG1;
+extern void change_luck(schar);
+extern int stone_luck(boolean);
+extern void set_moreluck(void);
+extern void restore_attrib(void);
+extern void exercise(int, boolean);
+extern void exerchk(void);
+extern void init_attr(int);
+extern void redist_attr(void);
+extern void vary_init_attr(void);
+extern void adjabil(int, int);
+extern int newhp(void);
+extern int minuhpmax(int);
+extern void setuhpmax(int, boolean);
+extern int adjuhploss(int, int);
+extern schar acurr(int);
+extern schar acurrstr(void);
+extern boolean extremeattr(int);
+extern void adjalign(int);
+extern int is_innate(int);
+extern char *from_what(int);
+extern void uchangealign(int, int);
 
 /* ### ball.c ### */
 
-E void FDECL(ballrelease, (BOOLEAN_P));
-E void NDECL(ballfall);
+extern void ballrelease(boolean);
+extern void ballfall(void);
 #ifndef BREADCRUMBS
-E void NDECL(placebc);
-E void NDECL(unplacebc);
-E int NDECL(unplacebc_and_covet_placebc);
-E void FDECL(lift_covet_and_placebc, (int));
+extern void placebc(void);
+extern void unplacebc(void);
+extern int unplacebc_and_covet_placebc(void);
+extern void lift_covet_and_placebc(int);
 #else
-E void FDECL(Placebc, (const char *, int));
-E void FDECL(Unplacebc, (const char *, int));
-E int FDECL(Unplacebc_and_covet_placebc, (const char *, int));
-E void FDECL(Lift_covet_and_placebc, (int, const char *, int));
 #define placebc() Placebc(__FUNCTION__, __LINE__)
 #define unplacebc() Unplacebc(__FUNCTION__, __LINE__)
 #define unplacebc_and_covet_placebc() \
@@ -145,2489 +239,3293 @@ E void FDECL(Lift_covet_and_placebc, (int, const char *, int));
 #define lift_covet_and_placebc(x) \
             Lift_covet_and_placebc(x, __FUNCTION__, __LINE__)
 #endif
-E void FDECL(set_bc, (int));
-E void FDECL(move_bc, (int, int, XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P));
-E boolean FDECL(drag_ball, (XCHAR_P, XCHAR_P, int *, xchar *, xchar *,
-                            xchar *, xchar *, boolean *, BOOLEAN_P));
-E void FDECL(drop_ball, (XCHAR_P, XCHAR_P));
-E void NDECL(drag_down);
-E void NDECL(bc_sanity_check);
+extern void set_bc(int);
+extern void move_bc(int, int, coordxy, coordxy, coordxy, coordxy);
+extern boolean drag_ball(coordxy, coordxy, int *, coordxy *, coordxy *,
+                         coordxy *, coordxy *, boolean *, boolean) NONNULLPTRS;
+extern void drop_ball(coordxy, coordxy);
+extern void drag_down(void);
+extern void bc_sanity_check(void);
 
 /* ### bones.c ### */
 
-E void FDECL(sanitize_name, (char *));
-E void FDECL(drop_upon_death, (struct monst *, struct obj *, int, int));
-E boolean NDECL(can_make_bones);
-E void FDECL(savebones, (int, time_t, struct obj *));
-E int NDECL(getbones);
+extern void sanitize_name(char *) NONNULLARG1;
+extern void drop_upon_death(struct monst *, struct obj *, coordxy, coordxy);
+extern boolean can_make_bones(void);
+extern void savebones(int, time_t, struct obj *);
+extern int getbones(void);
+extern boolean bones_include_name(const char *) NONNULLARG1;
+extern void fix_ghostly_obj(struct obj *) NONNULLARG1;
+extern void newebones(struct monst *) NONNULLARG1;
+extern void free_ebones(struct monst *) NONNULLARG1;
 
 /* ### botl.c ### */
 
-E char *NDECL(do_statusline1);
-E void NDECL(check_gold_symbol);
-E char *NDECL(do_statusline2);
-E void NDECL(bot);
-E void NDECL(timebot);
-E int FDECL(xlev_to_rank, (int));
-E const char *FDECL(rank_of, (int, SHORT_P, BOOLEAN_P));
-E int FDECL(title_to_mon, (const char *, int *, int *));
-E void NDECL(max_rank_sz);
+extern char *get_strength_str(void);
+extern char *do_statusline1(void);
+extern void check_gold_symbol(void);
+extern char *do_statusline2(void);
+extern void bot(void);
+extern void timebot(void);
+extern int xlev_to_rank(int);
+extern int rank_to_xlev(int);
+extern const char *rank_of(int, short, boolean);
+extern int title_to_mon(const char *, int *, int *);
+extern void max_rank_sz(void);
 #ifdef SCORE_ON_BOTL
-E long NDECL(botl_score);
+extern long botl_score(void);
 #endif
-E int FDECL(describe_level, (char *));
-E void FDECL(status_initialize, (BOOLEAN_P));
-E void NDECL(status_finish);
-E boolean NDECL(exp_percent_changing);
-E int NDECL(stat_cap_indx);
-E int NDECL(stat_hunger_indx);
-E const char *FDECL(bl_idx_to_fldname, (int));
+extern int describe_level(char *, int);
+extern char *weapon_status(char *) NONNULL NONNULLARG1;
+extern char *armor_status(char *) NONNULL NONNULLARG1;
+extern void status_initialize(boolean);
+extern void status_finish(void);
+extern boolean exp_percent_changing(void);
+extern int stat_cap_indx(void);
+extern int stat_hunger_indx(void);
+extern const char *bl_idx_to_fldname(int);
+extern void repad_with_dashes(char *);
+extern void condopt(int, boolean *, boolean);
+extern int parse_cond_option(boolean, char *);
+extern boolean cond_menu(void);
+extern boolean opt_next_cond(int, char *);
 #ifdef STATUS_HILITES
-E void NDECL(status_eval_next_unhilite);
-E void NDECL(reset_status_hilites);
-E boolean FDECL(parse_status_hl1, (char *op, BOOLEAN_P));
-E void FDECL(status_notify_windowport, (BOOLEAN_P));
-E void NDECL(clear_status_hilites);
-E int NDECL(count_status_hilites);
-E boolean NDECL(status_hilite_menu);
+extern void status_eval_next_unhilite(void);
+extern void reset_status_hilites(void);
+extern boolean parse_status_hl1(char *op, boolean);
+extern void status_notify_windowport(boolean);
+extern void clear_status_hilites(void);
+extern int count_status_hilites(void);
+extern void all_options_statushilites(strbuf_t *);
+extern boolean status_hilite_menu(void);
+#endif /* STATUS_HILITES */
+
+/* ### calendar.c ### */
+
+extern time_t getnow(void);
+extern int getyear(void);
+#if 0
+extern char *yymmdd(time_t) NONNULL;
+#endif
+extern long yyyymmdd(time_t);
+extern long hhmmss(time_t);
+extern char *yyyymmddhhmmss(time_t) NONNULL;
+extern time_t time_from_yyyymmddhhmmss(char *);
+extern int phase_of_the_moon(void);
+extern boolean friday_13th(void);
+extern int night(void);
+extern int midnight(void);
+
+/* ### cfgfiles.c ### */
+
+#if !defined(CROSSCOMPILE) || defined(CROSSCOMPILE_TARGET)
+extern int l_get_config_errors(lua_State *) NONNULLARG1;
+#endif
+extern int do_write_config_file(void);
+extern boolean parse_config_line(char *) NONNULLARG1;
+#ifdef USER_SOUNDS
+extern boolean can_read_file(const char *) NONNULLARG1;
+#endif
+extern void config_error_init(boolean, const char *, boolean);
+extern void config_erradd(const char *);
+extern int config_error_done(void);
+/* arg1 of read_config_file can be NULL to pass through
+ * to fopen_config_file() to mean 'use the default config file name' */
+extern boolean read_config_file(const char *, int);
+extern boolean parse_conf_str(const char *str, boolean (*proc)(char *));
+extern boolean parse_conf_file(FILE *fp, boolean (*proc)(char *arg));
+extern void set_configfile_name(const char *);
+extern char *get_configfile(void);
+extern const char *get_default_configfile(void);
+extern void rcfile(void);
+extern void rcfile_interface_options(void);
+extern void rcfile_only_this_option(enum opt);
+extern void heed_all_config_statements(void);
+extern void disregard_all_config_statements(void);
+extern void heed_this_config_statement(int);
+extern void disregard_this_config_statement(int);
+extern boolean config_unmatched_ignored(void);
+extern void clear_ignore_errors_on_unmatched(void);
+extern void set_ignore_errors_on_unmatched(void);
+
+/* ### coloratt.c ### */
+
+extern char *color_attr_to_str(color_attr *);
+extern boolean color_attr_parse_str(color_attr *, char *);
+extern int32 colortable_to_int32(const struct nethack_color *);
+extern int query_color(const char *, int) NO_NNARGS;
+extern int query_attr(const char *, int) NO_NNARGS;
+extern boolean query_color_attr(color_attr *, const char *) NONNULLARG1;
+extern const char *attr2attrname(int);
+extern void basic_menu_colors(boolean);
+extern boolean add_menu_coloring_parsed(const char *, int, int);
+extern const char *clr2colorname(int);
+extern int match_str2clr(char *, boolean) NONNULLARG1;
+extern int match_str2attr(const char *, boolean) NONNULLARG1;
+extern boolean add_menu_coloring(char *) NONNULLARG1;
+extern void free_one_menu_coloring(int);
+extern void free_menu_coloring(void);
+extern int count_menucolors(void);
+extern int32 check_enhanced_colors(char *) NONNULLARG1;
+extern const char *wc_color_name(int32) NONNULL;
+extern int32_t rgbstr_to_int32(const char *rgbstr);
+extern boolean closest_color(uint32_t lcolor, uint32_t *closecolor, uint16 *clridx);
+extern int color_distance(uint32_t, uint32_t);
+extern boolean onlyhexdigits(const char *buf);
+extern uint32 get_nhcolor_from_256_index(int idx);
+#ifdef CHANGE_COLOR
+extern int count_alt_palette(void);
+extern int alternative_palette(char *);
+extern void change_palette(void);
 #endif
 
 /* ### cmd.c ### */
 
-E char NDECL(randomkey);
-E void FDECL(random_response, (char *, int));
-E int NDECL(rnd_extcmd_idx);
-E int NDECL(doconduct);
-E int NDECL(domonability);
-E char FDECL(cmd_from_func, (int NDECL((*))));
-E boolean FDECL(redraw_cmd, (CHAR_P));
-#ifdef USE_TRAMPOLI
-E int NDECL(doextcmd);
-E int NDECL(domonability);
-E int NDECL(doprev_message);
-E int NDECL(timed_occupation);
-E int NDECL(doattributes);
-E int NDECL(wiz_detect);
-E int NDECL(wiz_genesis);
-E int NDECL(wiz_identify);
-E int NDECL(wiz_level_tele);
-E int NDECL(wiz_map);
-E int NDECL(wiz_where);
-E int NDECL(wiz_wish);
-#endif /* USE_TRAMPOLI */
-E void NDECL(reset_occupations);
-E void FDECL(set_occupation, (int (*)(void), const char *, int));
-E char NDECL(pgetchar);
-E void FDECL(pushch, (CHAR_P));
-E void FDECL(savech, (CHAR_P));
-E const char *FDECL(key2extcmddesc, (UCHAR_P));
-E boolean FDECL(bind_specialkey, (UCHAR_P, const char *));
-E char FDECL(txt2key, (char *));
-E void FDECL(parseautocomplete, (char *, BOOLEAN_P));
-E void FDECL(reset_commands, (BOOLEAN_P));
-E void FDECL(rhack, (char *));
-E int NDECL(doextlist);
-E int NDECL(extcmd_via_menu);
-E int NDECL(enter_explore_mode);
-E void FDECL(enlightenment, (int, int));
-E void FDECL(youhiding, (BOOLEAN_P, int));
-E void FDECL(show_conduct, (int));
-E boolean FDECL(bind_key, (UCHAR_P, const char *));
-E void NDECL(dokeylist);
-E int FDECL(xytod, (SCHAR_P, SCHAR_P));
-E void FDECL(dtoxy, (coord *, int));
-E int FDECL(movecmd, (CHAR_P));
-E int NDECL(dxdy_moveok);
-E int FDECL(getdir, (const char *));
-E void NDECL(confdir);
-E const char *FDECL(directionname, (int));
-E int FDECL(isok, (int, int));
-E int FDECL(get_adjacent_loc,
-            (const char *, const char *, XCHAR_P, XCHAR_P, coord *));
-E const char *FDECL(click_to_cmd, (int, int, int));
-E char FDECL(get_count, (char *, CHAR_P, long, long *, BOOLEAN_P));
+extern void cmdbind_freeall(void);
+extern int dotoggleoption(void);
+extern void set_move_cmd(int, int);
+extern int do_move_west(void);
+extern int do_move_northwest(void);
+extern int do_move_north(void);
+extern int do_move_northeast(void);
+extern int do_move_east(void);
+extern int do_move_southeast(void);
+extern int do_move_south(void);
+extern int do_move_southwest(void);
+extern int do_rush_west(void);
+extern int do_rush_northwest(void);
+extern int do_rush_north(void);
+extern int do_rush_northeast(void);
+extern int do_rush_east(void);
+extern int do_rush_southeast(void);
+extern int do_rush_south(void);
+extern int do_rush_southwest(void);
+extern int do_run_west(void);
+extern int do_run_northwest(void);
+extern int do_run_north(void);
+extern int do_run_northeast(void);
+extern int do_run_east(void);
+extern int do_run_southeast(void);
+extern int do_run_south(void);
+extern int do_run_southwest(void);
+extern int do_reqmenu(void);
+extern int do_rush(void);
+extern int do_run(void);
+extern int do_fight(void);
+extern int do_repeat(void);
+extern char randomkey(void);
+extern void random_response(char *, int);
+extern int rnd_extcmd_idx(void);
+extern int domonability(void);
+extern const struct ext_func_tab *ext_func_tab_from_func(int(*)(void));
+extern char cmd_from_func(int(*)(void));
+extern char cmd_from_dir(int, int);
+extern char *cmd_from_ecname(const char *);
+extern const char *cmdname_from_func(int(*)(void), char *, boolean);
+extern boolean redraw_cmd(char);
+extern const char *levltyp_to_name(int);
+extern int dolookaround(void);
+extern void reset_occupations(void);
+extern void set_occupation(int(*)(void), const char *, cmdcount_nht);
+extern void cmdq_add_ec(int, int(*)(void));
+extern void cmdq_add_key(int, char);
+extern void cmdq_add_dir(int, schar, schar, schar);
+extern void cmdq_add_userinput(int);
+extern void cmdq_add_int(int, int);
+extern void cmdq_shift(int);
+extern struct _cmd_queue *cmdq_reverse(struct _cmd_queue *);
+extern struct _cmd_queue *cmdq_copy(int);
+extern struct _cmd_queue *cmdq_pop(void);
+extern struct _cmd_queue *cmdq_peek(int);
+extern void cmdq_clear(int);
+extern char pgetchar(void);
+extern char extcmd_initiator(void);
+extern int doextcmd(void);
+extern struct ext_func_tab *extcmds_getentry(int);
+extern int count_bind_keys(void);
+extern int count_autocompletions(void);
+extern void get_changed_key_binds(strbuf_t *);
+extern void handler_rebind_keys(void);
+extern void handler_change_autocompletions(void);
+extern int extcmds_match(const char *, int, int **);
+extern const char *key2extcmddesc(uchar);
+extern boolean bind_specialkey(uchar, const char *);
+extern void parseautocomplete(char *, boolean);
+extern void all_options_autocomplete(strbuf_t *);
+extern void lock_mouse_buttons(boolean);
+extern void reset_commands(boolean);
+extern void update_rest_on_space(void);
+extern void rhack(int);
+extern int doextlist(void);
+extern int extcmd_via_menu(void);
+extern int enter_explore_mode(void);
+extern boolean bind_mousebtn(int, const char *);
+extern boolean bind_key(uchar, const char *, boolean);
+extern void dokeylist(void);
+extern int xytodir(int, int);
+extern void dirtocoord(coord *, int);
+extern int movecmd(char, int);
+extern int dxdy_moveok(void);
+extern int getdir(const char *);
+extern void confdir(boolean);
+extern const char *directionname(int);
+extern int isok(coordxy, coordxy);
+extern int get_adjacent_loc(const char *, const char *, coordxy, coordxy,
+                            coord *);
+extern void click_to_cmd(coordxy, coordxy, int);
+extern char get_count(const char *, char, long, cmdcount_nht *, unsigned);
 #ifdef HANGUPHANDLING
-E void FDECL(hangup, (int));
-E void NDECL(end_of_input);
+extern void hangup(int);
+extern void end_of_input(void);
 #endif
-E char NDECL(readchar);
-E void NDECL(sanity_check);
-E char* FDECL(key2txt, (UCHAR_P, char *));
-E char FDECL(yn_function, (const char *, const char *, CHAR_P));
-E boolean FDECL(paranoid_query, (BOOLEAN_P, const char *));
+extern char readchar(void);
+extern char readchar_poskey(coordxy *, coordxy *, int *);
+extern char* key2txt(uchar, char *);
+extern char yn_function(const char *, const char *, char, boolean);
+extern char paranoid_ynq(boolean, const char *, boolean);
+extern boolean paranoid_query(boolean, const char *);
+extern void makemap_prepost(boolean, boolean);
+extern const char *ecname_from_fn(int (*)(void));
+
+/* ### date.c ### */
+
+extern void populate_nomakedefs(struct version_info *) NONNULLARG1;
+extern void free_nomakedefs(void);
 
 /* ### dbridge.c ### */
 
-E boolean FDECL(is_pool, (int, int));
-E boolean FDECL(is_lava, (int, int));
-E boolean FDECL(is_pool_or_lava, (int, int));
-E boolean FDECL(is_ice, (int, int));
-E boolean FDECL(is_moat, (int, int));
-E schar FDECL(db_under_typ, (int));
-E int FDECL(is_drawbridge_wall, (int, int));
-E boolean FDECL(is_db_wall, (int, int));
-E boolean FDECL(find_drawbridge, (int *, int *));
-E boolean FDECL(create_drawbridge, (int, int, int, BOOLEAN_P));
-E void FDECL(open_drawbridge, (int, int));
-E void FDECL(close_drawbridge, (int, int));
-E void FDECL(destroy_drawbridge, (int, int));
+extern boolean is_waterwall(coordxy, coordxy);
+extern boolean is_pool(coordxy, coordxy);
+extern boolean is_lava(coordxy, coordxy);
+extern boolean is_pool_or_lava(coordxy, coordxy);
+extern boolean is_ice(coordxy, coordxy);
+extern boolean is_moat(coordxy, coordxy);
+extern schar db_under_typ(int);
+extern int is_drawbridge_wall(coordxy, coordxy);
+extern boolean is_db_wall(coordxy, coordxy);
+extern boolean find_drawbridge(coordxy *, coordxy *) NONNULLPTRS;
+extern boolean create_drawbridge(coordxy, coordxy, int, boolean);
+extern void open_drawbridge(coordxy, coordxy);
+extern void close_drawbridge(coordxy, coordxy);
+extern void destroy_drawbridge(coordxy, coordxy);
 
 /* ### decl.c ### */
 
-E void NDECL(decl_init);
+extern void program_state_init(void);
+extern void decl_globals_init(void);
+extern void sa_victual(volatile struct victual_info *);
 
 /* ### detect.c ### */
 
-E boolean FDECL(trapped_chest_at, (int, int, int));
-E boolean FDECL(trapped_door_at, (int, int, int));
-E struct obj *FDECL(o_in, (struct obj *, CHAR_P));
-E struct obj *FDECL(o_material, (struct obj *, unsigned));
-E int FDECL(gold_detect, (struct obj *));
-E int FDECL(food_detect, (struct obj *));
-E int FDECL(object_detect, (struct obj *, int));
-E int FDECL(monster_detect, (struct obj *, int));
-E int FDECL(trap_detect, (struct obj *));
-E const char *FDECL(level_distance, (d_level *));
-E void FDECL(use_crystal_ball, (struct obj **));
-E void NDECL(do_mapping);
-E void FDECL(do_vicinity_map, (struct obj *));
-E void FDECL(cvt_sdoor_to_door, (struct rm *));
-#ifdef USE_TRAMPOLI
-E void FDECL(findone, (int, int, genericptr_t));
-E void FDECL(openone, (int, int, genericptr_t));
-#endif
-E int NDECL(findit);
-E int NDECL(openit);
-E boolean FDECL(detecting, (void (*)(int, int, genericptr)));
-E void FDECL(find_trap, (struct trap *));
-E void NDECL(warnreveal);
-E int FDECL(dosearch0, (int));
-E int NDECL(dosearch);
-E void NDECL(sokoban_detect);
+extern boolean trapped_chest_at(int, coordxy, coordxy);
+extern boolean trapped_door_at(int, coordxy, coordxy);
+extern struct obj *o_in(struct obj *, char) NONNULLARG1;
+extern struct obj *o_material(struct obj *, unsigned) NONNULLARG1;
+extern int gold_detect(struct obj *) NONNULLARG1;
+extern int food_detect(struct obj *);
+extern int object_detect(struct obj *, int);
+extern int monster_detect(struct obj *, int);
+extern int trap_detect(struct obj *);
+extern const char *level_distance(d_level *) NONNULL NONNULLARG1;
+extern void use_crystal_ball(struct obj **) NONNULLARG1;
+extern void show_map_spot(coordxy, coordxy, boolean);
+extern void do_mapping(void);
+extern void do_vicinity_map(struct obj *);
+extern void cvt_sdoor_to_door(struct rm *) NONNULLARG1;
+extern int findit(void);
+extern int openit(void);
+extern boolean detecting(void(*)(coordxy, coordxy, void *));
+extern void find_trap(struct trap *) NONNULLARG1;
+extern void warnreveal(void);
+extern int dosearch0(int);
+extern int dosearch(void);
+extern void premap_detect(void);
 #ifdef DUMPLOG
-E void NDECL(dump_map);
+extern void dump_map(void);
 #endif
-E void FDECL(reveal_terrain, (int, int));
+extern void reveal_terrain(unsigned);
+extern int wiz_mgender(void);
 
 /* ### dig.c ### */
 
-E int FDECL(dig_typ, (struct obj *, XCHAR_P, XCHAR_P));
-E boolean NDECL(is_digging);
-#ifdef USE_TRAMPOLI
-E int NDECL(dig);
-#endif
-E int NDECL(holetime);
-E boolean FDECL(dig_check, (struct monst *, BOOLEAN_P, int, int));
-E void FDECL(digactualhole, (int, int, struct monst *, int));
-E boolean FDECL(dighole, (BOOLEAN_P, BOOLEAN_P, coord *));
-E int FDECL(use_pick_axe, (struct obj *));
-E int FDECL(use_pick_axe2, (struct obj *));
-E boolean FDECL(mdig_tunnel, (struct monst *));
-E void FDECL(draft_message, (BOOLEAN_P));
-E void FDECL(watch_dig, (struct monst *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void NDECL(zap_dig);
-E struct obj *FDECL(bury_an_obj, (struct obj *, boolean *));
-E void FDECL(bury_objs, (int, int));
-E void FDECL(unearth_objs, (int, int));
-E void FDECL(rot_organic, (ANY_P *, long));
-E void FDECL(rot_corpse, (ANY_P *, long));
-E struct obj *FDECL(buried_ball, (coord *));
-E void NDECL(buried_ball_to_punishment);
-E void NDECL(buried_ball_to_freedom);
-E schar FDECL(fillholetyp, (int, int, BOOLEAN_P));
-E void FDECL(liquid_flow,
-             (XCHAR_P, XCHAR_P, SCHAR_P, struct trap *, const char *));
-E boolean FDECL(conjoined_pits, (struct trap *, struct trap *, BOOLEAN_P));
+extern int dig_typ(struct obj *, coordxy, coordxy);
+extern boolean is_digging(void);
+extern int holetime(void);
+extern enum digcheck_result dig_check(struct monst *, coordxy, coordxy);
+extern void digcheck_fail_message(enum digcheck_result, struct monst *,
+                                  coordxy, coordxy);
+extern void digactualhole(coordxy, coordxy, struct monst *, int);
+extern boolean dighole(boolean, boolean, coord *);
+extern int use_pick_axe(struct obj *) NONNULLARG1;
+extern int use_pick_axe2(struct obj *) NONNULLARG1;
+extern boolean mdig_tunnel(struct monst *) NONNULLARG1;
+extern void draft_message(boolean);
+extern void watch_dig(struct monst *, coordxy, coordxy, boolean);
+extern void zap_dig(void);
+extern struct obj *bury_an_obj(struct obj *, boolean *) NONNULLARG1;
+extern void bury_objs(int, int);
+extern void unearth_objs(int, int);
+extern void rot_organic(union any *, long) NONNULLARG1;
+extern void rot_corpse(union any *, long) NONNULLARG1;
+extern struct obj *buried_ball(coord *) NONNULLARG1;
+extern void buried_ball_to_punishment(void);
+extern void buried_ball_to_freedom(void);
+extern schar fillholetyp(coordxy, coordxy, boolean);
+extern void liquid_flow(coordxy, coordxy, schar, struct trap *, const char *);
+extern boolean conjoined_pits(struct trap *, struct trap *, boolean);
 #if 0
-E void FDECL(bury_monst, (struct monst *));
-E void NDECL(bury_you);
-E void NDECL(unearth_you);
-E void NDECL(escape_tomb);
-E void FDECL(bury_obj, (struct obj *));
+extern void bury_monst(struct monst *) NONNULLARG1;
+extern void bury_you(void);
+extern void unearth_you(void);
+extern void escape_tomb(void);
+extern void bury_obj(struct obj *) NONNULLARG1;
+#endif
+#ifdef DEBUG
+extern int wiz_debug_cmd_bury(void);
 #endif
 
 /* ### display.c ### */
 
-E void FDECL(magic_map_background, (XCHAR_P, XCHAR_P, int));
-E void FDECL(map_background, (XCHAR_P, XCHAR_P, int));
-E void FDECL(map_trap, (struct trap *, int));
-E void FDECL(map_object, (struct obj *, int));
-E void FDECL(map_invisible, (XCHAR_P, XCHAR_P));
-E boolean FDECL(unmap_invisible, (int, int));
-E void FDECL(unmap_object, (int, int));
-E void FDECL(map_location, (int, int, int));
-E void FDECL(feel_newsym, (XCHAR_P, XCHAR_P));
-E void FDECL(feel_location, (XCHAR_P, XCHAR_P));
-E void FDECL(newsym, (int, int));
-E void FDECL(newsym_force, (int, int));
-E void FDECL(shieldeff, (XCHAR_P, XCHAR_P));
-E void FDECL(tmp_at, (int, int));
-E void FDECL(flash_glyph_at, (int, int, int, int));
-E void FDECL(swallowed, (int));
-E void FDECL(under_ground, (int));
-E void FDECL(under_water, (int));
-E void NDECL(see_monsters);
-E void NDECL(set_mimic_blocking);
-E void NDECL(see_objects);
-E void NDECL(see_traps);
-E void NDECL(curs_on_u);
-E int NDECL(doredraw);
-E void NDECL(docrt);
-E void NDECL(redraw_map);
-E void FDECL(show_glyph, (int, int, int));
-E void NDECL(clear_glyph_buffer);
-E void FDECL(row_refresh, (int, int, int));
-E void NDECL(cls);
-E void FDECL(flush_screen, (int));
-E int FDECL(back_to_glyph, (XCHAR_P, XCHAR_P));
-E int FDECL(zapdir_to_glyph, (int, int, int));
-E int FDECL(glyph_at, (XCHAR_P, XCHAR_P));
-E void NDECL(set_wall_state);
-E void FDECL(unset_seenv, (struct rm *, int, int, int, int));
-E int FDECL(warning_of, (struct monst *));
+extern int tp_sensemon(struct monst *) NONNULLARG1;
+extern int sensemon(struct monst *) NONNULLARG1;
+extern int mon_warning(struct monst *) NONNULLARG1;
+extern int mon_visible(struct monst *) NONNULLARG1;
+extern int see_with_infrared(struct monst *) NONNULLARG1;
+extern int canseemon(struct monst *) NONNULLARG1;
+extern int knowninvisible(struct monst *) NONNULLARG1;
+extern int is_safemon(struct monst *) NONNULLARG1;
+extern void magic_map_background(coordxy, coordxy, int);
+extern void map_background(coordxy, coordxy, int);
+extern void map_trap(struct trap *, int) NONNULLARG1;
+extern void map_object(struct obj *, int) NONNULLARG1;
+extern void map_invisible(coordxy, coordxy);
+extern void map_engraving(struct engr *, int);
+extern boolean unmap_invisible(coordxy, coordxy);
+extern void unmap_object(coordxy, coordxy);
+extern void map_location(coordxy, coordxy, int);
+extern boolean suppress_map_output(void);
+extern void feel_newsym(coordxy, coordxy);
+extern void feel_location(coordxy, coordxy);
+extern void newsym(coordxy, coordxy);
+extern void newsym_force(coordxy, coordxy);
+extern void shieldeff(coordxy, coordxy);
+extern void tmp_at(coordxy, coordxy);
+extern void flash_glyph_at(coordxy, coordxy, int, int);
+extern void swallowed(int);
+extern void under_ground(int);
+extern void under_water(int);
+extern void see_monsters(void);
+extern void set_mimic_blocking(void);
+extern void see_objects(void);
+extern void see_nearby_objects(void);
+extern void see_traps(void);
+extern void curs_on_u(void);
+extern int doredraw(void);
+extern void docrt(void);
+extern void docrt_flags(int);
+extern void redraw_map(boolean);
+extern void show_glyph(coordxy, coordxy, int);
+extern void clear_glyph_buffer(void);
+extern void row_refresh(coordxy, coordxy, coordxy);
+extern void cls(void);
+extern void flush_screen(int);
+extern int back_to_glyph(coordxy, coordxy);
+extern int zapdir_to_glyph(int, int, int);
+extern int glyph_at(coordxy, coordxy);
+extern void reglyph_darkroom(void);
+extern void xy_set_wall_state(coordxy, coordxy);
+extern void set_wall_state(void);
+extern void unset_seenv(struct rm *, coordxy, coordxy, coordxy, coordxy);
+extern int warning_of(struct monst *) NONNULLARG1;
+extern void map_glyphinfo(coordxy, coordxy, int, unsigned, glyph_info *) NONNULLPTRS;
+extern void reset_glyphmap(enum glyphmap_change_triggers trigger);
+extern int fn_cmap_to_glyph(int);
 
 /* ### do.c ### */
 
-#ifdef USE_TRAMPOLI
-E int FDECL(drop, (struct obj *));
-E int NDECL(wipeoff);
-#endif
-E int NDECL(dodrop);
-E boolean FDECL(boulder_hits_pool, (struct obj *, int, int, BOOLEAN_P));
-E boolean FDECL(flooreffects, (struct obj *, int, int, const char *));
-E void FDECL(doaltarobj, (struct obj *));
-E boolean FDECL(canletgo, (struct obj *, const char *));
-E void FDECL(dropx, (struct obj *));
-E void FDECL(dropy, (struct obj *));
-E void FDECL(dropz, (struct obj *, BOOLEAN_P));
-E void FDECL(obj_no_longer_held, (struct obj *));
-E int NDECL(doddrop);
-E int NDECL(dodown);
-E int NDECL(doup);
+extern int dodrop(void);
+extern boolean boulder_hits_pool(struct obj *, coordxy, coordxy, boolean);
+extern boolean flooreffects(struct obj *, coordxy, coordxy,
+                            const char *) NONNULLPTRS;
+extern void doaltarobj(struct obj *) NONNULLARG1;
+extern void polymorph_sink(void);
+extern void trycall(struct obj *) NONNULLARG1;
+extern boolean canletgo(struct obj *, const char *) NONNULLPTRS;
+extern void dropx(struct obj *) NONNULLARG1;
+extern void dropy(struct obj *) NONNULLARG1;
+extern void dropz(struct obj *, boolean) NONNULLARG1;
+extern void obj_no_longer_held(struct obj *);
+extern int doddrop(void);
+extern int dodown(void);
+extern int doup(void);
 #ifdef INSURANCE
-E void NDECL(save_currentstate);
+extern void save_currentstate(void);
 #endif
-E void FDECL(u_collide_m, (struct monst *));
-E void FDECL(goto_level, (d_level *, BOOLEAN_P, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(schedule_goto, (d_level *, BOOLEAN_P, BOOLEAN_P, int,
-                             const char *, const char *));
-E void NDECL(deferred_goto);
-E boolean FDECL(revive_corpse, (struct obj *));
-E void FDECL(revive_mon, (ANY_P *, long));
-E int NDECL(donull);
-E int NDECL(dowipe);
-E void FDECL(set_wounded_legs, (long, int));
-E void FDECL(heal_legs, (int));
+extern void u_collide_m(struct monst *);
+extern void goto_level(d_level *, boolean, boolean, boolean) NONNULLARG1;
+extern void hellish_smoke_mesg(void);
+extern void maybe_lvltport_feedback(void);
+extern void schedule_goto(d_level *, int, const char *, const char *) NONNULLARG1;
+extern void deferred_goto(void);
+extern boolean revive_corpse(struct obj *) NONNULLARG1;
+extern void revive_mon(union any *, long) NONNULLARG1;
+extern void zombify_mon(union any *, long) NONNULLARG1;
+extern boolean cmd_safety_prevention(const char *, const char *,
+                                     const char *, int *) NONNULLPTRS;
+extern int donull(void);
+extern int dowipe(void);
+extern void legs_in_no_shape(const char *, boolean) NONNULLARG1;
+extern void set_wounded_legs(long, int);
+extern void heal_legs(int);
 
 /* ### do_name.c ### */
 
-E char *FDECL(coord_desc, (int, int, char *, CHAR_P));
-E boolean FDECL(getpos_menu, (coord *, int));
-E int FDECL(getpos, (coord *, BOOLEAN_P, const char *));
-E void FDECL(getpos_sethilite, (void (*f)(int), boolean (*d)(int,int)));
-E void FDECL(new_mname, (struct monst *, int));
-E void FDECL(free_mname, (struct monst *));
-E void FDECL(new_oname, (struct obj *, int));
-E void FDECL(free_oname, (struct obj *));
-E const char *FDECL(safe_oname, (struct obj *));
-E struct monst *FDECL(christen_monst, (struct monst *, const char *));
-E struct obj *FDECL(oname, (struct obj *, const char *));
-E boolean FDECL(objtyp_is_callable, (int));
-E int NDECL(docallcmd);
-E void FDECL(docall, (struct obj *));
-E const char *NDECL(rndghostname);
-E char *FDECL(x_monnam, (struct monst *, int, const char *, int, BOOLEAN_P));
-E char *FDECL(l_monnam, (struct monst *));
-E char *FDECL(mon_nam, (struct monst *));
-E char *FDECL(noit_mon_nam, (struct monst *));
-E char *FDECL(Monnam, (struct monst *));
-E char *FDECL(noit_Monnam, (struct monst *));
-E char *FDECL(noname_monnam, (struct monst *, int));
-E char *FDECL(m_monnam, (struct monst *));
-E char *FDECL(y_monnam, (struct monst *));
-E char *FDECL(Adjmonnam, (struct monst *, const char *));
-E char *FDECL(Amonnam, (struct monst *));
-E char *FDECL(a_monnam, (struct monst *));
-E char *FDECL(distant_monnam, (struct monst *, int, char *));
-E char *FDECL(mon_nam_too, (struct monst *, struct monst *));
-E char *FDECL(minimal_monnam, (struct monst *, BOOLEAN_P));
-E char *FDECL(rndmonnam, (char *));
-E const char *FDECL(hcolor, (const char *));
-E const char *NDECL(rndcolor);
-E const char *FDECL(hliquid, (const char *));
-E const char *NDECL(roguename);
-E struct obj *FDECL(realloc_obj,
-                    (struct obj *, int, genericptr_t, int, const char *));
-E char *FDECL(coyotename, (struct monst *, char *));
-E char *FDECL(rndorcname, (char *));
-E struct monst *FDECL(christen_orc, (struct monst *, const char *,
-                                     const char *));
-E const char *FDECL(noveltitle, (int *));
-E const char *FDECL(lookup_novel, (const char *, int *));
+extern void new_mgivenname(struct monst *, int) NONNULLARG1;
+extern void free_mgivenname(struct monst *) NONNULLARG1;
+extern void new_oname(struct obj *, int) NONNULLARG1;
+extern void free_oname(struct obj *) NONNULLARG1;
+extern const char *safe_oname(struct obj *) NONNULLARG1;
+extern struct monst *christen_monst(struct monst *, const char *) NONNULLARG1;
+extern struct obj *oname(struct obj *, const char *, unsigned) NONNULLPTRS;
+extern boolean objtyp_is_callable(int);
+extern int name_ok(struct obj *);
+extern int call_ok(struct obj *);
+extern int docallcmd(void);
+extern void docall(struct obj *) NONNULLARG1;
+extern const char *rndghostname(void);
+extern char *x_monnam(struct monst *, int, const char *, int, boolean) NONNULLARG1;
+extern char *l_monnam(struct monst *) NONNULLARG1;
+extern char *mon_nam(struct monst *) NONNULLARG1;
+extern char *noit_mon_nam(struct monst *) NONNULLARG1;
+extern char *some_mon_nam(struct monst *) NONNULLARG1;
+extern char *Monnam(struct monst *) NONNULLARG1;
+extern char *noit_Monnam(struct monst *) NONNULLARG1;
+extern char *Some_Monnam(struct monst *) NONNULLARG1;
+extern char *noname_monnam(struct monst *, int) NONNULLARG1;
+extern char *m_monnam(struct monst *) NONNULLARG1;
+extern char *y_monnam(struct monst *) NONNULLARG1;
+extern char *YMonnam(struct monst *) NONNULLARG1;
+extern char *Adjmonnam(struct monst *, const char *) NONNULLARG1;
+extern char *Amonnam(struct monst *) NONNULLARG1;
+extern char *a_monnam(struct monst *) NONNULLARG1;
+extern char *distant_monnam(struct monst *, int, char *) NONNULLARG1;
+extern char *mon_nam_too(struct monst *, struct monst *) NONNULLPTRS;
+extern char *monverbself(struct monst *, char *,
+                         const char *, const char *) NONNULLARG123;
+extern char *minimal_monnam(struct monst *, boolean);
+extern char *bogusmon(char *, char *) NONNULLARG1;
+extern char *rndmonnam(char *);
+extern const char *hcolor(const char *);
+extern const char *rndcolor(void);
+extern const char *hliquid(const char *);
+extern const char *roguename(void);
+/*
+extern struct obj *realloc_obj(struct obj *, int, genericptr_t, int,
+                               const char *);
+*/
+extern char *coyotename(struct monst *, char *);
+extern char *rndorcname(char *);
+extern struct monst *christen_orc(struct monst *, const char *,
+                                  const char *) NONNULLARG1;
+extern const char *noveltitle(int *);
+extern const char *lookup_novel(const char *, int *) NONNULLARG1;
+#ifndef PMNAME_MACROS
+extern int Mgender(struct monst *) NONNULLARG1;
+extern const char *pmname(struct permonst *, int) NONNULLARG1;
+#endif
+extern const char *mon_pmname(struct monst *) NONNULLARG1;
+extern const char *obj_pmname(struct obj *) NONNULLARG1;
 
 /* ### do_wear.c ### */
 
-#ifdef USE_TRAMPOLI
-E int NDECL(Armor_on);
-E int NDECL(Boots_on);
-E int NDECL(Gloves_on);
-E int NDECL(Helmet_on);
-E int FDECL(select_off, (struct obj *));
-E int NDECL(take_off);
-#endif
-E const char *FDECL(fingers_or_gloves, (BOOLEAN_P));
-E void FDECL(off_msg, (struct obj *));
-E void FDECL(set_wear, (struct obj *));
-E boolean FDECL(donning, (struct obj *));
-E boolean FDECL(doffing, (struct obj *));
-E void FDECL(cancel_doff, (struct obj *, long));
-E void NDECL(cancel_don);
-E int FDECL(stop_donning, (struct obj *));
-E int NDECL(Armor_off);
-E int NDECL(Armor_gone);
-E int NDECL(Helmet_off);
-E int NDECL(Gloves_off);
-E int NDECL(Boots_on);
-E int NDECL(Boots_off);
-E int NDECL(Cloak_off);
-E int NDECL(Shield_off);
-E int NDECL(Shirt_off);
-E void NDECL(Amulet_off);
-E void FDECL(Ring_on, (struct obj *));
-E void FDECL(Ring_off, (struct obj *));
-E void FDECL(Ring_gone, (struct obj *));
-E void FDECL(Blindf_on, (struct obj *));
-E void FDECL(Blindf_off, (struct obj *));
-E int NDECL(dotakeoff);
-E int NDECL(doremring);
-E int FDECL(cursed, (struct obj *));
-E int FDECL(armoroff, (struct obj *));
-E int FDECL(canwearobj, (struct obj *, long *, BOOLEAN_P));
-E int NDECL(dowear);
-E int NDECL(doputon);
-E void NDECL(find_ac);
-E void NDECL(glibr);
-E struct obj *FDECL(some_armor, (struct monst *));
-E struct obj *FDECL(stuck_ring, (struct obj *, int));
-E struct obj *NDECL(unchanger);
-E void NDECL(reset_remarm);
-E int NDECL(doddoremarm);
-E int FDECL(destroy_arm, (struct obj *));
-E void FDECL(adj_abon, (struct obj *, SCHAR_P));
-E boolean
-FDECL(inaccessible_equipment, (struct obj *, const char *, BOOLEAN_P));
+extern const char *fingers_or_gloves(boolean);
+extern void off_msg(struct obj *) NONNULLARG1;
+extern void toggle_displacement(struct obj *, long, boolean);
+extern void set_wear(struct obj *);
+extern boolean donning(struct obj *) NONNULLARG1;
+extern boolean doffing(struct obj *) NONNULLARG1;
+extern void cancel_doff(struct obj *, long) NONNULLARG1;
+extern void cancel_don(void);
+extern int stop_donning(struct obj *); /* doseduce() calls with NULL */
+extern int Armor_off(void);
+extern int Armor_gone(void);
+extern int Helmet_off(void);
+extern boolean hard_helmet(struct obj *);
+extern void wielding_corpse(struct obj *, struct obj *, boolean);
+extern int Gloves_off(void);
+extern int Boots_on(void);
+extern int Boots_off(void);
+extern int Cloak_off(void);
+extern int Shield_off(void);
+extern int Shirt_off(void);
+extern void Amulet_off(void);
+extern void Ring_on(struct obj *) NONNULLARG1;
+extern void Ring_off(struct obj *) NONNULLARG1;
+extern void Ring_gone(struct obj *) NONNULLARG1;
+extern void Blindf_on(struct obj *) NONNULLARG1;
+extern void Blindf_off(struct obj *);
+extern int dotakeoff(void);
+extern int ia_dotakeoff(void);
+extern int doremring(void);
+extern int cursed(struct obj *);
+extern int armoroff(struct obj *);
+extern int canwearobj(struct obj *, long *, boolean) NONNULLPTRS;
+extern int dowear(void);
+extern int doputon(void);
+extern void find_ac(void);
+extern void glibr(void);
+extern struct obj *some_armor(struct monst *) NONNULLARG1;
+extern struct obj *stuck_ring(struct obj *, int);
+extern struct obj *unchanger(void);
+extern void reset_remarm(void);
+extern int doddoremarm(void);
+extern int remarm_swapwep(void);
+extern int disintegrate_arm(struct obj *);
+extern int destroy_arm(void);
+extern void adj_abon(struct obj *, schar) NONNULLARG1;
+extern boolean inaccessible_equipment(struct obj *, const char *, boolean);
+extern int any_worn_armor_ok(struct obj *);
+extern int count_worn_armor(void);
 
 /* ### dog.c ### */
 
-E void FDECL(newedog, (struct monst *));
-E void FDECL(free_edog, (struct monst *));
-E void FDECL(initedog, (struct monst *));
-E struct monst *FDECL(make_familiar,
-                      (struct obj *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E struct monst *NDECL(makedog);
-E void NDECL(update_mlstmv);
-E void NDECL(losedogs);
-E void FDECL(mon_arrive, (struct monst *, BOOLEAN_P));
-E void FDECL(mon_catchup_elapsed_time, (struct monst *, long));
-E void FDECL(keepdogs, (BOOLEAN_P));
-E void FDECL(migrate_to_level, (struct monst *, XCHAR_P, XCHAR_P, coord *));
-E int FDECL(dogfood, (struct monst *, struct obj *));
-E boolean FDECL(tamedog, (struct monst *, struct obj *));
-E void FDECL(abuse_dog, (struct monst *));
-E void FDECL(wary_dog, (struct monst *, BOOLEAN_P));
+extern void newedog(struct monst *) NONNULLARG1;
+extern void free_edog(struct monst *) NONNULLARG1;
+extern void initedog(struct monst *, boolean) NONNULLARG1;
+extern struct monst *make_familiar(struct obj *, coordxy, coordxy, boolean);
+extern struct monst *makedog(void);
+extern void update_mlstmv(void);
+extern void losedogs(void);
+extern void mon_arrive(struct monst *, int) NONNULLARG1;
+extern void mon_catchup_elapsed_time(struct monst *, long) NONNULLARG1;
+extern void keepdogs(boolean);
+extern void migrate_to_level(struct monst *, xint16, xint16, coord *) NONNULLARG1;
+extern void discard_migrations(void);
+extern int dogfood(struct monst *, struct obj *) NONNULLPTRS;
+extern boolean tamedog(struct monst *, struct obj *, boolean) NONNULLARG1;
+extern void abuse_dog(struct monst *) NONNULLARG1;
+extern void wary_dog(struct monst *, boolean) NONNULLARG1;
 
 /* ### dogmove.c ### */
 
-E struct obj *FDECL(droppables, (struct monst *));
-E int FDECL(dog_nutrition, (struct monst *, struct obj *));
-E int FDECL(dog_eat, (struct monst *, struct obj *, int, int, BOOLEAN_P));
-E int FDECL(dog_move, (struct monst *, int));
-#ifdef USE_TRAMPOLI
-E void FDECL(wantdoor, (int, int, genericptr_t));
-#endif
-E void FDECL(finish_meating, (struct monst *));
+extern boolean cursed_object_at(coordxy, coordxy);
+extern struct obj *droppables(struct monst *) NONNULLARG1;
+extern int dog_nutrition(struct monst *, struct obj *) NONNULLPTRS;
+extern int dog_eat(struct monst *, struct obj *,
+                   coordxy, coordxy, boolean) NONNULLPTRS;
+extern int pet_ranged_attk(struct monst *, boolean) NONNULLARG1;
+extern int dog_move(struct monst *, int) NONNULLARG1;
+extern boolean could_reach_item(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern void finish_meating(struct monst *) NONNULLARG1;
+extern void quickmimic(struct monst *) NONNULLARG1;
 
 /* ### dokick.c ### */
 
-E boolean FDECL(ghitm, (struct monst *, struct obj *));
-E void FDECL(container_impact_dmg, (struct obj *, XCHAR_P, XCHAR_P));
-E int NDECL(dokick);
-E boolean FDECL(ship_object, (struct obj *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void FDECL(obj_delivery, (BOOLEAN_P));
-E void FDECL(deliver_obj_to_mon, (struct monst *mtmp, int, unsigned long));
-E schar FDECL(down_gate, (XCHAR_P, XCHAR_P));
-E void FDECL(impact_drop, (struct obj *, XCHAR_P, XCHAR_P, XCHAR_P));
+extern boolean ghitm(struct monst *, struct obj *) NONNULLPTRS;
+extern void container_impact_dmg(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern int dokick(void);
+extern boolean ship_object(struct obj *, coordxy, coordxy, boolean);
+extern void obj_delivery(boolean);
+extern void deliver_obj_to_mon(struct monst *mtmp, int, unsigned long) NONNULLARG1;
+extern schar down_gate(coordxy, coordxy);
+extern void impact_drop(struct obj *, coordxy, coordxy, xint16);
 
 /* ### dothrow.c ### */
 
-E int NDECL(dothrow);
-E int NDECL(dofire);
-E void FDECL(endmultishot, (BOOLEAN_P));
-E void FDECL(hitfloor, (struct obj *, BOOLEAN_P));
-E void FDECL(hurtle, (int, int, int, BOOLEAN_P));
-E void FDECL(mhurtle, (struct monst *, int, int, int));
-E boolean FDECL(throwing_weapon, (struct obj *));
-E void FDECL(throwit, (struct obj *, long, BOOLEAN_P));
-E int FDECL(omon_adj, (struct monst *, struct obj *, BOOLEAN_P));
-E int FDECL(thitmonst, (struct monst *, struct obj *));
-E int FDECL(hero_breaks, (struct obj *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E int FDECL(breaks, (struct obj *, XCHAR_P, XCHAR_P));
-E void FDECL(release_camera_demon, (struct obj *, XCHAR_P, XCHAR_P));
-E void FDECL(breakobj, (struct obj *, XCHAR_P, XCHAR_P, BOOLEAN_P, BOOLEAN_P));
-E boolean FDECL(breaktest, (struct obj *));
-E boolean FDECL(walk_path, (coord *, coord *,
-                            boolean (*)(genericptr, int, int), genericptr_t));
-E boolean FDECL(hurtle_jump, (genericptr_t, int, int));
-E boolean FDECL(hurtle_step, (genericptr_t, int, int));
+extern int multishot_class_bonus(int, struct obj *, struct obj *) NONNULLARG2;
+extern int dothrow(void);
+extern int dofire(void);
+extern void endmultishot(boolean);
+extern void hitfloor(struct obj *, boolean) NONNULLARG1;
+extern boolean hurtle_jump(genericptr_t, coordxy, coordxy) NONNULLARG1;
+extern boolean hurtle_step(genericptr_t, coordxy, coordxy) NONNULLARG1;
+extern boolean will_hurtle(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern void hurtle(int, int, int, boolean);
+extern void mhurtle(struct monst *, int, int, int) NONNULLARG1;
+extern boolean harmless_missile(struct obj *) NONNULLARG1;
+extern boolean throwing_weapon(struct obj *) NONNULLARG1;
+extern boolean throwit_mon_hit(struct obj *, struct monst *) NONNULLARG1;
+extern void throwit(struct obj *, long, boolean, struct obj *) NONNULLARG1;
+extern int omon_adj(struct monst *, struct obj *, boolean) NONNULLPTRS;
+extern boolean should_mulch_missile(struct obj *);
+extern int thitmonst(struct monst *, struct obj *) NONNULLPTRS;
+extern int hero_breaks(struct obj *, coordxy, coordxy, unsigned);
+extern int breaks(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern void release_camera_demon(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern int breakobj(struct obj *, coordxy, coordxy, boolean, boolean) NONNULLARG1;
+extern boolean breaktest(struct obj *) NONNULLARG1;
+extern boolean walk_path(coord *, coord *,
+                         boolean(*)(void *, coordxy, coordxy), genericptr_t) NONNULLARG12;
 
 /* ### drawing.c ### */
-#endif /* !MAKEDEFS_C && !LEV_LEX_C */
-E int FDECL(def_char_to_objclass, (CHAR_P));
-E int FDECL(def_char_to_monclass, (CHAR_P));
-#if !defined(MAKEDEFS_C) && !defined(LEV_LEX_C)
-E void FDECL(switch_symbols, (int));
-E void FDECL(assign_graphics, (int));
-E void NDECL(init_symbols);
-E void NDECL(init_showsyms);
-E void NDECL(init_primary_symbols);
-E void NDECL(init_rogue_symbols);
-E void NDECL(init_ov_primary_symbols);
-E void NDECL(init_ov_rogue_symbols);
-E void FDECL(clear_symsetentry, (int, BOOLEAN_P));
-E void FDECL(update_primary_symset, (struct symparse *, int));
-E void FDECL(update_rogue_symset, (struct symparse *, int));
-E void FDECL(update_ov_primary_symset, (struct symparse *, int));
-E void FDECL(update_ov_rogue_symset, (struct symparse *, int));
-E boolean FDECL(cursed_object_at, (int, int));
-E nhsym FDECL(get_othersym, (int, int));
+
+extern int def_char_to_objclass(char);
+extern int def_char_to_monclass(char);
+extern int def_char_is_furniture(char);
 
 /* ### dungeon.c ### */
 
-E void FDECL(save_dungeon, (int, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(restore_dungeon, (int));
-E void FDECL(insert_branch, (branch *, BOOLEAN_P));
-E void NDECL(init_dungeons);
-E s_level *FDECL(find_level, (const char *));
-E s_level *FDECL(Is_special, (d_level *));
-E branch *FDECL(Is_branchlev, (d_level *));
-E boolean FDECL(builds_up, (d_level *));
-E xchar FDECL(ledger_no, (d_level *));
-E xchar NDECL(maxledgerno);
-E schar FDECL(depth, (d_level *));
-E xchar FDECL(dunlev, (d_level *));
-E xchar FDECL(dunlevs_in_dungeon, (d_level *));
-E xchar FDECL(ledger_to_dnum, (XCHAR_P));
-E xchar FDECL(ledger_to_dlev, (XCHAR_P));
-E xchar FDECL(deepest_lev_reached, (BOOLEAN_P));
-E boolean FDECL(on_level, (d_level *, d_level *));
-E void FDECL(next_level, (BOOLEAN_P));
-E void FDECL(prev_level, (BOOLEAN_P));
-E void FDECL(u_on_newpos, (int, int));
-E void FDECL(u_on_rndspot, (int));
-E void FDECL(u_on_sstairs, (int));
-E void NDECL(u_on_upstairs);
-E void NDECL(u_on_dnstairs);
-E boolean FDECL(On_stairs, (XCHAR_P, XCHAR_P));
-E void FDECL(get_level, (d_level *, int));
-E boolean FDECL(Is_botlevel, (d_level *));
-E boolean FDECL(Can_fall_thru, (d_level *));
-E boolean FDECL(Can_dig_down, (d_level *));
-E boolean FDECL(Can_rise_up, (int, int, d_level *));
-E boolean FDECL(has_ceiling, (d_level *));
-E boolean FDECL(In_quest, (d_level *));
-E boolean FDECL(In_mines, (d_level *));
-E branch *FDECL(dungeon_branch, (const char *));
-E boolean FDECL(at_dgn_entrance, (const char *));
-E boolean FDECL(In_hell, (d_level *));
-E boolean FDECL(In_V_tower, (d_level *));
-E boolean FDECL(On_W_tower_level, (d_level *));
-E boolean FDECL(In_W_tower, (int, int, d_level *));
-E void FDECL(find_hell, (d_level *));
-E void FDECL(goto_hell, (BOOLEAN_P, BOOLEAN_P));
-E void FDECL(assign_level, (d_level *, d_level *));
-E void FDECL(assign_rnd_level, (d_level *, d_level *, int));
-E int FDECL(induced_align, (int));
-E boolean FDECL(Invocation_lev, (d_level *));
-E xchar NDECL(level_difficulty);
-E schar FDECL(lev_by_name, (const char *));
-E schar FDECL(print_dungeon, (BOOLEAN_P, schar *, xchar *));
-E char *FDECL(get_annotation, (d_level *));
-E int NDECL(donamelevel);
-E int NDECL(dooverview);
-E void FDECL(show_overview, (int, int));
-E void FDECL(forget_mapseen, (int));
-E void FDECL(rm_mapseen, (int));
-E void FDECL(init_mapseen, (d_level *));
-E void NDECL(recalc_mapseen);
-E void FDECL(mapseen_temple, (struct monst *));
-E void FDECL(room_discovered, (int));
-E void FDECL(recbranch_mapseen, (d_level *, d_level *));
-E void FDECL(overview_stats, (winid, const char *, long *, long *));
-E void FDECL(remdun_mapseen, (int));
-E const char *FDECL(endgamelevelname, (char *, int));
+extern void save_dungeon(NHFILE *, boolean, boolean) NONNULLARG1;
+extern void restore_dungeon(NHFILE *) NONNULLARG1;
+extern void insert_branch(branch *, boolean) NONNULLARG1;
+extern void init_dungeons(void);
+extern s_level *find_level(const char *) NONNULLARG1;
+extern s_level *Is_special(d_level *) NONNULLARG1;
+extern branch *Is_branchlev(d_level *) NONNULLARG1;
+extern boolean builds_up(d_level *) NONNULLARG1;
+extern xint16 ledger_no(d_level *) NONNULLARG1;
+extern xint16 maxledgerno(void);
+extern schar depth(d_level *) NONNULLARG1;
+extern xint16 dunlev(d_level *) NONNULLARG1;
+extern xint16 dunlevs_in_dungeon(d_level *) NONNULLARG1;
+extern xint16 ledger_to_dnum(xint16);
+extern xint16 ledger_to_dlev(xint16);
+extern xint16 deepest_lev_reached(boolean);
+extern boolean on_level(d_level *, d_level *) NONNULLARG12;
+extern void next_level(boolean);
+extern void prev_level(boolean);
+extern void u_on_newpos(coordxy, coordxy);
+extern void u_on_rndspot(int);
+extern void get_level(d_level *, int) NONNULLARG1;
+extern boolean Is_botlevel(d_level *) NONNULLARG1;
+extern boolean Can_fall_thru(d_level *) NONNULLARG1;
+extern boolean Can_dig_down(d_level *) NONNULLARG1;
+extern boolean Can_rise_up(coordxy, coordxy, d_level *) NONNULLARG3;
+extern boolean has_ceiling(d_level *) NONNULLARG1;
+extern boolean avoid_ceiling(d_level *) NONNULLARG1;
+extern const char *surface(coordxy, coordxy);
+extern const char *ceiling(coordxy, coordxy);
+extern boolean In_quest(d_level *) NONNULLARG1;
+extern boolean In_mines(d_level *) NONNULLARG1;
+extern branch *dungeon_branch(const char *) NONNULL NONNULLARG1;
+extern boolean at_dgn_entrance(const char *) NONNULLARG1;
+extern boolean In_hell(d_level *) NONNULLARG1;
+extern boolean In_V_tower(d_level *) NONNULLARG1;
+extern boolean On_W_tower_level(d_level *) NONNULLARG1;
+extern boolean In_W_tower(coordxy, coordxy, d_level *) NONNULLARG3;
+extern void find_hell(d_level *) NONNULLARG1;
+extern void goto_hell(boolean, boolean);
+extern boolean single_level_branch(d_level *) NONNULLARG1;
+extern void assign_level(d_level *, d_level *) NONNULLPTRS;
+extern void assign_rnd_level(d_level *, d_level *, int) NONNULLARG12;
+extern unsigned int induced_align(int);
+extern boolean Invocation_lev(d_level *) NONNULLARG1;
+extern xint16 level_difficulty(void);
+extern schar lev_by_name(const char *);
+extern schar print_dungeon(boolean, schar *, xint16 *);
+extern void print_level_annotation(void);
+extern int donamelevel(void);
+extern void free_exclusions(void);
+extern void save_exclusions(NHFILE *) NONNULLARG1;
+extern void load_exclusions(NHFILE *) NONNULLARG1;
+extern int dooverview(void);
+extern void show_overview(int, int);
+extern void rm_mapseen(int);
+extern void init_mapseen(d_level *) NONNULLARG1;
+extern void update_lastseentyp(coordxy, coordxy);
+extern int update_mapseen_for(coordxy, coordxy);
+extern void recalc_mapseen(void);
+extern void mapseen_temple(struct monst *);
+extern void room_discovered(int);
+extern void recbranch_mapseen(d_level *, d_level *) NONNULLPTRS;
+extern void overview_stats(winid, const char *, long *, long *) NONNULLPTRS;
+extern void remdun_mapseen(int);
+extern const char *endgamelevelname(char *, int);
+
+/* ### earlyarg.c ### */
+
+extern int argcheck(int, char **, enum earlyarg);
+extern void early_options(int *argc_p, char ***argv_p, char **hackdir_p);
+#ifdef WIN32
+int windows_early_options(const char *);
+#endif
 
 /* ### eat.c ### */
 
-#ifdef USE_TRAMPOLI
-E int NDECL(eatmdone);
-E int NDECL(eatfood);
-E int NDECL(opentin);
-E int NDECL(unfaint);
-#endif
-E void NDECL(eatmupdate);
-E boolean FDECL(is_edible, (struct obj *));
-E void NDECL(init_uhunger);
-E int NDECL(Hear_again);
-E void NDECL(reset_eat);
-E int NDECL(doeat);
-E int FDECL(use_tin_opener, (struct obj *));
-E void NDECL(gethungry);
-E void FDECL(morehungry, (int));
-E void FDECL(lesshungry, (int));
-E boolean NDECL(is_fainted);
-E void NDECL(reset_faint);
-E void NDECL(violated_vegetarian);
-E void FDECL(newuhs, (BOOLEAN_P));
-E struct obj *FDECL(floorfood, (const char *, int));
-E void NDECL(vomit);
-E int FDECL(eaten_stat, (int, struct obj *));
-E void FDECL(food_disappears, (struct obj *));
-E void FDECL(food_substitution, (struct obj *, struct obj *));
-E void FDECL(eating_conducts, (struct permonst *));
-E int FDECL(eat_brains, (struct monst *, struct monst *, BOOLEAN_P, int *));
-E void NDECL(fix_petrification);
-E void FDECL(consume_oeaten, (struct obj *, int));
-E boolean FDECL(maybe_finished_meal, (BOOLEAN_P));
-E void FDECL(set_tin_variety, (struct obj *, int));
-E int FDECL(tin_variety_txt, (char *, int *));
-E void FDECL(tin_details, (struct obj *, int, char *));
-E boolean FDECL(Popeye, (int));
+extern void eatmupdate(void);
+extern boolean is_edible(struct obj *) NONNULLARG1;
+extern void init_uhunger(void);
+extern int Hear_again(void);
+extern boolean eating_glob(struct obj *);
+extern void reset_eat(void);
+extern unsigned obj_nutrition(struct obj *) NONNULLARG1;
+extern int doeat(void);
+extern int use_tin_opener(struct obj *) NONNULLARG1;
+extern void gethungry(void);
+extern void morehungry(int);
+extern void lesshungry(int);
+extern boolean is_fainted(void);
+extern void reset_faint(void);
+extern int corpse_intrinsic(struct permonst *) NONNULLARG1;
+extern void violated_vegetarian(void);
+extern void newuhs(boolean);
+extern struct obj *floorfood(const char *, int) NONNULLARG1;
+extern void vomit(void);
+extern int eaten_stat(int, struct obj *) NONNULLARG2;
+extern void food_disappears(struct obj *) NONNULLARG1;
+extern void food_substitution(struct obj *, struct obj *) NONNULLPTRS;
+extern long temp_resist(int);
+extern boolean eating_dangerous_corpse(int);
+extern void eating_conducts(struct permonst *) NONNULLARG1;
+extern int eat_brains(struct monst *, struct monst *, boolean,
+                                                          int *) NONNULLARG12;
+extern void fix_petrification(void);
+extern int intrinsic_possible(int, struct permonst *) NONNULLARG2;
+extern boolean should_givit(int, struct permonst *) NONNULLARG2;
+extern void consume_oeaten(struct obj *, int) NONNULLARG1;
+extern boolean maybe_finished_meal(boolean);
+extern void cant_finish_meal(struct obj *) NONNULLARG1;
+extern void set_tin_variety(struct obj *, int) NONNULLARG1;
+extern int tin_variety_txt(char *, int *);
+extern void tin_details(struct obj *, int, char *);
+extern boolean Popeye(int);
+extern int Finish_digestion(void);
 
 /* ### end.c ### */
 
-E void FDECL(done1, (int));
-E int NDECL(done2);
-#ifdef USE_TRAMPOLI
-E void FDECL(done_intr, (int));
+extern void done1(int);
+extern int done2(void);
+extern void done_in_by(struct monst *, int) NONNULLARG1;
+extern void done_object_cleanup(void);
+extern void NH_abort(char *);
+#endif /* !MAKEDEFS_C && MDLIB_C && !CPPREGEX_C */
+#if !defined(CPPREGEX_C)
+ATTRNORETURN extern void panic(const char *, ...) PRINTF_F(1, 2) NORETURN;
 #endif
-E void FDECL(done_in_by, (struct monst *, int));
-#endif /* !MAKEDEFS_C && !LEV_LEX_C */
-E void VDECL(panic, (const char *, ...)) PRINTF_F(1, 2) NORETURN;
-#if !defined(MAKEDEFS_C) && !defined(LEV_LEX_C)
-E void FDECL(done, (int));
-E void FDECL(container_contents, (struct obj *, BOOLEAN_P,
-                                  BOOLEAN_P, BOOLEAN_P));
-E void FDECL(nh_terminate, (int)) NORETURN;
-E int NDECL(dovanquished);
-E int NDECL(num_genocides);
-E void FDECL(delayed_killer, (int, int, const char *));
-E struct kinfo *FDECL(find_delayed_killer, (int));
-E void FDECL(dealloc_killer, (struct kinfo *));
-E void FDECL(save_killers, (int, int));
-E void FDECL(restore_killers, (int));
-E char *FDECL(build_english_list, (char *));
-#if defined(PANICTRACE) && !defined(NO_SIGNAL)
-E void FDECL(panictrace_setsignals, (BOOLEAN_P));
-#endif
+#if !defined(MAKEDEFS_C) && !defined(MDLIB_C) && !defined(CPPREGEX_C)
+extern void done(int);
+extern void container_contents(struct obj *, boolean, boolean, boolean);
+ATTRNORETURN extern void nh_terminate(int) NORETURN;
+extern void delayed_killer(int, int, const char *);
+extern struct kinfo *find_delayed_killer(int);
+extern void dealloc_killer(struct kinfo *);
+extern void save_killers(NHFILE *) NONNULLARG1;
+extern void restore_killers(NHFILE *) NONNULLARG1;
+extern char *build_english_list(char *) NONNULLARG1;
 
 /* ### engrave.c ### */
 
-E char *FDECL(random_engraving, (char *));
-E void FDECL(wipeout_text, (char *, int, unsigned));
-E boolean FDECL(can_reach_floor, (BOOLEAN_P));
-E void FDECL(cant_reach_floor, (int, int, BOOLEAN_P, BOOLEAN_P));
-E const char *FDECL(surface, (int, int));
-E const char *FDECL(ceiling, (int, int));
-E struct engr *FDECL(engr_at, (XCHAR_P, XCHAR_P));
-E int FDECL(sengr_at, (const char *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void FDECL(u_wipe_engr, (int));
-E void FDECL(wipe_engr_at, (XCHAR_P, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void FDECL(read_engr_at, (int, int));
-E void FDECL(make_engr_at, (int, int, const char *, long, XCHAR_P));
-E void FDECL(del_engr_at, (int, int));
-E int NDECL(freehand);
-E int NDECL(doengrave);
-E void NDECL(sanitize_engravings);
-E void FDECL(save_engravings, (int, int));
-E void FDECL(rest_engravings, (int));
-E void FDECL(engr_stats, (const char *, char *, long *, long *));
-E void FDECL(del_engr, (struct engr *));
-E void FDECL(rloc_engr, (struct engr *));
-E void FDECL(make_grave, (int, int, const char *));
+extern char *random_engraving(char *, char *) NONNULLARG12;
+extern void wipeout_text(char *, int, unsigned) NONNULLARG1;
+extern boolean can_reach_floor(boolean);
+extern void cant_reach_floor(coordxy, coordxy, boolean, boolean, boolean);
+extern struct engr *engr_at(coordxy, coordxy);
+extern struct engr *sengr_at(const char *, coordxy, coordxy, boolean) NONNULLARG1;
+extern void u_wipe_engr(int);
+extern void wipe_engr_at(coordxy, coordxy, xint16, boolean);
+extern void read_engr_at(coordxy, coordxy);
+extern void make_engr_at(coordxy, coordxy, const char *, const char *, long, int) NONNULLARG3;
+extern void del_engr_at(coordxy, coordxy);
+extern int freehand(void);
+extern int doengrave(void);
+extern void sanitize_engravings(void);
+extern void forget_engravings(void);
+extern void engraving_sanity_check(void);
+extern void save_engravings(NHFILE *) NONNULLARG1;
+extern void rest_engravings(NHFILE *) NONNULLARG1;
+extern void engr_stats(const char *, char *, long *, long *) NONNULLPTRS;
+extern void del_engr(struct engr *) NONNULLARG1;
+extern void rloc_engr(struct engr *) NONNULLARG1;
+extern void make_grave(coordxy, coordxy, const char *);
+extern void disturb_grave(coordxy, coordxy);
+extern void see_engraving(struct engr *) NONNULLARG1;
+extern void feel_engraving(struct engr *) NONNULLARG1;
+extern boolean engr_can_be_felt(struct engr *) NONNULLARG1;
 
 /* ### exper.c ### */
 
-E long FDECL(newuexp, (int));
-E int NDECL(newpw);
-E int FDECL(experience, (struct monst *, int));
-E void FDECL(more_experienced, (int, int));
-E void FDECL(losexp, (const char *));
-E void NDECL(newexplevel);
-E void FDECL(pluslvl, (BOOLEAN_P));
-E long FDECL(rndexp, (BOOLEAN_P));
+extern long newuexp(int);
+extern int newpw(void);
+extern int experience(struct monst *, int) NONNULLARG1;
+extern void more_experienced(int, int);
+extern void losexp(const char *);
+extern void newexplevel(void);
+extern void pluslvl(boolean);
+extern long rndexp(boolean);
 
 /* ### explode.c ### */
 
-E void FDECL(explode, (int, int, int, int, CHAR_P, int));
-E long FDECL(scatter, (int, int, int, unsigned int, struct obj *));
-E void FDECL(splatter_burning_oil, (int, int, BOOLEAN_P));
-E void FDECL(explode_oil, (struct obj *, int, int));
+extern void explode(coordxy, coordxy, int, int, char, int);
+extern long scatter(coordxy, coordxy, int, unsigned int, struct obj *);
+extern void splatter_burning_oil(coordxy, coordxy, boolean);
+extern void explode_oil(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern int adtyp_to_expltype(const int);
+extern void mon_explodes(struct monst *, struct attack *) NONNULLPTRS;
 
 /* ### extralev.c ### */
 
-E void NDECL(makeroguerooms);
-E void FDECL(corr, (int, int));
-E void NDECL(makerogueghost);
+extern void makeroguerooms(void);
+extern void corr(coordxy, coordxy);
+extern void makerogueghost(void);
 
 /* ### files.c ### */
 
-E void FDECL(append_slash, (char *));  /* Moved for NLE. */
-
-E char *FDECL(fname_encode, (const char *, CHAR_P, char *, char *, int));
-E char *FDECL(fname_decode, (CHAR_P, char *, char *, int));
-E const char *FDECL(fqname, (const char *, int, int));
-E FILE *FDECL(fopen_datafile, (const char *, const char *, int));
-#ifdef MFLOPPY
-E void NDECL(set_lock_and_bones);
-#endif
-E void FDECL(set_levelfile_name, (char *, int));
-E int FDECL(create_levelfile, (int, char *));
-E int FDECL(open_levelfile, (int, char *));
-E void FDECL(delete_levelfile, (int));
-E void NDECL(clearlocks);
-E int FDECL(create_bonesfile, (d_level *, char **, char *));
-#ifdef MFLOPPY
-E void NDECL(cancel_bonesfile);
-#endif
-E void FDECL(commit_bonesfile, (d_level *));
-E int FDECL(open_bonesfile, (d_level *, char **));
-E int FDECL(delete_bonesfile, (d_level *));
-E void NDECL(compress_bonesfile);
-E void FDECL(set_savefile_name, (BOOLEAN_P));
+extern const char *nh_basename(const char *, boolean) NONNULLARG1;
+extern char *fname_encode(const char *, char,
+                          char *, char *, int) NONNULLPTRS;
+extern char *fname_decode(char, char *, char *, int) NONNULLPTRS;
+extern const char *fqname(const char *, int, int);
+extern FILE *fopen_datafile(const char *, const char *, int) NONNULLPTRS;
+extern void init_nhfile(NHFILE *) NONNULLARG1;
+extern void close_nhfile(NHFILE *) NONNULLARG1;
+extern void rewind_nhfile(NHFILE *) NONNULLARG1;
+extern void set_levelfile_name(char *, int) NONNULLARG1;
+extern NHFILE *create_levelfile(int, char *);
+extern NHFILE *open_levelfile(int, char *);
+extern void delete_levelfile(int);
+extern void clearlocks(void);
+extern NHFILE *create_bonesfile(d_level *, char **, char *) NONNULLARG12;
+extern void commit_bonesfile(d_level *) NONNULLARG1;
+extern NHFILE *open_bonesfile(d_level *, char **) NONNULLPTRS;
+extern int delete_bonesfile(d_level *) NONNULLARG1;
+extern void compress_bonesfile(void);
+extern void set_savefile_name(boolean);
 #ifdef INSURANCE
-E void FDECL(save_savefile_name, (int));
+extern void save_savefile_name(NHFILE *) NONNULLARG1;
 #endif
 #ifndef MICRO
-E void NDECL(set_error_savefile);
+extern void set_error_savefile(void);
 #endif
-E int NDECL(create_savefile);
-E int NDECL(open_savefile);
-E int NDECL(delete_savefile);
-E int NDECL(restore_saved_game);
-E void FDECL(nh_compress, (const char *));
-E void FDECL(nh_uncompress, (const char *));
-E boolean FDECL(lock_file, (const char *, int, int));
-E void FDECL(unlock_file, (const char *));
-#ifdef USER_SOUNDS
-E boolean FDECL(can_read_file, (const char *));
-#endif
-E void FDECL(config_error_init, (BOOLEAN_P, const char *, BOOLEAN_P));
-E void FDECL(config_erradd, (const char *));
-E int NDECL(config_error_done);
-E boolean FDECL(read_config_file, (const char *, int));
-E void FDECL(check_recordfile, (const char *));
-E void NDECL(read_wizkit);
-E int FDECL(read_sym_file, (int));
-E int FDECL(parse_sym_line, (char *, int));
-E void FDECL(paniclog, (const char *, const char *));
-E void FDECL(testinglog, (const char *, const char *, const char *));
-E int FDECL(validate_prefix_locations, (char *));
+extern NHFILE *create_savefile(void);
+extern NHFILE *open_savefile(void);
+extern int delete_savefile(void);
+extern NHFILE *get_freeing_nhfile(void);
+extern NHFILE *restore_saved_game(void);
+extern int check_panic_save(void);
 #ifdef SELECTSAVED
-E char *FDECL(plname_from_file, (const char *));
+extern char *plname_from_file(const char *, boolean) NONNULLARG1;
 #endif
-E char **NDECL(get_saved_games);
-E void FDECL(free_saved_games, (char **));
+extern char **get_saved_games(void);
+extern void free_saved_games(char **);
+extern void nh_compress(const char *);
+extern void nh_uncompress(const char *);
+extern void nh_sfconvert(const char *);
+extern void nh_sfunconvert(const char *);
+extern int delete_convertedfile(const char *);
+extern void free_convert_filenames(void);
+extern boolean lock_file(const char *, int, int) NONNULLARG1;
+extern void unlock_file(const char *) NONNULLARG1;
+extern void check_recordfile(const char *);
+extern void read_wizkit(void);
+extern int read_sym_file(int);
+extern void paniclog(const char *, const char *) NONNULLPTRS;
+extern void testinglog(const char *, const char *, const char *);
+extern int validate_prefix_locations(char *);
 #ifdef SELF_RECOVER
-E boolean NDECL(recover_savefile);
+extern boolean recover_savefile(void);
+extern void assure_syscf_file(void);
 #endif
 #ifdef SYSCF_FILE
-E void NDECL(assure_syscf_file);
+extern void assure_syscf_file(void);
 #endif
-E int FDECL(nhclose, (int));
-#ifdef HOLD_LOCKFILE_OPEN
-E void NDECL(really_close);
-#endif
+extern int nhclose(int);
 #ifdef DEBUG
-E boolean FDECL(debugcore, (const char *, BOOLEAN_P));
+extern boolean debugcore(const char *, boolean);
 #endif
-E void NDECL(reveal_paths);
-E boolean FDECL(read_tribute, (const char *, const char *, int,
-                               char *, int, unsigned));
-E boolean FDECL(Death_quote, (char *, int));
+extern void reveal_paths(int);
+extern boolean read_tribute(const char *, const char *, int, char *, int,
+                            unsigned);
+extern boolean Death_quote(char *, int) NONNULLARG1;
+extern void livelog_add(long ll_type, const char *) NONNULLARG2;
+ATTRNORETURN extern void do_deferred_showpaths(int) NORETURN;
+extern boolean contains_directory(const char *);
+extern void get_nhuuid(void);
+extern void free_nhuuid(void);
 
 /* ### fountain.c ### */
 
-E void FDECL(floating_above, (const char *));
-E void FDECL(dogushforth, (int));
-#ifdef USE_TRAMPOLI
-E void FDECL(gush, (int, int, genericptr_t));
-#endif
-E void FDECL(dryup, (XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void NDECL(drinkfountain);
-E void FDECL(dipfountain, (struct obj *));
-E void FDECL(breaksink, (int, int));
-E void NDECL(drinksink);
+extern void floating_above(const char *) NONNULLARG1;
+extern void dogushforth(int);
+extern void dryup(coordxy, coordxy, boolean);
+extern void drinkfountain(void);
+extern void dipfountain(struct obj *) NONNULLARG1;
+extern int wash_hands(void);
+extern void breaksink(coordxy, coordxy);
+extern void drinksink(void);
+extern void dipsink(struct obj *) NONNULLARG1;
+extern void sink_backs_up(coordxy, coordxy);
+
+/* ### getpos.c ### */
+
+extern char *dxdy_to_dist_descr(coordxy, coordxy, boolean);
+extern char *coord_desc(coordxy, coordxy, char *, char) NONNULLARG3;
+extern void auto_describe(coordxy, coordxy);
+extern boolean getpos_menu(coord *, int) NONNULLARG1;
+extern int getpos(coord *, boolean, const char *) NONNULLARG1;
+extern void getpos_sethilite(void(*f)(boolean), boolean(*d)(coordxy,coordxy));
+extern boolean mapxy_valid(coordxy, coordxy);
+extern boolean gather_locs_interesting(coordxy, coordxy, int);
+
+/* ### glyphs.c ### */
+
+extern int glyphrep_to_custom_map_entries(const char *op,
+                                          int *glyph) NONNULLPTRS;
+extern int add_custom_urep_entry(const char *symset_name, int glyphidx,
+                                 uint32 utf32ch, const uint8 *utf8str,
+                                 enum graphics_sets which_set) NONNULLARG1;
+extern int add_custom_nhcolor_entry(const char *customization_name,
+                                    int glyphidx, uint32 nhcolor,
+                                    enum graphics_sets which_set) NONNULLARG1;
+struct customization_detail *find_matching_customization(
+                                             const char *customization_name,
+                                             enum customization_types custtype,
+                                             enum graphics_sets which_set);
+int set_map_customcolor(glyph_map *gm, uint32 nhcolor) NONNULLARG1;
+extern int unicode_val(const char *);
+extern int glyphrep(const char *) NONNULLARG1;
+extern int match_glyph(char *) NONNULLARG1;
+extern void dump_all_glyphids(FILE *fp) NONNULLARG1;
+extern void wizcustom_glyphids(winid win);
+extern void fill_glyphid_cache(void);
+extern void free_glyphid_cache(void);
+extern boolean glyphid_cache_status(void);
+extern void apply_customizations(enum graphics_sets which_set,
+                                 enum do_customizations docustomize);
+extern void purge_custom_entries(enum graphics_sets which_set);
+extern void purge_all_custom_entries(void);
+extern void dump_glyphids(void);
+extern void clear_all_glyphmap_colors(void);
+extern void reset_customcolors(void);
+extern int glyph_to_cmap(int);
+extern void maybe_shuffle_customizations(void);
 
 /* ### hack.c ### */
 
-E boolean FDECL(is_valid_travelpt, (int,int));
-E anything *FDECL(uint_to_any, (unsigned));
-E anything *FDECL(long_to_any, (long));
-E anything *FDECL(monst_to_any, (struct monst *));
-E anything *FDECL(obj_to_any, (struct obj *));
-E boolean FDECL(revive_nasty, (int, int, const char *));
-E void FDECL(movobj, (struct obj *, XCHAR_P, XCHAR_P));
-E boolean FDECL(may_dig, (XCHAR_P, XCHAR_P));
-E boolean FDECL(may_passwall, (XCHAR_P, XCHAR_P));
-E boolean FDECL(bad_rock, (struct permonst *, XCHAR_P, XCHAR_P));
-E int FDECL(cant_squeeze_thru, (struct monst *));
-E boolean FDECL(invocation_pos, (XCHAR_P, XCHAR_P));
-E boolean FDECL(test_move, (int, int, int, int, int));
+extern boolean is_valid_travelpt(coordxy, coordxy);
+extern anything *uint_to_any(unsigned);
+extern anything *long_to_any(long);
+extern anything *monst_to_any(struct monst *) NONNULLARG1;
+extern anything *obj_to_any(struct obj *) NONNULLARG1;
+extern boolean revive_nasty(coordxy, coordxy, const char *);
+extern int still_chewing(coordxy, coordxy);
+extern void movobj(struct obj *, coordxy, coordxy);
+extern boolean may_dig(coordxy, coordxy);
+extern boolean may_passwall(coordxy, coordxy);
+extern boolean bad_rock(struct permonst *, coordxy, coordxy) NONNULLARG1;
+extern int cant_squeeze_thru(struct monst *) NONNULLARG1;
+extern boolean invocation_pos(coordxy, coordxy);
+extern boolean test_move(coordxy, coordxy, coordxy, coordxy, int);
 #ifdef DEBUG
-E int NDECL(wiz_debug_cmd_traveldisplay);
+extern int wiz_debug_cmd_traveldisplay(void);
 #endif
-E boolean NDECL(u_rooted);
-E void NDECL(domove);
-E boolean NDECL(overexertion);
-E void NDECL(invocation_message);
-E void NDECL(switch_terrain);
-E boolean FDECL(pooleffects, (BOOLEAN_P));
-E void FDECL(spoteffects, (BOOLEAN_P));
-E char *FDECL(in_rooms, (XCHAR_P, XCHAR_P, int));
-E boolean FDECL(in_town, (int, int));
-E void FDECL(check_special_room, (BOOLEAN_P));
-E int NDECL(dopickup);
-E void NDECL(lookaround);
-E boolean FDECL(crawl_destination, (int, int));
-E int NDECL(monster_nearby);
-E void FDECL(nomul, (int));
-E void FDECL(unmul, (const char *));
-E void FDECL(losehp, (int, const char *, BOOLEAN_P));
-E int NDECL(weight_cap);
-E int NDECL(inv_weight);
-E int NDECL(near_capacity);
-E int FDECL(calc_capacity, (int));
-E int NDECL(max_capacity);
-E boolean FDECL(check_capacity, (const char *));
-E int FDECL(inv_cnt, (BOOLEAN_P));
-E long FDECL(money_cnt, (struct obj *));
+extern boolean u_rooted(void);
+extern void notice_mon(struct monst *) NONNULLARG1;
+extern void notice_all_mons(boolean);
+extern void impact_disturbs_zombies(struct obj *, boolean) NONNULLARG1;
+extern void disturb_buried_zombies(coordxy, coordxy);
+extern boolean u_maybe_impaired(void);
+extern const char *u_locomotion(const char *) NONNULLARG1;
+extern boolean handle_tip(int);
+extern void domove(void);
+extern void runmode_delay_output(void);
+extern void overexert_hp(void);
+extern boolean overexertion(void);
+extern void invocation_message(void);
+extern void classify_terrain(void);
+extern void switch_terrain(void);
+extern void set_uinwater(int);
+extern boolean pooleffects(boolean);
+extern void spoteffects(boolean);
+extern char *in_rooms(coordxy, coordxy, int);
+extern boolean in_town(coordxy, coordxy);
+extern void check_special_room(boolean);
+extern int dopickup(void);
+extern void lookaround(void);
+extern boolean doorless_door(coordxy, coordxy);
+extern boolean crawl_destination(coordxy, coordxy);
+extern int monster_nearby(void);
+extern void end_running(boolean);
+extern void nomul(int);
+extern void unmul(const char *);
+extern void showdamage(int);
+extern void losehp(int, const char *, schar) ;
+extern int weight_cap(void);
+extern int inv_weight(void);
+extern int near_capacity(void);
+extern int calc_capacity(int);
+extern int max_capacity(void);
+extern boolean check_capacity(const char *);
+extern void dump_weights(void);
+extern int inv_cnt(boolean);
+/* sometimes money_cnt(gi.invent) which can be null */
+extern long money_cnt(struct obj *) NO_NNARGS;
+extern void spot_checks(coordxy, coordxy, schar);
+extern int rounddiv(long, int);
 
-/* ### hacklib.c ### */
+/* ### strutil.c ### */
 
-E boolean FDECL(digit, (CHAR_P));
-E boolean FDECL(letter, (CHAR_P));
-E char FDECL(highc, (CHAR_P));
-E char FDECL(lowc, (CHAR_P));
-E char *FDECL(lcase, (char *));
-E char *FDECL(ucase, (char *));
-E char *FDECL(upstart, (char *));
-E char *FDECL(mungspaces, (char *));
-E char *FDECL(trimspaces, (char *));
-E char *FDECL(strip_newline, (char *));
-E char *FDECL(stripchars, (char *, const char *, const char *));
-E char *FDECL(eos, (char *));
-E boolean FDECL(str_end_is, (const char *, const char *));
-E char *FDECL(strkitten, (char *, CHAR_P));
-E void FDECL(copynchars, (char *, const char *, int));
-E char FDECL(chrcasecpy, (int, int));
-E char *FDECL(strcasecpy, (char *, const char *));
-E char *FDECL(s_suffix, (const char *));
-E char *FDECL(ing_suffix, (const char *));
-E char *FDECL(xcrypt, (const char *, char *));
-E boolean FDECL(onlyspace, (const char *));
-E char *FDECL(tabexpand, (char *));
-E char *FDECL(visctrl, (CHAR_P));
-E char *FDECL(strsubst, (char *, const char *, const char *));
-E int FDECL(strNsubst, (char *, const char *, const char *, int));
-E const char *FDECL(ordin, (int));
-E char *FDECL(sitoa, (int));
-E int FDECL(sgn, (int));
-E int FDECL(rounddiv, (long, int));
-E int FDECL(dist2, (int, int, int, int));
-E int FDECL(isqrt, (int));
-E int FDECL(distmin, (int, int, int, int));
-E boolean FDECL(online2, (int, int, int, int));
-E boolean FDECL(pmatch, (const char *, const char *));
-E boolean FDECL(pmatchi, (const char *, const char *));
-E boolean FDECL(pmatchz, (const char *, const char *));
-#ifndef STRNCMPI
-E int FDECL(strncmpi, (const char *, const char *, int));
-#endif
-#ifndef STRSTRI
-E char *FDECL(strstri, (const char *, const char *));
-#endif
-E boolean
-FDECL(fuzzymatch, (const char *, const char *, const char *, BOOLEAN_P));
-E void FDECL(init_random, (int FDECL((*fn), (int))));
-E void FDECL(reseed_random, (int FDECL((*fn), (int))));
-E time_t NDECL(getnow);
-E int NDECL(getyear);
-#if 0
-E char *FDECL(yymmdd, (time_t));
-#endif
-E long FDECL(yyyymmdd, (time_t));
-E long FDECL(hhmmss, (time_t));
-E char *FDECL(yyyymmddhhmmss, (time_t));
-E time_t FDECL(time_from_yyyymmddhhmmss, (char *));
-E int NDECL(phase_of_the_moon);
-E boolean NDECL(friday_13th);
-E int NDECL(night);
-E int NDECL(midnight);
-E void FDECL(strbuf_init, (strbuf_t *));
-E void FDECL(strbuf_append, (strbuf_t *, const char *));
-E void FDECL(strbuf_reserve, (strbuf_t *, int));
-E void FDECL(strbuf_empty, (strbuf_t *));
-E void FDECL(strbuf_nl_to_crlf, (strbuf_t *));
+extern void strbuf_init(strbuf_t *) NONNULLARG1;
+extern void strbuf_append(strbuf_t *, const char *) NONNULLPTRS;
+extern void strbuf_reserve(strbuf_t *, int) NONNULLARG1;
+extern void strbuf_empty(strbuf_t *) NONNULLARG1;
+extern void strbuf_nl_to_crlf(strbuf_t *) NONNULLARG1;
+extern unsigned Strlen_(const char *, const char *, int) NONNULLPTRS;
+extern boolean pmatch(const char *, const char *) NONNULLPTRS;
+extern boolean pmatchi(const char *, const char *) NONNULLPTRS;
+/*
+extern boolean pmatchz(const char *, const char *) NONNULLPTRS;
+*/
+
+/* ### iactions.c ### */
+
+extern int itemactions(struct obj *otmp) NONNULLARG1;
+
+/* ### insight.c ### */
+
+extern int doattributes(void);
+extern void enlightenment(int, int);
+extern void youhiding(boolean, int);
+extern char *trap_predicament(char *, int, boolean) NONNULLARG1;
+extern int doconduct(void);
+extern void show_conduct(int);
+extern void record_achievement(schar);
+extern boolean remove_achievement(schar);
+extern int count_achievements(void);
+extern schar achieve_rank(int);
+extern boolean sokoban_in_play(void);
+extern int do_gamelog(void);
+extern void show_gamelog(int);
+extern int set_vanq_order(boolean);
+extern int dovanquished(void);
+extern int doborn(void);
+extern void list_vanquished(char, boolean);
+extern int num_genocides(void);
+extern void list_genocided(char, boolean);
+extern int dogenocided(void);
+extern const char *align_str(aligntyp);
+extern char *piousness(boolean, const char *);
+extern void mstatusline(struct monst *) NONNULLARG1;
+extern void ustatusline(void);
 
 /* ### invent.c ### */
 
-E Loot *FDECL(sortloot, (struct obj **, unsigned, BOOLEAN_P,
-                         boolean (*)(OBJ_P)));
-E void FDECL(unsortloot, (Loot **));
-E void FDECL(assigninvlet, (struct obj *));
-E struct obj *FDECL(merge_choice, (struct obj *, struct obj *));
-E int FDECL(merged, (struct obj **, struct obj **));
-#ifdef USE_TRAMPOLI
-E int FDECL(ckunpaid, (struct obj *));
-#endif
-E void FDECL(addinv_core1, (struct obj *));
-E void FDECL(addinv_core2, (struct obj *));
-E struct obj *FDECL(addinv, (struct obj *));
-E struct obj *FDECL(hold_another_object,
-                    (struct obj *, const char *, const char *, const char *));
-E void FDECL(useupall, (struct obj *));
-E void FDECL(useup, (struct obj *));
-E void FDECL(consume_obj_charge, (struct obj *, BOOLEAN_P));
-E void FDECL(freeinv_core, (struct obj *));
-E void FDECL(freeinv, (struct obj *));
-E void FDECL(delallobj, (int, int));
-E void FDECL(delobj, (struct obj *));
-E struct obj *FDECL(sobj_at, (int, int, int));
-E struct obj *FDECL(nxtobj, (struct obj *, int, BOOLEAN_P));
-E struct obj *FDECL(carrying, (int));
-E boolean NDECL(have_lizard);
-E struct obj *NDECL(u_have_novel);
-E struct obj *FDECL(o_on, (unsigned int, struct obj *));
-E boolean FDECL(obj_here, (struct obj *, int, int));
-E boolean NDECL(wearing_armor);
-E boolean FDECL(is_worn, (struct obj *));
-E struct obj *FDECL(g_at, (int, int));
-E boolean FDECL(splittable, (struct obj *));
-E struct obj *FDECL(getobj, (const char *, const char *));
-E int FDECL(ggetobj, (const char *, int (*)(OBJ_P), int,
-                      BOOLEAN_P, unsigned *));
-E int FDECL(askchain, (struct obj **, const char *, int, int (*)(OBJ_P),
-                       int (*)(OBJ_P), int, const char *));
-E void FDECL(fully_identify_obj, (struct obj *));
-E int FDECL(identify, (struct obj *));
-E int FDECL(count_unidentified, (struct obj *));
-E void FDECL(identify_pack, (int, BOOLEAN_P));
-E void NDECL(learn_unseen_invent);
-E void NDECL(update_inventory);
-E void FDECL(prinv, (const char *, struct obj *, long));
-E char *FDECL(xprname,
-              (struct obj *, const char *, CHAR_P, BOOLEAN_P, long, long));
-E int NDECL(ddoinv);
-E char FDECL(display_inventory, (const char *, BOOLEAN_P));
-E int FDECL(display_binventory, (int, int, BOOLEAN_P));
-E struct obj *FDECL(display_cinventory, (struct obj *));
-E struct obj *FDECL(display_minventory, (struct monst *, int, char *));
-E int NDECL(dotypeinv);
-E const char *FDECL(dfeature_at, (int, int, char *));
-E int FDECL(look_here, (int, BOOLEAN_P));
-E int NDECL(dolook);
-E boolean FDECL(will_feel_cockatrice, (struct obj *, BOOLEAN_P));
-E void FDECL(feel_cockatrice, (struct obj *, BOOLEAN_P));
-E void FDECL(stackobj, (struct obj *));
-E boolean FDECL(mergable, (struct obj *, struct obj *));
-E int NDECL(doprgold);
-E int NDECL(doprwep);
-E int NDECL(doprarm);
-E int NDECL(doprring);
-E int NDECL(dopramulet);
-E int NDECL(doprtool);
-E int NDECL(doprinuse);
-E void FDECL(useupf, (struct obj *, long));
-E char *FDECL(let_to_name, (CHAR_P, BOOLEAN_P, BOOLEAN_P));
-E void NDECL(free_invbuf);
-E void NDECL(reassign);
-E int NDECL(doorganize);
-E void NDECL(free_pickinv_cache);
-E int FDECL(count_unpaid, (struct obj *));
-E int FDECL(count_buc, (struct obj *, int, boolean (*)(OBJ_P)));
-E void FDECL(tally_BUCX, (struct obj *, BOOLEAN_P,
-                          int *, int *, int *, int *, int *));
-E long FDECL(count_contents, (struct obj *,
-                              BOOLEAN_P, BOOLEAN_P, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(carry_obj_effects, (struct obj *));
-E const char *FDECL(currency, (long));
-E void FDECL(silly_thing, (const char *, struct obj *));
+extern void loot_classify(Loot *, struct obj *) NONNULLPTRS;
+extern Loot *sortloot(struct obj **, unsigned, boolean,
+                      boolean(*)(struct obj *)) NONNULLARG1;
+extern void unsortloot(Loot **) NONNULLARG1;
+extern void assigninvlet(struct obj *) NONNULLARG1;
+extern struct obj *merge_choice(struct obj *, struct obj *) NONNULLARG2;
+extern int merged(struct obj **, struct obj **) NONNULLPTRS;
+extern void addinv_core1(struct obj *) NONNULLARG1;
+extern void addinv_core2(struct obj *) NONNULLARG1;
+extern struct obj *addinv(struct obj *) NONNULLARG1;
+extern struct obj *addinv_before(struct obj *, struct obj *) NONNULLARG1;
+extern struct obj *addinv_nomerge(struct obj *) NONNULLARG1;
+extern struct obj *hold_another_object(struct obj *, const char *,
+                                       const char *, const char *) NONNULLARG1;
+/* nhlua.c calls useupall(gi.invent), but checks gi.invent against NULL
+ * before doing so. useupall() won't handle NULL*/
+extern void useupall(struct obj *) NONNULLARG1;
+extern void useup(struct obj *) NONNULLARG1;
+extern void consume_obj_charge(struct obj *, boolean) NONNULLARG1;
+extern void freeinv_core(struct obj *) NONNULLARG1;
+extern void freeinv(struct obj *) NONNULLARG1;
+extern void delallobj(coordxy, coordxy);
+extern void delobj(struct obj *) NONNULLARG1;
+extern void delobj_core(struct obj *, boolean) NONNULLARG1;
+extern struct obj *sobj_at(int, coordxy, coordxy);
+extern struct obj *nxtobj(struct obj *, int, boolean) NONNULLARG1;
+extern struct obj *carrying(int);
+extern struct obj *u_carried_gloves(void);
+extern struct obj *u_have_novel(void);
+extern struct obj *o_on(unsigned int, struct obj *);
+extern boolean obj_here(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern boolean wearing_armor(void);
+extern boolean is_worn(struct obj *) NONNULLARG1;
+extern boolean is_inuse(struct obj *) NONNULLARG1;
+extern struct obj *g_at(coordxy, coordxy);
+extern boolean splittable(struct obj *) NONNULLARG1;
+extern int any_obj_ok(struct obj *);
+extern struct obj *getobj(const char *, int(*)(struct obj *), unsigned int);
+extern int ggetobj(const char *, int(*)(struct obj *), int, boolean,
+                   unsigned *) NONNULLARG1;
+extern int askchain(struct obj **, const char *, int, int(*)(struct obj *),
+                    int(*)(struct obj *), int, const char *) NONNULLARG17;
+extern void set_cknown_lknown(struct obj *) NONNULLARG1;
+extern void fully_identify_obj(struct obj *) NONNULLARG1;
+extern int identify(struct obj *) NONNULLARG1;
+extern int count_unidentified(struct obj *) NO_NNARGS;
+extern void identify_pack(int, boolean);
+extern void learn_unseen_invent(void);
+extern void update_inventory(void);
+extern int doperminv(void);
+extern void prinv(const char *, struct obj *, long) NONNULLARG2;
+extern char *xprname(struct obj *, const char *, char, boolean, long, long);
+extern int ddoinv(void);
+extern char display_inventory(const char *, boolean);
+extern int display_binventory(coordxy, coordxy, boolean);
+extern struct obj *display_cinventory(struct obj *) NONNULLARG1;
+extern struct obj *display_minventory(struct monst *, int, char *) NONNULLARG1;
+extern int dotypeinv(void);
+extern const char *dfeature_at(coordxy, coordxy, char *) NONNULLARG3;
+extern int look_here(int, unsigned);
+extern int dolook(void);
+extern boolean will_feel_cockatrice(struct obj *, boolean) NONNULLARG1;
+extern void feel_cockatrice(struct obj *, boolean) NONNULLARG1;
+extern void stackobj(struct obj *) NONNULLARG1;
+extern boolean mergable(struct obj *, struct obj *) NONNULLPTRS;
+extern int doprgold(void);
+extern int doprwep(void);
+extern int doprarm(void);
+extern int doprring(void);
+extern int dopramulet(void);
+extern int doprtool(void);
+extern int doprinuse(void);
+extern void useupf(struct obj *, long) NONNULLARG1;
+extern char *let_to_name(char, boolean, boolean);
+extern void free_invbuf(void);
+extern void reassign(void);
+extern boolean check_invent_gold(const char *) NONNULLARG1;
+extern int doorganize(void);
+extern int adjust_split(void);
+extern void free_pickinv_cache(void);
+/* sometimes count_unpaid(gi.invent) which can be null */
+extern int count_unpaid(struct obj *) NO_NNARGS;
+extern int count_buc(struct obj *, int, boolean(*)(struct obj *));
+extern void tally_BUCX(struct obj *, boolean, int *, int *, int *, int *,
+                       int *, int *);
+extern long count_contents(struct obj *, boolean,
+                           boolean, boolean, boolean) NONNULLARG1;
+extern void carry_obj_effects(struct obj *) NONNULLARG1;
+extern const char *currency(long);
+extern void silly_thing(const char *, struct obj *) NONNULLARG1;
+extern void sync_perminvent(void);
+extern void perm_invent_toggled(boolean negated);
+extern void prepare_perminvent(winid window);
+extern struct obj *carrying_stoning_corpse(void);
+extern void repopulate_perminvent(void);
 
 /* ### ioctl.c ### */
 
 #if defined(UNIX) || defined(__BEOS__)
-E void NDECL(getwindowsz);
-E void NDECL(getioctls);
-E void NDECL(setioctls);
+extern void getwindowsz(void);
+extern void getioctls(void);
+extern void setioctls(void);
 #ifdef SUSPEND
-E int NDECL(dosuspend);
+extern int dosuspend(void);
 #endif /* SUSPEND */
 #endif /* UNIX || __BEOS__ */
 
 /* ### light.c ### */
 
-E void FDECL(new_light_source, (XCHAR_P, XCHAR_P, int, int, ANY_P *));
-E void FDECL(del_light_source, (int, ANY_P *));
-E void FDECL(do_light_sources, (char **));
-E void FDECL(show_transient_light, (struct obj *, int, int));
-E void NDECL(transient_light_cleanup);
-E struct monst *FDECL(find_mid, (unsigned, unsigned));
-E void FDECL(save_light_sources, (int, int, int));
-E void FDECL(restore_light_sources, (int));
-E void FDECL(light_stats, (const char *, char *, long *, long *));
-E void FDECL(relink_light_sources, (BOOLEAN_P));
-E void NDECL(light_sources_sanity_check);
-E void FDECL(obj_move_light_source, (struct obj *, struct obj *));
-E boolean NDECL(any_light_source);
-E void FDECL(snuff_light_source, (int, int));
-E boolean FDECL(obj_sheds_light, (struct obj *));
-E boolean FDECL(obj_is_burning, (struct obj *));
-E void FDECL(obj_split_light_source, (struct obj *, struct obj *));
-E void FDECL(obj_merge_light_sources, (struct obj *, struct obj *));
-E void FDECL(obj_adjust_light_radius, (struct obj *, int));
-E int FDECL(candle_light_range, (struct obj *));
-E int FDECL(arti_light_radius, (struct obj *));
-E const char *FDECL(arti_light_description, (struct obj *));
-E int NDECL(wiz_light_sources);
+extern void new_light_source(coordxy, coordxy,
+                             int, int, union any *) NONNULLPTRS;
+extern void del_light_source(int, union any *) NONNULLARG2;
+extern void do_light_sources(seenV **) NONNULLARG1;
+extern void show_transient_light(struct obj *, coordxy, coordxy);
+extern void transient_light_cleanup(void);
+extern struct monst *find_mid(unsigned, unsigned);
+extern void save_light_sources(NHFILE *, int);
+extern void restore_light_sources(NHFILE *) NONNULLARG1;
+extern void light_stats(const char *, char *, long *, long *) NONNULLPTRS;
+extern void relink_light_sources(boolean);
+extern void light_sources_sanity_check(void);
+extern void obj_move_light_source(struct obj *, struct obj *) NONNULLARG12;
+extern boolean any_light_source(void);
+extern void snuff_light_source(coordxy, coordxy);
+extern boolean obj_sheds_light(struct obj *) NONNULLARG1;
+extern boolean obj_is_burning(struct obj *) NONNULLARG1;
+extern void obj_split_light_source(struct obj *, struct obj *) NONNULLARG12;
+extern void obj_merge_light_sources(struct obj *, struct obj *) NONNULLARG12;
+extern void obj_adjust_light_radius(struct obj *, int) NONNULLARG1;
+extern int candle_light_range(struct obj *) NONNULLARG1;
+extern int arti_light_radius(struct obj *) NONNULLARG1;
+extern const char *arti_light_description(struct obj *) NONNULLARG1;
+extern int wiz_light_sources(void);
 
 /* ### lock.c ### */
 
-#ifdef USE_TRAMPOLI
-E int NDECL(forcelock);
-E int NDECL(picklock);
-#endif
-E boolean FDECL(picking_lock, (int *, int *));
-E boolean FDECL(picking_at, (int, int));
-E void FDECL(breakchestlock, (struct obj *, BOOLEAN_P));
-E void NDECL(reset_pick);
-E void FDECL(maybe_reset_pick, (struct obj *));
-E int FDECL(pick_lock, (struct obj *));
-E int NDECL(doforce);
-E boolean FDECL(boxlock, (struct obj *, struct obj *));
-E boolean FDECL(doorlock, (struct obj *, int, int));
-E int NDECL(doopen);
-E boolean FDECL(stumble_on_door_mimic, (int, int));
-E int FDECL(doopen_indir, (int, int));
-E int NDECL(doclose);
+extern boolean picking_lock(coordxy *, coordxy *);
+extern boolean picking_at(coordxy, coordxy);
+extern void breakchestlock(struct obj *, boolean) NONNULLARG1;
+extern void reset_pick(void);
+extern void maybe_reset_pick(struct obj *);
+extern struct obj *autokey(boolean);
+extern int pick_lock(struct obj *, coordxy, coordxy, struct obj *);
+extern boolean u_have_forceable_weapon(void);
+extern int doforce(void);
+extern boolean boxlock(struct obj *, struct obj *) NONNULLARG12;
+extern boolean doorlock(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern int doopen(void);
+extern boolean stumble_on_door_mimic(coordxy, coordxy);
+extern int doopen_indir(coordxy, coordxy);
+extern int doclose(void);
 
-#ifdef MAC
-/* These declarations are here because the main code calls them. */
-
+#ifdef MACOS9
+/* outdated functions removed */
 /* ### macfile.c ### */
-
-E int FDECL(maccreat, (const char *, long));
-E int FDECL(macopen, (const char *, int, long));
-E int FDECL(macclose, (int));
-E int FDECL(macread, (int, void *, unsigned));
-E int FDECL(macwrite, (int, void *, unsigned));
-E long FDECL(macseek, (int, long, short));
-E int FDECL(macunlink, (const char *));
-
 /* ### macmain.c ### */
-
-E boolean NDECL(authorize_wizard_mode);
-
-/* ### macsnd.c ### */
-
-E void FDECL(mac_speaker, (struct obj *, char *));
-
 /* ### macunix.c ### */
-
-E void FDECL(regularize, (char *));
-E void NDECL(getlock);
-
 /* ### macwin.c ### */
-
-E void FDECL(lock_mouse_cursor, (Boolean));
-E int NDECL(SanePositions);
-
 /* ### mttymain.c ### */
-
-E void FDECL(getreturn, (char *));
-E void VDECL(msmsg, (const char *, ...));
-E void NDECL(gettty);
-E void NDECL(setftty);
-E void FDECL(settty, (const char *));
-E int NDECL(tgetch);
-E void FDECL(cmov, (int x, int y));
-E void FDECL(nocmov, (int x, int y));
-
-#endif /* MAC */
+#endif
 
 /* ### mail.c ### */
 
 #ifdef MAIL
 #ifdef UNIX
-E void NDECL(free_maildata);
-E void NDECL(getmailstatus);
-E void NDECL(ck_server_admin_msg);
+extern void free_maildata(void);
+extern void getmailstatus(void);
+extern void ck_server_admin_msg(void);
 #endif
-E void NDECL(ckmailstatus);
-E void FDECL(readmail, (struct obj *));
+extern void ckmailstatus(void);
+extern void readmail(struct obj *);
 #endif /* MAIL */
 
 /* ### makemon.c ### */
 
-E void FDECL(dealloc_monst, (struct monst *));
-E boolean FDECL(is_home_elemental, (struct permonst *));
-E struct monst *FDECL(clone_mon, (struct monst *, XCHAR_P, XCHAR_P));
-E int FDECL(monhp_per_lvl, (struct monst *));
-E void FDECL(newmonhp, (struct monst *, int));
-E struct mextra *NDECL(newmextra);
-E void FDECL(copy_mextra, (struct monst *, struct monst *));
-E void FDECL(dealloc_mextra, (struct monst *));
-E struct monst *FDECL(makemon, (struct permonst *, int, int, int));
-E boolean FDECL(create_critters, (int, struct permonst *, BOOLEAN_P));
-E struct permonst *NDECL(rndmonst);
-E void FDECL(reset_rndmonst, (int));
-E struct permonst *FDECL(mkclass, (CHAR_P, int));
-E struct permonst *FDECL(mkclass_aligned, (CHAR_P, int, ALIGNTYP_P));
-E int FDECL(mkclass_poly, (int));
-E int FDECL(adj_lev, (struct permonst *));
-E struct permonst *FDECL(grow_up, (struct monst *, struct monst *));
-E int FDECL(mongets, (struct monst *, int));
-E int FDECL(golemhp, (int));
-E boolean FDECL(peace_minded, (struct permonst *));
-E void FDECL(set_malign, (struct monst *));
-E void FDECL(newmcorpsenm, (struct monst *));
-E void FDECL(freemcorpsenm, (struct monst *));
-E void FDECL(set_mimic_sym, (struct monst *));
-E int FDECL(mbirth_limit, (int));
-E void FDECL(mimic_hit_msg, (struct monst *, SHORT_P));
-E void FDECL(mkmonmoney, (struct monst *, long));
-E int FDECL(bagotricks, (struct obj *, BOOLEAN_P, int *));
-E boolean FDECL(propagate, (int, BOOLEAN_P, BOOLEAN_P));
-E boolean FDECL(usmellmon, (struct permonst *));
-
-/* ### mapglyph.c ### */
-
-E int FDECL(mapglyph, (int, int *, int *, unsigned *, int, int, unsigned));
-E char *FDECL(encglyph, (int));
-E char *FDECL(decode_mixed, (char *, const char *));
-E void FDECL(genl_putmixed, (winid, int, const char *));
+extern boolean is_home_elemental(struct permonst *) NONNULLARG1;
+extern struct monst *clone_mon(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern int monhp_per_lvl(struct monst *) NONNULLARG1;
+extern void newmonhp(struct monst *, int) NONNULLARG1;
+extern struct mextra *newmextra(void) NONNULL;
+extern struct monst *makemon(struct permonst *, coordxy, coordxy, mmflags_nht);
+extern struct monst *unmakemon(struct monst *, mmflags_nht) NONNULLARG1;
+extern boolean create_critters(int, struct permonst *, boolean);
+extern struct permonst *rndmonst_adj(int, int);
+extern struct permonst *rndmonst(void);
+extern struct permonst *mkclass(char, int);
+extern struct permonst *mkclass_aligned(char, int, aligntyp);
+extern int mkclass_poly(int);
+extern int adj_lev(struct permonst *) NONNULLARG1;
+extern struct permonst *grow_up(struct monst *, struct monst *) NONNULLARG1;
+extern struct obj* mongets(struct monst *, int) NONNULLARG1;
+extern int golemhp(int);
+extern boolean peace_minded(struct permonst *) NONNULLARG1;
+extern void set_malign(struct monst *) NONNULLARG1;
+extern void newmcorpsenm(struct monst *) NONNULLARG1;
+extern void freemcorpsenm(struct monst *) NONNULLARG1;
+extern void set_mimic_sym(struct monst *) NO_NNARGS; /* tests for NULL mtmp */
+extern int mbirth_limit(int);
+extern void mkmonmoney(struct monst *, long) NONNULLARG1;
+extern int bagotricks(struct obj *, boolean, int *);
+extern boolean propagate(int, boolean, boolean);
+extern void summon_furies(int);
+extern void dump_mongen(void);
 
 /* ### mcastu.c ### */
 
-E int FDECL(castmu, (struct monst *, struct attack *, BOOLEAN_P, BOOLEAN_P));
-E int FDECL(buzzmu, (struct monst *, struct attack *));
+extern int castmu(struct monst *, struct attack *,
+                  boolean, boolean) NONNULLARG12;
+extern void touch_of_death(struct monst *) NONNULLARG1;
+extern char *death_inflicted_by(char *, const char *,
+                                struct monst *) NONNULLARG12;
+extern int buzzmu(struct monst *, struct attack *) NONNULLARG12;
+
+/* ### mdlib.c ### */
+
+extern void runtime_info_init(void);
+extern const char *do_runtime_info(int *) NO_NNARGS;
+extern void release_runtime_info(void);
+extern char *mdlib_version_string(char *, const char *) NONNULL NONNULLPTRS;
 
 /* ### mhitm.c ### */
 
-E int FDECL(fightm, (struct monst *));
-E int FDECL(mattackm, (struct monst *, struct monst *));
-E boolean FDECL(engulf_target, (struct monst *, struct monst *));
-E int FDECL(mdisplacem, (struct monst *, struct monst *, BOOLEAN_P));
-E void FDECL(paralyze_monst, (struct monst *, int));
-E int FDECL(sleep_monst, (struct monst *, int, int));
-E void FDECL(slept_monst, (struct monst *));
-E void FDECL(xdrainenergym, (struct monst *, BOOLEAN_P));
-E long FDECL(attk_protection, (int));
-E void FDECL(rustm, (struct monst *, struct obj *));
+extern int fightm(struct monst *) NONNULLARG1;
+extern int mdisplacem(struct monst *, struct monst *, boolean);
+extern int mattackm(struct monst *, struct monst *);
+extern boolean failed_grab(struct monst *, struct monst *,
+                           struct attack *) NONNULLPTRS;
+extern boolean engulf_target(struct monst *, struct monst *) NONNULLARG12;
+extern int mon_poly(struct monst *, struct monst *, int) NONNULLARG12;
+extern void paralyze_monst(struct monst *, int) NONNULLARG1;
+extern int sleep_monst(struct monst *, int, int) NONNULLARG1;
+extern void slept_monst(struct monst *) NONNULLARG1;
+extern void xdrainenergym(struct monst *, boolean) NONNULLARG1;
+extern long attk_protection(int);
+extern void rustm(struct monst *, struct obj *);
 
 /* ### mhitu.c ### */
 
-E const char *FDECL(mpoisons_subj, (struct monst *, struct attack *));
-E void NDECL(u_slow_down);
-E struct monst *NDECL(cloneu);
-E void FDECL(expels, (struct monst *, struct permonst *, BOOLEAN_P));
-E struct attack *FDECL(getmattk, (struct monst *, struct monst *,
-                                  int, int *, struct attack *));
-E int FDECL(mattacku, (struct monst *));
-E int FDECL(magic_negation, (struct monst *));
-E boolean NDECL(gulp_blnd_check);
-E int FDECL(gazemu, (struct monst *, struct attack *));
-E void FDECL(mdamageu, (struct monst *, int));
-E int FDECL(could_seduce, (struct monst *, struct monst *, struct attack *));
-E int FDECL(doseduce, (struct monst *));
+extern void hitmsg(struct monst *, struct attack *) NONNULLARG12;
+extern const char *mswings_verb(struct obj *, boolean) NONNULLARG1;
+extern const char *mpoisons_subj(struct monst *, struct attack *) NONNULLARG12;
+extern void u_slow_down(void);
+extern struct monst *cloneu(void);
+extern void expels(struct monst *, struct permonst *, boolean) NONNULLARG12;
+extern struct attack *getmattk(struct monst *, struct monst *, int, int *,
+                               struct attack *) NONNULLARG12;
+extern boolean mtrapped_in_pit(struct monst *) NONNULLARG1;
+extern int mattacku(struct monst *) NONNULLARG1;
+boolean diseasemu(struct permonst *) NONNULLARG1;
+boolean u_slip_free(struct monst *, struct attack *) NONNULLARG12;
+extern int magic_negation(struct monst *) NONNULLARG1;
+extern boolean gulp_blnd_check(void);
+extern int gazemu(struct monst *, struct attack *) NONNULLARG12;
+extern void mdamageu(struct monst *, int) NONNULLARG1;
+extern int could_seduce(struct monst *, struct monst *, struct attack *) NONNULLARG12;
+extern int doseduce(struct monst *) NONNULLARG1;
+extern boolean mon_avoiding_this_attack(struct monst *, int) NONNULLARG1;
+/* extern boolean ranged_attk_assessed(struct monst *mtmp,
+                             boolean (*assessfunct)(struct monst *, int)) NONNULLARG1;
+*/
+extern boolean ranged_attk_available(struct monst *mtmp) NONNULLARG1;
 
 /* ### minion.c ### */
 
-E void FDECL(newemin, (struct monst *));
-E void FDECL(free_emin, (struct monst *));
-E int FDECL(monster_census, (BOOLEAN_P));
-E int FDECL(msummon, (struct monst *));
-E void FDECL(summon_minion, (ALIGNTYP_P, BOOLEAN_P));
-E int FDECL(demon_talk, (struct monst *));
-E long FDECL(bribe, (struct monst *));
-E int FDECL(dprince, (ALIGNTYP_P));
-E int FDECL(dlord, (ALIGNTYP_P));
-E int NDECL(llord);
-E int FDECL(ndemon, (ALIGNTYP_P));
-E int NDECL(lminion);
-E void FDECL(lose_guardian_angel, (struct monst *));
-E void NDECL(gain_guardian_angel);
+extern void newemin(struct monst *) NONNULLARG1;
+extern void free_emin(struct monst *) NONNULLARG1;
+extern int monster_census(boolean);
+extern int msummon(struct monst *);
+extern void summon_minion(aligntyp, boolean);
+extern int demon_talk(struct monst *) NONNULLARG1;
+extern long bribe(struct monst *, const char *) NONNULLARG12;
+extern int dprince(aligntyp);
+extern int dlord(aligntyp);
+extern int llord(void);
+extern int ndemon(aligntyp);
+extern int lminion(void);
+extern void lose_guardian_angel(struct monst *);
+extern void gain_guardian_angel(void);
 
 /* ### mklev.c ### */
 
-#ifdef USE_TRAMPOLI
-E int FDECL(do_comp, (genericptr_t, genericptr_t));
-#endif
-E void NDECL(sort_rooms);
-E void FDECL(add_room, (int, int, int, int, BOOLEAN_P, SCHAR_P, BOOLEAN_P));
-E void FDECL(add_subroom, (struct mkroom *, int, int, int, int, BOOLEAN_P,
-                           SCHAR_P, BOOLEAN_P));
-E void NDECL(makecorridors);
-E void FDECL(add_door, (int, int, struct mkroom *));
-E void NDECL(mklev);
+extern void sort_rooms(void);
+extern void add_room(coordxy, coordxy, coordxy, coordxy,
+                     boolean, schar, boolean);
+extern void add_subroom(struct mkroom *,
+                        coordxy, coordxy, coordxy, coordxy,
+                        boolean, schar, boolean) NONNULLARG1;
+extern void free_luathemes(enum lua_theme_group);
+extern void makecorridors(void);
+extern void add_door(coordxy, coordxy, struct mkroom *) NONNULLARG3;
+extern void count_level_features(void);
+extern void clear_level_structures(void);
+extern void level_finalize_topology(void);
+extern void mklev(void);
 #ifdef SPECIALIZATION
-E void FDECL(topologize, (struct mkroom *, BOOLEAN_P));
+extern void topologize(struct mkroom *, boolean) NONNULLARG1;
 #else
-E void FDECL(topologize, (struct mkroom *));
+extern void topologize(struct mkroom *) NONNULLARG1;
 #endif
-E void FDECL(place_branch, (branch *, XCHAR_P, XCHAR_P));
-E boolean FDECL(occupied, (XCHAR_P, XCHAR_P));
-E int FDECL(okdoor, (XCHAR_P, XCHAR_P));
-E void FDECL(dodoor, (int, int, struct mkroom *));
-E void FDECL(mktrap, (int, int, struct mkroom *, coord *));
-E void FDECL(mkstairs, (XCHAR_P, XCHAR_P, CHAR_P, struct mkroom *));
-E void NDECL(mkinvokearea);
-E void FDECL(mineralize, (int, int, int, int, BOOLEAN_P));
+/* place_branch() has tests for NULL branch arg, preventing NONNULLARG1 */
+extern void place_branch(branch *, coordxy, coordxy) NO_NNARGS;
+extern boolean occupied(coordxy, coordxy);
+extern int okdoor(coordxy, coordxy);
+extern boolean maybe_sdoor(int);
+extern void dodoor(coordxy, coordxy, struct mkroom *) NONNULLARG3;
+extern void mktrap(int, unsigned, struct mkroom *, coord *) NO_NNARGS;
+extern void mkstairs(coordxy, coordxy, char, struct mkroom *, boolean);
+extern void mkinvokearea(void);
+extern void mineralize(int, int, int, int, boolean);
 
 /* ### mkmap.c ### */
 
-E void FDECL(flood_fill_rm, (int, int, int, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(remove_rooms, (int, int, int, int));
-/* E void FDECL(mkmap, (lev_init *)); -- need sp_lev.h for lev_init */
+extern void flood_fill_rm(coordxy, coordxy, int, boolean, boolean);
+extern void remove_rooms(coordxy, coordxy, coordxy, coordxy);
+extern boolean litstate_rnd(int);
 
 /* ### mkmaze.c ### */
 
-E void FDECL(wallification, (int, int, int, int));
-E void FDECL(fix_wall_spines, (int, int, int, int));
-E void FDECL(walkfrom, (int, int, SCHAR_P));
-E void FDECL(makemaz, (const char *));
-E void FDECL(mazexy, (coord *));
-E void NDECL(bound_digging);
-E void FDECL(mkportal, (XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P));
-E boolean FDECL(bad_location, (XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P,
-                               XCHAR_P, XCHAR_P));
-E void FDECL(place_lregion, (XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P,
-                             XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P, d_level *));
-E void NDECL(fixup_special);
-E void NDECL(fumaroles);
-E void NDECL(movebubbles);
-E void NDECL(water_friction);
-E void FDECL(save_waterlevel, (int, int));
-E void FDECL(restore_waterlevel, (int));
-E const char *FDECL(waterbody_name, (XCHAR_P, XCHAR_P));
+extern boolean set_levltyp(coordxy, coordxy, schar);
+extern boolean set_levltyp_lit(coordxy, coordxy, schar, schar);
+extern void create_maze(int, int, boolean);
+extern void wallification(coordxy, coordxy, coordxy, coordxy);
+extern void fix_wall_spines(coordxy, coordxy, coordxy, coordxy);
+extern void walkfrom(coordxy, coordxy, schar);
+extern void pick_vibrasquare_location(void);
+extern void makemaz(const char *) NONNULLARG1;
+extern void mazexy(coord *) NONNULLARG1;
+extern void get_level_extends(coordxy *, coordxy *, coordxy *, coordxy *) NONNULLPTRS;
+extern void bound_digging(void);
+extern void mkportal(coordxy, coordxy, xint16, xint16);
+extern boolean bad_location(coordxy, coordxy, coordxy, coordxy, coordxy,
+                            coordxy);
+extern boolean is_exclusion_zone(xint16, coordxy, coordxy);
+/* dungeon.c u_on_rndspot() passes NULL final arg to place_lregion() */
+extern void place_lregion(coordxy, coordxy, coordxy, coordxy, coordxy,
+                          coordxy, coordxy, coordxy, xint16, d_level *) NO_NNARGS;
+extern void fixup_special(void);
+extern void fumaroles(void);
+extern void movebubbles(void);
+extern void water_friction(void);
+extern void save_waterlevel(NHFILE *) NONNULLARG1;
+extern void restore_waterlevel(NHFILE *) NONNULLARG1;
+extern void maybe_adjust_hero_bubble(void);
 
 /* ### mkobj.c ### */
 
-E struct oextra *NDECL(newoextra);
-E void FDECL(copy_oextra, (struct obj *, struct obj *));
-E void FDECL(dealloc_oextra, (struct obj *));
-E void FDECL(newomonst, (struct obj *));
-E void FDECL(free_omonst, (struct obj *));
-E void FDECL(newomid, (struct obj *));
-E void FDECL(free_omid, (struct obj *));
-E void FDECL(newolong, (struct obj *));
-E void FDECL(free_olong, (struct obj *));
-E void FDECL(new_omailcmd, (struct obj *, const char *));
-E void FDECL(free_omailcmd, (struct obj *));
-E struct obj *FDECL(mkobj_at, (CHAR_P, int, int, BOOLEAN_P));
-E struct obj *FDECL(mksobj_at, (int, int, int, BOOLEAN_P, BOOLEAN_P));
-E struct obj *FDECL(mksobj_migr_to_species, (int, unsigned, BOOLEAN_P, BOOLEAN_P));
-E struct obj *FDECL(mkobj, (CHAR_P, BOOLEAN_P));
-E int NDECL(rndmonnum);
-E boolean FDECL(bogon_is_pname, (CHAR_P));
-E struct obj *FDECL(splitobj, (struct obj *, long));
-E struct obj *FDECL(unsplitobj, (struct obj *));
-E void NDECL(clear_splitobjs);
-E void FDECL(replace_object, (struct obj *, struct obj *));
-E struct obj *FDECL(unknwn_contnr_contents, (struct obj *));
-E void FDECL(bill_dummy_object, (struct obj *));
-E void FDECL(costly_alteration, (struct obj *, int));
-E struct obj *FDECL(mksobj, (int, BOOLEAN_P, BOOLEAN_P));
-E int FDECL(bcsign, (struct obj *));
-E int FDECL(weight, (struct obj *));
-E struct obj *FDECL(mkgold, (long, int, int));
-E struct obj *FDECL(mkcorpstat, (int, struct monst *, struct permonst *, int,
-                                 int, unsigned));
-E int FDECL(corpse_revive_type, (struct obj *));
-E struct obj *FDECL(obj_attach_mid, (struct obj *, unsigned));
-E struct monst *FDECL(get_mtraits, (struct obj *, BOOLEAN_P));
-E struct obj *FDECL(mk_tt_object, (int, int, int));
-E struct obj *FDECL(mk_named_object,
-                    (int, struct permonst *, int, int, const char *));
-E struct obj *FDECL(rnd_treefruit_at, (int, int));
-E void FDECL(set_corpsenm, (struct obj *, int));
-E void FDECL(start_corpse_timeout, (struct obj *));
-E void FDECL(bless, (struct obj *));
-E void FDECL(unbless, (struct obj *));
-E void FDECL(curse, (struct obj *));
-E void FDECL(uncurse, (struct obj *));
-E void FDECL(blessorcurse, (struct obj *, int));
-E void FDECL(set_bknown, (struct obj *, unsigned));
-E boolean FDECL(is_flammable, (struct obj *));
-E boolean FDECL(is_rottable, (struct obj *));
-E void FDECL(place_object, (struct obj *, int, int));
-E void FDECL(remove_object, (struct obj *));
-E void FDECL(discard_minvent, (struct monst *));
-E void FDECL(obj_extract_self, (struct obj *));
-E void FDECL(extract_nobj, (struct obj *, struct obj **));
-E void FDECL(extract_nexthere, (struct obj *, struct obj **));
-E int FDECL(add_to_minv, (struct monst *, struct obj *));
-E struct obj *FDECL(add_to_container, (struct obj *, struct obj *));
-E void FDECL(add_to_migration, (struct obj *));
-E void FDECL(add_to_buried, (struct obj *));
-E void FDECL(dealloc_obj, (struct obj *));
-E void FDECL(obj_ice_effects, (int, int, BOOLEAN_P));
-E long FDECL(peek_at_iced_corpse_age, (struct obj *));
-E int FDECL(hornoplenty, (struct obj *, BOOLEAN_P));
-E void NDECL(obj_sanity_check);
-E struct obj *FDECL(obj_nexto, (struct obj *));
-E struct obj *FDECL(obj_nexto_xy, (struct obj *, int, int, BOOLEAN_P));
-E struct obj *FDECL(obj_absorb, (struct obj **, struct obj **));
-E struct obj *FDECL(obj_meld, (struct obj **, struct obj **));
-E void FDECL(pudding_merge_message, (struct obj *, struct obj *));
-E struct obj *FDECL(init_dummyobj, (struct obj *, SHORT_P, long));
+extern struct oextra *newoextra(void) NONNULL;
+extern void copy_oextra(struct obj *, struct obj *);
+extern void dealloc_oextra(struct obj *) NONNULLARG1;
+extern void newomonst(struct obj *) NONNULLARG1;
+extern void free_omonst(struct obj *) NONNULLARG1;
+extern void newomid(struct obj *) NONNULLARG1;
+extern void free_omid(struct obj *) NONNULLARG1;
+/*
+extern void newolong(struct obj *);
+extern void free_olong(struct obj *);
+*/
+extern void new_omailcmd(struct obj *, const char *) NONNULLPTRS;
+extern void free_omailcmd(struct obj *) NONNULLARG1;
+extern struct obj *mkobj_at(char, coordxy, coordxy, boolean);
+extern struct obj *mksobj_at(int, coordxy, coordxy, boolean, boolean);
+extern struct obj *mksobj_migr_to_species(int, unsigned, boolean, boolean);
+extern struct obj *mkobj(int, boolean) NONNULL;
+extern int rndmonnum_adj(int, int);
+extern int rndmonnum(void);
+extern boolean bogon_is_pname(char);
+extern struct obj *splitobj(struct obj *, long) NONNULLARG1;
+extern unsigned next_ident(void);
+extern struct obj *unsplitobj(struct obj *) NONNULLARG1;
+extern void clear_splitobjs(void);
+extern void replace_object(struct obj *, struct obj *) NONNULLARG12;
+extern struct obj *unknwn_contnr_contents(struct obj *) NONNULLARG1;
+extern void bill_dummy_object(struct obj *) NONNULLARG1;
+extern void costly_alteration(struct obj *, int) NONNULLARG1;
+extern void clear_dknown(struct obj *);
+extern void unknow_object(struct obj *);
+extern struct obj *mksobj(int, boolean, boolean) NONNULL;
+extern boolean stone_object_type(unsigned);
+extern boolean stone_furniture_type(unsigned);
+extern int bcsign(struct obj *) NONNULLARG1;
+extern int weight(struct obj *) NONNULLARG1;
+extern struct obj *mkgold(long, coordxy, coordxy);
+extern void fixup_oil(struct obj *, struct obj *) NONNULLARG1;
+extern struct obj *mkcorpstat(int, struct monst *, struct permonst *,
+                              coordxy, coordxy, unsigned) NONNULL;
+extern int corpse_revive_type(struct obj *) NONNULLARG1;
+extern struct obj *obj_attach_mid(struct obj *, unsigned);
+extern struct monst *get_mtraits(struct obj *, boolean) NONNULLARG1;
+extern struct obj *mk_tt_object(int, coordxy, coordxy);
+extern struct obj *mk_named_object(int, struct permonst *,
+                                   coordxy, coordxy,
+                                   const char *) ;
+extern struct obj *rnd_treefruit_at(coordxy, coordxy);
+extern boolean is_treefruit(struct obj *) NONNULLARG1;
+extern void set_corpsenm(struct obj *, int) NONNULLARG1;
+extern long rider_revival_time(struct obj *, boolean) NONNULLARG1;
+extern void start_corpse_timeout(struct obj *) NONNULLARG1;
+extern void start_glob_timeout(struct obj *, long) NONNULLARG1;
+extern void shrink_glob(anything *, long) NONNULLARG1;
+extern void maybe_adjust_light(struct obj *, int) NONNULLARG1;
+extern void bless(struct obj *) NONNULLARG1;
+extern void unbless(struct obj *) NONNULLARG1;
+extern void curse(struct obj *) NONNULLARG1;
+extern void uncurse(struct obj *) NONNULLARG1;
+extern void blessorcurse(struct obj *, int) NONNULLARG1;
+extern void set_bknown(struct obj *, unsigned) NONNULLARG1;
+extern boolean is_flammable(struct obj *) NONNULLARG1;
+extern boolean is_rottable(struct obj *) NONNULLARG1;
+extern void place_object(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern void recreate_pile_at(coordxy, coordxy);
+extern void remove_object(struct obj *) NONNULLARG1;
+extern void discard_minvent(struct monst *, boolean) NONNULLARG1;
+extern void obj_extract_self(struct obj *) NONNULLARG1;
+extern void extract_nobj(struct obj *, struct obj **) NONNULLARG12;
+extern void extract_nexthere(struct obj *, struct obj **) NONNULLARG12;
+extern int add_to_minv(struct monst *, struct obj *) NONNULLARG12;
+extern struct obj *add_to_container(struct obj *, struct obj *) NONNULLARG12;
+extern void add_to_migration(struct obj *) NONNULLARG1;
+extern void add_to_buried(struct obj *) NONNULLARG1;
+extern void container_weight(struct obj *) NONNULLARG1;
+extern void dealloc_obj(struct obj *) NONNULLARG1;
+extern void obj_ice_effects(coordxy, coordxy, boolean);
+extern long peek_at_iced_corpse_age(struct obj *) NONNULLARG1;
+extern void dobjsfree(void);
+extern int hornoplenty(struct obj *, boolean, struct obj *);
+extern void obj_sanity_check(void);
+extern struct obj *obj_nexto(struct obj *);
+extern struct obj *obj_nexto_xy(struct obj *, coordxy, coordxy, boolean) NONNULLARG1;
+extern struct obj *obj_absorb(struct obj **, struct obj **);
+extern struct obj *obj_meld(struct obj **, struct obj **);
+extern void pudding_merge_message(struct obj *, struct obj *) NONNULLARG12;
+extern struct obj *init_dummyobj(struct obj *, short, long);
 
 /* ### mkroom.c ### */
 
-E void FDECL(mkroom, (int));
-E void FDECL(fill_zoo, (struct mkroom *));
-E struct permonst *NDECL(antholemon);
-E boolean FDECL(nexttodoor, (int, int));
-E boolean FDECL(has_dnstairs, (struct mkroom *));
-E boolean FDECL(has_upstairs, (struct mkroom *));
-E int FDECL(somex, (struct mkroom *));
-E int FDECL(somey, (struct mkroom *));
-E boolean FDECL(inside_room, (struct mkroom *, XCHAR_P, XCHAR_P));
-E boolean FDECL(somexy, (struct mkroom *, coord *));
-E void FDECL(mkundead, (coord *, BOOLEAN_P, int));
-E struct permonst *NDECL(courtmon);
-E void FDECL(save_rooms, (int));
-E void FDECL(rest_rooms, (int));
-E struct mkroom *FDECL(search_special, (SCHAR_P));
-E int FDECL(cmap_to_type, (int));
+extern void do_mkroom(int);
+extern void fill_zoo(struct mkroom *) NONNULLARG1;
+extern struct permonst *antholemon(void);
+extern boolean nexttodoor(int, int);
+extern boolean has_dnstairs(struct mkroom *) NONNULLARG1;
+extern boolean has_upstairs(struct mkroom *) NONNULLARG1;
+extern int somex(struct mkroom *) NONNULLARG1;
+extern int somey(struct mkroom *) NONNULLARG1;
+extern boolean inside_room(struct mkroom *, coordxy, coordxy) NONNULLARG1;
+extern boolean somexy(struct mkroom *, coord *) NONNULLARG12;
+extern boolean somexyspace(struct mkroom *, coord *) NONNULLARG12;
+extern void mkundead(coord *, boolean, int) NONNULLARG1;
+extern struct permonst *courtmon(void);
+extern void save_rooms(NHFILE *) NONNULLARG1;
+extern void rest_rooms(NHFILE *) NONNULLARG1;
+extern struct mkroom *search_special(schar);
+extern int cmap_to_type(int);
 
 /* ### mon.c ### */
 
-E void NDECL(mon_sanity_check);
-E int FDECL(undead_to_corpse, (int));
-E int FDECL(genus, (int, int));
-E int FDECL(pm_to_cham, (int));
-E int FDECL(minliquid, (struct monst *));
-E int NDECL(movemon);
-E int FDECL(meatmetal, (struct monst *));
-E int FDECL(meatobj, (struct monst *));
-E void FDECL(mpickgold, (struct monst *));
-E boolean FDECL(mpickstuff, (struct monst *, const char *));
-E int FDECL(curr_mon_load, (struct monst *));
-E int FDECL(max_mon_load, (struct monst *));
-E int FDECL(can_carry, (struct monst *, struct obj *));
-E int FDECL(mfndpos, (struct monst *, coord *, long *, long));
-E boolean FDECL(monnear, (struct monst *, int, int));
-E void NDECL(dmonsfree);
-E void FDECL(elemental_clog, (struct monst *));
-E int FDECL(mcalcmove, (struct monst *));
-E void NDECL(mcalcdistress);
-E void FDECL(replmon, (struct monst *, struct monst *));
-E void FDECL(relmon, (struct monst *, struct monst **));
-E struct obj *FDECL(mlifesaver, (struct monst *));
-E boolean FDECL(corpse_chance, (struct monst *, struct monst *, BOOLEAN_P));
-E void FDECL(mondead, (struct monst *));
-E void FDECL(mondied, (struct monst *));
-E void FDECL(mongone, (struct monst *));
-E void FDECL(monstone, (struct monst *));
-E void FDECL(monkilled, (struct monst *, const char *, int));
-E void FDECL(unstuck, (struct monst *));
-E void FDECL(killed, (struct monst *));
-E void FDECL(xkilled, (struct monst *, int));
-E void FDECL(mon_to_stone, (struct monst *));
-E void FDECL(m_into_limbo, (struct monst *));
-E void FDECL(mnexto, (struct monst *));
-E void FDECL(maybe_mnexto, (struct monst *));
-E int FDECL(mnearto, (struct monst *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void FDECL(m_respond, (struct monst *));
-E void FDECL(setmangry, (struct monst *, BOOLEAN_P));
-E void FDECL(wakeup, (struct monst *, BOOLEAN_P));
-E void NDECL(wake_nearby);
-E void FDECL(wake_nearto, (int, int, int));
-E void FDECL(seemimic, (struct monst *));
-E void NDECL(rescham);
-E void NDECL(restartcham);
-E void FDECL(restore_cham, (struct monst *));
-E boolean FDECL(hideunder, (struct monst *));
-E void FDECL(hide_monst, (struct monst *));
-E void FDECL(mon_animal_list, (BOOLEAN_P));
-E boolean FDECL(validvamp, (struct monst *, int *, int));
-E int FDECL(select_newcham_form, (struct monst *));
-E void FDECL(mgender_from_permonst, (struct monst *, struct permonst *));
-E int FDECL(newcham,
-            (struct monst *, struct permonst *, BOOLEAN_P, BOOLEAN_P));
-E int FDECL(can_be_hatched, (int));
-E int FDECL(egg_type_from_parent, (int, BOOLEAN_P));
-E boolean FDECL(dead_species, (int, BOOLEAN_P));
-E void NDECL(kill_genocided_monsters);
-E void FDECL(golemeffects, (struct monst *, int, int));
-E boolean FDECL(angry_guards, (BOOLEAN_P));
-E void NDECL(pacify_guards);
-E void FDECL(decide_to_shapeshift, (struct monst *, int));
-E boolean FDECL(vamp_stone, (struct monst *));
+extern void dealloc_monst(struct monst *) NONNULLARG1;
+extern void copy_mextra(struct monst *, struct monst *);
+extern void dealloc_mextra(struct monst *) NONNULLARG1;
+extern void mon_sanity_check(void);
+extern boolean zombie_maker(struct monst *) NONNULLARG1;
+extern int zombie_form(struct permonst *) NONNULLARG1;
+extern int m_poisongas_ok(struct monst *) NONNULLARG1;
+extern int undead_to_corpse(int);
+extern int genus(int, int);
+extern int pm_to_cham(int);
+extern int minliquid(struct monst *) NONNULLARG1;
+extern boolean movemon_singlemon(struct monst *) NONNULLARG1;
+extern int movemon(void);
+extern void meatbox(struct monst *, struct obj *) NONNULLPTRS;
+extern void m_consume_obj(struct monst *, struct obj *) NONNULLPTRS;
+extern int meatmetal(struct monst *) NONNULLARG1;
+extern int meatobj(struct monst *) NONNULLARG1;
+extern int meatcorpse(struct monst *) NONNULLARG1;
+extern void mon_give_prop(struct monst *, int) NONNULLARG1;
+extern void mon_givit(struct monst *, struct permonst *) NONNULLARG12;
+extern void mpickgold(struct monst *) NONNULLARG1;
+extern boolean mpickstuff(struct monst *) NONNULLARG1;
+extern int curr_mon_load(struct monst *) NONNULLARG1;
+extern int max_mon_load(struct monst *) NONNULLARG1;
+extern boolean can_touch_safely(struct monst *, struct obj *) NONNULLARG12;
+extern int can_carry(struct monst *, struct obj *) NONNULLARG12;
+extern long mon_allowflags(struct monst *) NONNULLARG1;
+extern boolean m_in_air(struct monst *) NONNULLARG1;
+extern int mfndpos(struct monst *, struct mfndposdata *, long) NONNULLPTRS;
+extern boolean monnear(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern void dmonsfree(void);
+extern void elemental_clog(struct monst *) NONNULLARG1;
+extern int mcalcmove(struct monst *, boolean) NONNULLARG1;
+extern void mcalcdistress(void);
+extern void replmon(struct monst *, struct monst *) NONNULLARG12;
+extern void relmon(struct monst *, struct monst **) NONNULLARG1;
+extern struct obj *mlifesaver(struct monst *) NONNULLARG1;
+extern boolean corpse_chance(struct monst *, struct monst *, boolean) NONNULLARG1;
+extern void mondead(struct monst *) NONNULLARG1;
+extern void mondied(struct monst *) NONNULLARG1;
+extern void mongone(struct monst *) NONNULLARG1;
+extern void monstone(struct monst *) NONNULLARG1;
+extern void monkilled(struct monst *, const char *, int) NONNULLARG1;
+extern void set_ustuck(struct monst *);
+extern void unstuck(struct monst *) NONNULLARG1;
+extern void killed(struct monst *) NONNULLARG1;
+extern void xkilled(struct monst *, int) NONNULLARG1;
+extern void mon_to_stone(struct monst *) NONNULLARG1;
+extern void m_into_limbo(struct monst *) NONNULLARG1;
+extern void migrate_mon(struct monst *, xint16, xint16) NONNULLARG1;
+extern void mnexto(struct monst *, unsigned) NONNULLARG1;
+extern void deal_with_overcrowding(struct monst *) NONNULLARG1;
+extern void maybe_mnexto(struct monst *) NONNULLARG1;
+extern int mnearto(struct monst *, coordxy, coordxy, boolean, unsigned) NONNULLARG1;
+extern void m_respond(struct monst *) NONNULLARG1;
+extern void setmangry(struct monst *, boolean) NONNULLARG1;
+extern void wake_msg(struct monst *, boolean) NONNULLARG1;
+extern void wakeup(struct monst *, boolean) NONNULLARG1;
+extern void wake_nearby(boolean);
+extern void wake_nearto(coordxy, coordxy, int);
+extern void seemimic(struct monst *) NONNULLARG1;
+extern void normal_shape(struct monst *) NONNULLARG1;
+extern void alloc_itermonarr(unsigned);
+extern void iter_mons_safe(boolean (*)(struct monst *));
+extern void iter_mons(void (*)(struct monst *));
+extern struct monst *get_iter_mons(boolean (*)(struct monst *));
+extern struct monst *get_iter_mons_xy(boolean (*)(struct monst *,
+                                                  coordxy, coordxy),
+                                      coordxy, coordxy);
+extern int healmon(struct monst *, int, int) NONNULLARG1;
+extern void rescham(void);
+extern void restartcham(void);
+extern void restore_cham(struct monst *) NONNULLARG1;
+extern void maybe_unhide_at(coordxy, coordxy);
+extern boolean hideunder(struct monst *) NONNULLARG1;
+extern void hide_monst(struct monst *) NONNULLARG1;
+extern void mon_animal_list(boolean);
+extern boolean valid_vampshiftform(int, int);
+extern boolean validvamp(struct monst *, int *, int) NONNULLARG12;
+extern int select_newcham_form(struct monst *) NONNULLARG1;
+extern void mgender_from_permonst(struct monst *, struct permonst *) NONNULLARG12;
+extern int newcham(struct monst *, struct permonst *, unsigned) NONNULLARG1;
+extern int can_be_hatched(int);
+extern int egg_type_from_parent(int, boolean);
+extern boolean dead_species(int, boolean);
+extern void kill_genocided_monsters(void);
+extern void golemeffects(struct monst *, int, int);
+extern boolean angry_guards(boolean);
+extern void pacify_guards(void);
+extern void decide_to_shapeshift(struct monst *) NONNULLARG1;
+extern boolean vamp_stone(struct monst *) NONNULLARG1;
+extern void check_gear_next_turn(struct monst *) NONNULLARG1;
+extern void copy_mextra(struct monst *, struct monst *);
+extern void dealloc_mextra(struct monst *);
+extern boolean usmellmon(struct permonst *);
+extern void mimic_hit_msg(struct monst *, short);
+extern void adj_erinys(unsigned);
+extern void see_monster_closeup(struct monst *, boolean) NONNULLARG1;
+extern void see_nearby_monsters(void);
+extern void shieldeff_mon(struct monst *) NONNULLARG1;
+extern void flash_mon(struct monst *) NONNULLARG1;
 
 /* ### mondata.c ### */
 
-E void FDECL(set_mon_data, (struct monst *, struct permonst *));
-E struct attack *FDECL(attacktype_fordmg, (struct permonst *, int, int));
-E boolean FDECL(attacktype, (struct permonst *, int));
-E boolean FDECL(noattacks, (struct permonst *));
-E boolean FDECL(poly_when_stoned, (struct permonst *));
-E boolean FDECL(resists_drli, (struct monst *));
-E boolean FDECL(resists_magm, (struct monst *));
-E boolean FDECL(resists_blnd, (struct monst *));
-E boolean
-FDECL(can_blnd, (struct monst *, struct monst *, UCHAR_P, struct obj *));
-E boolean FDECL(ranged_attk, (struct permonst *));
-E boolean FDECL(hates_silver, (struct permonst *));
-E boolean FDECL(mon_hates_silver, (struct monst *));
-E boolean FDECL(mon_hates_light, (struct monst *));
-E boolean FDECL(passes_bars, (struct permonst *));
-E boolean FDECL(can_blow, (struct monst *));
-E boolean FDECL(can_chant, (struct monst *));
-E boolean FDECL(can_be_strangled, (struct monst *));
-E boolean FDECL(can_track, (struct permonst *));
-E boolean FDECL(breakarm, (struct permonst *));
-E boolean FDECL(sliparm, (struct permonst *));
-E boolean FDECL(sticks, (struct permonst *));
-E boolean FDECL(cantvomit, (struct permonst *));
-E int FDECL(num_horns, (struct permonst *));
-/* E boolean FDECL(canseemon, (struct monst *)); */
-E struct attack *FDECL(dmgtype_fromattack, (struct permonst *, int, int));
-E boolean FDECL(dmgtype, (struct permonst *, int));
-E int FDECL(max_passive_dmg, (struct monst *, struct monst *));
-E boolean FDECL(same_race, (struct permonst *, struct permonst *));
-E int FDECL(monsndx, (struct permonst *));
-E int FDECL(name_to_mon, (const char *));
-E int FDECL(name_to_monclass, (const char *, int *));
-E int FDECL(gender, (struct monst *));
-E int FDECL(pronoun_gender, (struct monst *, BOOLEAN_P));
-E boolean FDECL(levl_follower, (struct monst *));
-E int FDECL(little_to_big, (int));
-E int FDECL(big_to_little, (int));
-E boolean FDECL(big_little_match, (int, int));
-E const char *FDECL(locomotion, (const struct permonst *, const char *));
-E const char *FDECL(stagger, (const struct permonst *, const char *));
-E const char *FDECL(on_fire, (struct permonst *, struct attack *));
-E const struct permonst *FDECL(raceptr, (struct monst *));
-E boolean FDECL(olfaction, (struct permonst *));
+extern void set_mon_data(struct monst *, struct permonst *) NONNULLARG12;
+extern struct attack *attacktype_fordmg(struct permonst *, int, int) NONNULLARG1;
+extern boolean attacktype(struct permonst *, int) NONNULLARG1;
+extern boolean noattacks(struct permonst *) NONNULLARG1;
+extern boolean poly_when_stoned(struct permonst *) NONNULLARG1;
+extern boolean defended(struct monst *, int) NONNULLARG1;
+extern boolean Resists_Elem(struct monst *, int) NONNULLARG1;
+extern boolean resists_drli(struct monst *) NONNULLARG1;
+extern boolean resists_magm(struct monst *) NONNULLARG1;
+extern boolean resists_blnd(struct monst *) NONNULLARG1;
+extern boolean resists_blnd_by_arti(struct monst *) NONNULLARG1;
+extern boolean can_blnd(struct monst *, struct monst *,
+                        uchar, struct obj *) NONNULLARG2;
+extern boolean ranged_attk(struct permonst *) NONNULLARG1;
+extern boolean mon_hates_silver(struct monst *) NONNULLARG1;
+extern boolean hates_silver(struct permonst *) NONNULLARG1;
+extern boolean mon_hates_blessings(struct monst *) NONNULLARG1;
+extern boolean hates_blessings(struct permonst *) NONNULLARG1;
+extern boolean mon_hates_light(struct monst *) NONNULLARG1;
+extern boolean passes_bars(struct permonst *) NONNULLARG1;
+extern boolean can_blow(struct monst *) NONNULLARG1;
+extern boolean can_chant(struct monst *) NONNULLARG1;
+extern boolean can_be_strangled(struct monst *) NONNULLARG1;
+extern boolean can_track(struct permonst *) NONNULLARG1;
+extern boolean breakarm(struct permonst *) NONNULLARG1;
+extern boolean sliparm(struct permonst *) NONNULLARG1;
+extern boolean sticks(struct permonst *) NONNULLARG1;
+extern boolean cantvomit(struct permonst *) NONNULLARG1;
+extern int num_horns(struct permonst *) NONNULLARG1;
+extern struct attack *dmgtype_fromattack(struct permonst *, int, int) NONNULLARG1;
+extern boolean dmgtype(struct permonst *, int) NONNULLARG1;
+extern int max_passive_dmg(struct monst *, struct monst *) NONNULLARG12;
+extern boolean same_race(struct permonst *, struct permonst *) NONNULLARG12;
+extern int name_to_mon(const char *, int *) NONNULLARG1;
+extern int name_to_monplus(const char *, const char **, int *) NONNULLARG1;
+extern int name_to_monclass(const char *, int *);
+extern int gender(struct monst *) NONNULLARG1;
+extern int pronoun_gender(struct monst *, unsigned) NONNULLARG1;
+extern boolean levl_follower(struct monst *) NONNULLARG1;
+extern int little_to_big(int);
+extern int big_to_little(int);
+extern boolean big_little_match(int, int);
+extern const char *locomotion(const struct permonst *, const char *) NONNULLARG12;
+extern const char *stagger(const struct permonst *, const char *) NONNULLARG12;
+extern const char *on_fire(struct permonst *, struct attack *) NONNULLARG12;
+extern const char *msummon_environ(struct permonst *, const char **) NONNULLARG12;
+extern const struct permonst *raceptr(struct monst *) NONNULLARG1;
+extern boolean olfaction(struct permonst *) NONNULLARG1;
+unsigned long cvt_adtyp_to_mseenres(uchar);
+unsigned long cvt_prop_to_mseenres(uchar);
+extern void monstseesu(unsigned long);
+extern void monstunseesu(unsigned long);
+extern void give_u_to_m_resistances(struct monst *) NONNULLARG1;
+extern boolean resist_conflict(struct monst *) NONNULLARG1;
+extern boolean mon_knows_traps(struct monst *, int) NONNULLARG1;
+extern void mon_learns_traps(struct monst *, int) NONNULLARG1;
+extern void mons_see_trap(struct trap *) NONNULLARG1;
+extern int get_atkdam_type(int);
+#if (NH_DEVEL_STATUS != NH_STATUS_RELEASED) || defined(DEBUG)
+extern int mstrength(struct permonst *) NONNULLARG1;
+#endif
 
 /* ### monmove.c ### */
 
-E boolean FDECL(itsstuck, (struct monst *));
-E boolean FDECL(mb_trapped, (struct monst *));
-E boolean FDECL(monhaskey, (struct monst *, BOOLEAN_P));
-E void FDECL(mon_regen, (struct monst *, BOOLEAN_P));
-E int FDECL(dochugw, (struct monst *));
-E boolean FDECL(onscary, (int, int, struct monst *));
-E void FDECL(monflee, (struct monst *, int, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(mon_yells, (struct monst *, const char *));
-E int FDECL(dochug, (struct monst *));
-E boolean FDECL(m_digweapon_check, (struct monst *, XCHAR_P, XCHAR_P));
-E int FDECL(m_move, (struct monst *, int));
-E void FDECL(dissolve_bars, (int, int));
-E boolean FDECL(closed_door, (int, int));
-E boolean FDECL(accessible, (int, int));
-E void FDECL(set_apparxy, (struct monst *));
-E boolean FDECL(can_ooze, (struct monst *));
-E boolean FDECL(can_fog, (struct monst *));
-E boolean FDECL(should_displace,
-                (struct monst *, coord *, long *, int, XCHAR_P, XCHAR_P));
-E boolean FDECL(undesirable_disp, (struct monst *, XCHAR_P, XCHAR_P));
+extern boolean mon_would_take_item(struct monst *, struct obj *) NONNULLARG12;
+extern boolean mon_would_consume_item(struct monst *, struct obj *) NONNULLARG12;
+extern boolean itsstuck(struct monst *) NONNULLARG1;
+extern boolean mb_trapped(struct monst *, boolean) NONNULLARG1;
+extern void mon_track_add(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern void mon_track_clear(struct monst *) NONNULLARG1;
+extern boolean monhaskey(struct monst *, boolean) NONNULLARG1;
+extern void mon_regen(struct monst *, boolean) NONNULLARG1;
+extern void m_everyturn_effect(struct monst *) NONNULLARG1;
+extern void m_postmove_effect(struct monst *) NONNULLARG1;
+extern int dochugw(struct monst *, boolean) NONNULLARG1;
+extern boolean onscary(coordxy, coordxy, struct monst *) NONNULLARG3;
+extern struct monst *find_pmmonst(int);
+extern int bee_eat_jelly(struct monst *, struct obj *) NONNULLARG12;
+extern void monflee(struct monst *, int, boolean, boolean) NONNULLARG1;
+extern void mon_yells(struct monst *, const char *) NONNULLARG12;
+extern boolean m_can_break_boulder(struct monst *) NONNULLARG1;
+extern void m_break_boulder(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern int dochug(struct monst *) NONNULLARG1;
+extern boolean m_digweapon_check(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern boolean m_avoid_kicked_loc(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern boolean m_avoid_soko_push_loc(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern int m_move(struct monst *, int) NONNULLARG1;
+extern int m_move_aggress(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern void dissolve_bars(coordxy, coordxy);
+extern boolean closed_door(coordxy, coordxy);
+extern boolean accessible(coordxy, coordxy);
+extern void set_apparxy(struct monst *) NONNULLARG1;
+extern boolean can_ooze(struct monst *) NONNULLARG1;
+extern boolean can_fog(struct monst *) NONNULLARG1;
+extern boolean should_displace(struct monst *, const struct mfndposdata *,
+                               coordxy, coordxy) NONNULLPTRS;
+extern boolean undesirable_disp(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern boolean can_hide_under_obj(struct obj *);
 
 /* ### monst.c ### */
 
-E void NDECL(monst_init);
-
-/* ### monstr.c ### */
-
-E void NDECL(monstr_init);
+extern void monst_globals_init(void);
 
 /* ### mplayer.c ### */
 
-E struct monst *FDECL(mk_mplayer,
-                      (struct permonst *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void FDECL(create_mplayers, (int, BOOLEAN_P));
-E void FDECL(mplayer_talk, (struct monst *));
+extern struct monst *mk_mplayer(struct permonst *,
+                                coordxy, coordxy, boolean) NONNULLARG1;
+extern void create_mplayers(int, boolean);
+extern void mplayer_talk(struct monst *) NONNULLARG1;
 
 #if defined(MICRO) || defined(WIN32)
 
-/* ### msdos.c,os2.c,tos.c,winnt.c ### */
+/* ### msdos.c,os2.c,tos.c,windsys.c ### */
 
 #ifndef WIN32
-E int NDECL(tgetch);
+extern int tgetch(void);
 #endif
 #ifndef TOS
-E char NDECL(switchar);
+extern char switchar(void);
 #endif
 #ifndef __GO32__
-E long FDECL(freediskspace, (char *));
+extern long freediskspace(char *);
 #ifdef MSDOS
-E int FDECL(findfirst_file, (char *));
-E int NDECL(findnext_file);
-E long FDECL(filesize_nh, (char *));
+extern int findfirst_file(char *);
+extern int findnext_file(void);
+extern long filesize_nh(char *);
 #else
-E int FDECL(findfirst, (char *));
-E int NDECL(findnext);
-E long FDECL(filesize, (char *));
+extern int findfirst(char *);
+extern int findnext(void);
+extern long filesize(char *);
 #endif /* MSDOS */
-E char *NDECL(foundfile_buffer);
+extern char *foundfile_buffer(void);
 #endif /* __GO32__ */
-E void FDECL(chdrive, (char *));
+extern void chdrive(const char *);
 #ifndef TOS
-E void NDECL(disable_ctrlP);
-E void NDECL(enable_ctrlP);
+extern void disable_ctrlP(void);
+extern void enable_ctrlP(void);
 #endif
-#if defined(MICRO) && !defined(WINNT)
-E void NDECL(get_scr_size);
+#if defined(MICRO) && !defined(WIN32)
+extern void get_scr_size(void);
 #ifndef TOS
-E void FDECL(gotoxy, (int, int));
+extern void gotoxy(int, int);
 #endif
 #endif
 #ifdef TOS
-E int FDECL(_copyfile, (char *, char *));
-E int NDECL(kbhit);
-E void NDECL(set_colors);
-E void NDECL(restore_colors);
+extern int _copyfile(char *, char *);
+extern int kbhit(void);
+extern void set_colors(void);
+extern void restore_colors(void);
 #ifdef SUSPEND
-E int NDECL(dosuspend);
+extern int dosuspend(void);
 #endif
 #endif /* TOS */
 #ifdef WIN32
-E char *FDECL(get_username, (int *));
-E void FDECL(nt_regularize, (char *));
-E int NDECL((*nt_kbhit));
-E void FDECL(Delay, (int));
+extern void nt_regularize(char *);
+extern int(*nt_kbhit)(void);
+extern void Delay(int);
+boolean get_user_home_folder(char *, size_t);
+# ifdef CRASHREPORT
+struct CRctxt;
+extern struct CRctxt *ctxp;
+extern int win32_cr_helper(char, struct CRctxt *, void *, int);
+extern int win32_cr_gettrace(int, char *, int);
+extern int *win32_cr_shellexecute(const char *);
+# endif
 #endif /* WIN32 */
+
 #endif /* MICRO || WIN32 */
 
 /* ### mthrowu.c ### */
 
-E int FDECL(thitu, (int, int, struct obj **, const char *));
-E int FDECL(ohitmon, (struct monst *, struct obj *, int, BOOLEAN_P));
-E void FDECL(thrwmu, (struct monst *));
-E int FDECL(spitmu, (struct monst *, struct attack *));
-E int FDECL(breamu, (struct monst *, struct attack *));
-E boolean FDECL(linedup, (XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P, int));
-E boolean FDECL(lined_up, (struct monst *));
-E struct obj *FDECL(m_carrying, (struct monst *, int));
-E int FDECL(thrwmm, (struct monst *, struct monst *));
-E int FDECL(spitmm, (struct monst *, struct attack *, struct monst *));
-E int FDECL(breamm, (struct monst *, struct attack *, struct monst *));
-E void FDECL(m_useupall, (struct monst *, struct obj *));
-E void FDECL(m_useup, (struct monst *, struct obj *));
-E void FDECL(m_throw, (struct monst *, int, int, int, int, int, struct obj *));
-E void FDECL(hit_bars, (struct obj **, int, int, int, int,
-                        BOOLEAN_P, BOOLEAN_P));
-E boolean FDECL(hits_bars, (struct obj **, int, int, int, int, int, int));
+extern const char *rnd_hallublast(void);
+extern boolean m_has_launcher_and_ammo(struct monst *) NONNULLARG1;
+extern int thitu(int, int, struct obj **, const char *) NO_NNARGS;
+extern boolean ohitmon(struct monst *, struct obj *,
+                       int, boolean) NONNULLARG12;
+extern void thrwmu(struct monst *) NONNULLARG1;
+extern int spitmu(struct monst *, struct attack *) NONNULLPTRS;
+extern int breamu(struct monst *, struct attack *) NONNULLPTRS;
+extern boolean linedup_callback(coordxy, coordxy, coordxy, coordxy,
+                                boolean(*)(coordxy, coordxy));
+extern boolean linedup(coordxy, coordxy, coordxy, coordxy, int);
+extern boolean lined_up(struct monst *) NONNULLARG1;
+extern struct obj *m_carrying(struct monst *, int) NONNULLARG1;
+extern int thrwmm(struct monst *, struct monst *) NONNULLARG12;
+extern int spitmm(struct monst *, struct attack *, struct monst *) NONNULLPTRS;
+extern int breamm(struct monst *, struct attack *, struct monst *) NONNULLPTRS;
+extern void m_useupall(struct monst *, struct obj *) NONNULLARG12;
+extern void m_useup(struct monst *, struct obj *) NONNULLARG12;
+extern void m_throw(struct monst *, coordxy, coordxy, coordxy, coordxy,
+                    int, struct obj *) NONNULLPTRS;
+extern void hit_bars(struct obj **, coordxy, coordxy, coordxy, coordxy,
+                     unsigned) NONNULLARG1;
+extern boolean hits_bars(struct obj **, coordxy, coordxy, coordxy, coordxy,
+                         int, int) NONNULLARG1;
 
 /* ### muse.c ### */
 
-E boolean FDECL(find_defensive, (struct monst *));
-E int FDECL(use_defensive, (struct monst *));
-E int FDECL(rnd_defensive_item, (struct monst *));
-E boolean FDECL(find_offensive, (struct monst *));
-#ifdef USE_TRAMPOLI
-E int FDECL(mbhitm, (struct monst *, struct obj *));
-#endif
-E int FDECL(use_offensive, (struct monst *));
-E int FDECL(rnd_offensive_item, (struct monst *));
-E boolean FDECL(find_misc, (struct monst *));
-E int FDECL(use_misc, (struct monst *));
-E int FDECL(rnd_misc_item, (struct monst *));
-E boolean FDECL(searches_for_item, (struct monst *, struct obj *));
-E boolean FDECL(mon_reflects, (struct monst *, const char *));
-E boolean FDECL(ureflects, (const char *, const char *));
-E void FDECL(mcureblindness, (struct monst *, BOOLEAN_P));
-E boolean FDECL(munstone, (struct monst *, BOOLEAN_P));
-E boolean FDECL(munslime, (struct monst *, BOOLEAN_P));
+extern boolean find_defensive(struct monst *, boolean) NONNULLARG1;
+extern int use_defensive(struct monst *) NONNULLARG1;
+extern int rnd_defensive_item(struct monst *) NONNULLARG1;
+extern boolean find_offensive(struct monst *) NONNULLARG1;
+extern int use_offensive(struct monst *) NONNULLARG1;
+extern int rnd_offensive_item(struct monst *) NONNULLARG1;
+extern boolean find_misc(struct monst *) NONNULLARG1;
+extern int use_misc(struct monst *) NONNULLARG1;
+extern int rnd_misc_item(struct monst *) NONNULLARG1;
+extern boolean searches_for_item(struct monst *, struct obj *) NONNULLARG12;
+extern boolean mon_reflects(struct monst *, const char *) NONNULLARG1;
+extern boolean ureflects(const char *, const char *) NO_NNARGS;
+extern void mcureblindness(struct monst *, boolean) NONNULLARG1;
+extern boolean munstone(struct monst *, boolean) NONNULLARG1;
+extern boolean munslime(struct monst *, boolean) NONNULLARG1;
 
 /* ### music.c ### */
 
-E void FDECL(awaken_soldiers, (struct monst *));
-E int FDECL(do_play_instrument, (struct obj *));
+extern void awaken_soldiers(struct monst *) NONNULLARG1;
+extern int do_play_instrument(struct obj *) NONNULLARG1;
+enum instruments obj_to_instr(struct obj *) NONNULLARG1;
 
-/* ### nhlan.c ### */
-#ifdef LAN_FEATURES
-E void NDECL(init_lan_features);
-E char *NDECL(lan_username);
+/* ### nhlsel.c ### */
+
+#if !defined(CROSSCOMPILE) || defined(CROSSCOMPILE_TARGET)
+extern struct selectionvar *l_selection_check(lua_State *, int) NONNULLARG1;
+extern int l_selection_register(lua_State *) NONNULLARG1;
+extern void l_selection_push_copy(lua_State *, struct selectionvar *) NONNULLARG12;
+extern int l_obj_register(lua_State *) NONNULLARG1;
 #endif
 
-/* ### nhregex.c ### */
-E struct nhregex *NDECL(regex_init);
-E boolean FDECL(regex_compile, (const char *, struct nhregex *));
-E const char *FDECL(regex_error_desc, (struct nhregex *));
-E boolean FDECL(regex_match, (const char *, struct nhregex *));
-E void FDECL(regex_free, (struct nhregex *));
+/* ### nhlobj.c ### */
 
-/* ### nttty.c ### */
+#if !defined(CROSSCOMPILE) || defined(CROSSCOMPILE_TARGET)
+extern void nhl_push_obj(lua_State *, struct obj *) NONNULLARG12;
+extern int nhl_obj_u_giveobj(lua_State *) NONNULLARG1;
+extern int l_obj_register(lua_State *) NONNULLARG1;
+#endif
+
+/* ### nhlua.c ### */
+
+#if !defined(CROSSCOMPILE) || defined(CROSSCOMPILE_TARGET)
+extern void l_nhcore_init(void);
+extern void l_nhcore_done(void);
+extern void l_nhcore_call(int);
+extern lua_State * nhl_init(nhl_sandbox_info *) NONNULLARG1;
+/* nhl_done contains a test for NULL arg1, preventing NONNULLARG1 */
+extern void nhl_done(lua_State *) NO_NNARGS;
+extern boolean nhl_loadlua(lua_State *, const char *) NONNULLARG12;
+extern char *get_nh_lua_variables(void);
+extern void save_luadata(NHFILE *) NONNULLARG1;
+extern void restore_luadata(NHFILE *) NONNULLARG1;
+extern int nhl_pcall(lua_State *, int, int, const char *) NONNULLARG1;
+extern int nhl_pcall_handle(lua_State *, int, int, const char *,
+                            NHL_pcall_action) NONNULLARG1;
+extern boolean load_lua(const char *, nhl_sandbox_info *) NONNULLARG12;
+ATTRNORETURN extern void nhl_error(lua_State *, const char *)
+                                                        NORETURN NONNULLARG12;
+extern void lcheck_param_table(lua_State *) NONNULLARG1;
+extern schar get_table_mapchr(lua_State *, const char *) NONNULLARG12;
+extern schar get_table_mapchr_opt(lua_State *, const char *, schar)
+                                                                 NONNULLARG12;
+extern short nhl_get_timertype(lua_State *, int) NONNULLARG1;
+extern boolean nhl_get_xy_params(lua_State *, lua_Integer *, lua_Integer *)
+                                                                NONNULLARG123;
+extern void nhl_add_table_entry_int(lua_State *, const char *, lua_Integer)
+                                                                 NONNULLARG12;
+extern void nhl_add_table_entry_char(lua_State *, const char *, char)
+                                                                 NONNULLARG12;
+extern void nhl_add_table_entry_str(lua_State *, const char *, const char *)
+                                                                NONNULLARG123;
+extern void nhl_add_table_entry_bool(lua_State *, const char *, boolean)
+                                                                 NONNULLARG12;
+extern void nhl_add_table_entry_region(lua_State *, const char *,
+                                       coordxy, coordxy, coordxy, coordxy)
+                                                                 NONNULLARG12;
+extern schar splev_chr2typ(char);
+extern schar check_mapchr(const char *) NO_NNARGS;
+extern int get_table_int(lua_State *, const char *) NONNULLARG12;
+extern int get_table_int_opt(lua_State *, const char *, int) NONNULLARG12;
+extern char *get_table_str(lua_State *, const char *) NONNULLARG12;
+/* dungeon.c init_dungeon_levels() passes NULL to get_table_str_opt arg3 */
+extern char *get_table_str_opt(lua_State *, const char *, char *) NONNULLARG12;
+extern int get_table_boolean(lua_State *, const char *) NONNULLARG12;
+extern int get_table_boolean_opt(lua_State *, const char *, int) NONNULLARG12;
+/* lspo_feature calls get_table_option(L, "type", NULL, features),
+   so arg3 can be NULL.  NONNULLARG124 is not currently defined */
+extern int get_table_option(lua_State *, const char *, const char *,
+                            const char *const *) NO_NNARGS;
+/* extern int str_lines_max_width(const char *); */
+extern const char *get_lua_version(void);
+extern void nhl_pushhooked_open_table(lua_State *L) NONNULLARG1;
+extern void free_tutorial(void);
+extern void tutorial(boolean);
+#endif /* !CROSSCOMPILE || CROSSCOMPILE_TARGET */
+
+#endif /* MAKEDEFS_C MDLIB_C CPPREGEX_C */
+
+/* ### {cpp,pmatch,posix}regex.c ### */
+#include "nhregex.h"
+
+#if !defined(MAKEDEFS_C) && !defined(MDLIB_C) && !defined(CPPREGEX_C)
+
+/* ### consoletty.c ### */
 
 #ifdef WIN32
-E void NDECL(get_scr_size);
-E int NDECL(nttty_kbhit);
-E void FDECL(nttty_open, (int));
-E void NDECL(nttty_rubout);
-E int NDECL(tgetch);
-E int FDECL(ntposkey, (int *, int *, int *));
-E void FDECL(set_output_mode, (int));
-E void NDECL(synch_cursor);
-E void NDECL(nethack_enter_nttty);
-E void NDECL(nttty_exit);
-E int NDECL(set_keyhandling_via_option);
+extern void get_scr_size(void);
+extern int consoletty_kbhit(void);
+extern void consoletty_open(int);
+extern void consoletty_rubout(void);
+extern int tgetch(void);
+extern int console_poskey(coordxy *, coordxy *, int *);
+void console_g_putch(int in_ch);
+extern void set_output_mode(int);
+extern void synch_cursor(void);
+extern void nethack_enter_consoletty(void);
+extern void consoletty_exit(void);
+extern int set_keyhandling_via_option(void);
+#ifdef ENHANCED_SYMBOLS
+extern void tty_utf8graphics_fixup(void);
+extern void tty_ibmgraphics_fixup(void);
+#endif /* ENHANCED_SYMBOLS */
 #endif /* WIN32 */
 
 /* ### o_init.c ### */
 
-E void NDECL(init_objects);
-E void FDECL(obj_shuffle_range, (int, int *, int *));
-E int NDECL(find_skates);
-E void NDECL(oinit);
-E void FDECL(savenames, (int, int));
-E void FDECL(restnames, (int));
-E void FDECL(discover_object, (int, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(undiscover_object, (int));
-E int NDECL(dodiscovered);
-E int NDECL(doclassdisco);
-E void NDECL(rename_disco);
+extern void init_objects(void);
+extern void init_oclass_probs(void);
+extern void obj_shuffle_range(int, int *, int *) NONNULLPTRS;
+/* objdescr_is() contains a test for NULL arg1, so can't be NONNULLARG12 */
+extern boolean objdescr_is(struct obj *, const char *) NONNULLARG2;
+extern void oinit(void);
+extern void savenames(NHFILE *) NONNULLARG1;
+extern void restnames(NHFILE *) NONNULLARG1;
+extern void observe_object(struct obj *) NONNULLARG1;
+extern void discover_object(int, boolean, boolean, boolean);
+extern void undiscover_object(int);
+extern boolean interesting_to_discover(int);
+extern int choose_disco_sort(int);
+extern int dodiscovered(void);
+extern int doclassdisco(void);
+extern void rename_disco(void);
+extern void get_sortdisco(char *opts, boolean cnf) NONNULLARG1;
 
 /* ### objects.c ### */
 
-E void NDECL(objects_init);
+extern void objects_globals_init(void);
 
 /* ### objnam.c ### */
 
-E char *FDECL(obj_typename, (int));
-E char *FDECL(simple_typename, (int));
-E char *FDECL(safe_typename, (int));
-E boolean FDECL(obj_is_pname, (struct obj *));
-E char *FDECL(distant_name, (struct obj *, char *(*)(OBJ_P)));
-E char *FDECL(fruitname, (BOOLEAN_P));
-E struct fruit *FDECL(fruit_from_indx, (int));
-E struct fruit *FDECL(fruit_from_name, (const char *, BOOLEAN_P, int *));
-E void FDECL(reorder_fruit, (BOOLEAN_P));
-E char *FDECL(xname, (struct obj *));
-E char *FDECL(mshot_xname, (struct obj *));
-E boolean FDECL(the_unique_obj, (struct obj *));
-E boolean FDECL(the_unique_pm, (struct permonst *));
-E boolean FDECL(erosion_matters, (struct obj *));
-E char *FDECL(doname, (struct obj *));
-E char *FDECL(doname_with_price, (struct obj *));
-E char *FDECL(doname_vague_quan, (struct obj *));
-E boolean FDECL(not_fully_identified, (struct obj *));
-E char *FDECL(corpse_xname, (struct obj *, const char *, unsigned));
-E char *FDECL(cxname, (struct obj *));
-E char *FDECL(cxname_singular, (struct obj *));
-E char *FDECL(killer_xname, (struct obj *));
-E char *FDECL(short_oname,
-              (struct obj *, char *(*)(OBJ_P), char *(*)(OBJ_P), unsigned));
-E const char *FDECL(singular, (struct obj *, char *(*)(OBJ_P)));
-E char *FDECL(an, (const char *));
-E char *FDECL(An, (const char *));
-E char *FDECL(The, (const char *));
-E char *FDECL(the, (const char *));
-E char *FDECL(aobjnam, (struct obj *, const char *));
-E char *FDECL(yobjnam, (struct obj *, const char *));
-E char *FDECL(Yobjnam2, (struct obj *, const char *));
-E char *FDECL(Tobjnam, (struct obj *, const char *));
-E char *FDECL(otense, (struct obj *, const char *));
-E char *FDECL(vtense, (const char *, const char *));
-E char *FDECL(Doname2, (struct obj *));
-E char *FDECL(yname, (struct obj *));
-E char *FDECL(Yname2, (struct obj *));
-E char *FDECL(ysimple_name, (struct obj *));
-E char *FDECL(Ysimple_name2, (struct obj *));
-E char *FDECL(simpleonames, (struct obj *));
-E char *FDECL(ansimpleoname, (struct obj *));
-E char *FDECL(thesimpleoname, (struct obj *));
-E char *FDECL(bare_artifactname, (struct obj *));
-E char *FDECL(makeplural, (const char *));
-E char *FDECL(makesingular, (const char *));
-E struct obj *FDECL(readobjnam, (char *, struct obj *));
-E int FDECL(rnd_class, (int, int));
-E const char *FDECL(suit_simple_name, (struct obj *));
-E const char *FDECL(cloak_simple_name, (struct obj *));
-E const char *FDECL(helm_simple_name, (struct obj *));
-E const char *FDECL(gloves_simple_name, (struct obj *));
-E const char *FDECL(mimic_obj_name, (struct monst *));
-E char *FDECL(safe_qbuf, (char *, const char *, const char *, struct obj *,
-                          char *(*)(OBJ_P), char *(*)(OBJ_P), const char *));
-E int FDECL(shiny_obj, (CHAR_P));
+extern void maybereleaseobuf(char *) NONNULLARG1;
+extern char *obj_typename(int);
+extern char *simple_typename(int);
+extern char *safe_typename(int);
+extern boolean obj_is_pname(struct obj *) NONNULLARG1;
+extern char *distant_name(struct obj *, char *(*)(struct obj *)) NONNULLPTRS;
+extern char *fruitname(boolean);
+extern struct fruit *fruit_from_indx(int);
+extern struct fruit *fruit_from_name(const char *, boolean, int *) NONNULLARG1;
+extern void reorder_fruit(boolean);
+extern char *xname(struct obj *) NONNULLARG1;
+extern char *mshot_xname(struct obj *) NONNULLARG1;
+extern boolean the_unique_obj(struct obj *) NONNULLARG1;
+extern boolean the_unique_pm(struct permonst *) NONNULLARG1;
+extern boolean erosion_matters(struct obj *) NONNULLARG1;
+extern char *doname(struct obj *) NONNULLARG1;
+extern char *doname_with_price(struct obj *) NONNULLARG1;
+extern char *doname_vague_quan(struct obj *) NONNULLARG1;
+extern boolean not_fully_identified(struct obj *) NONNULLARG1;
+extern char *corpse_xname(struct obj *, const char *, unsigned) NONNULLARG1;
+extern char *cxname(struct obj *) NONNULLARG1;
+extern char *cxname_singular(struct obj *) NONNULLARG1;
+extern char *killer_xname(struct obj *) NONNULLARG1;
+extern char *short_oname(struct obj *, char *(*)(struct obj *),
+                         char *(*)(struct obj *), unsigned) NONNULLARG12;
+extern const char *singular(struct obj *, char *(*)(struct obj *)) NONNULLPTRS;
+extern char *just_an(char *, const char *) NONNULL NONNULLARG12;
+/* an(), the() contain tests for NULL arg, preventing NONNULLARG1 */
+extern char *an(const char *) NONNULL NO_NNARGS;
+extern char *An(const char *) NONNULL NO_NNARGS;
+extern char *The(const char *) NONNULL NO_NNARGS;
+extern char *the(const char *) NONNULL NO_NNARGS;
+extern char *aobjnam(struct obj *, const char *) NONNULL NONNULLARG1;
+extern char *yobjnam(struct obj *, const char *) NONNULL NONNULLARG1;
+extern char *Yobjnam2(struct obj *, const char *) NONNULL NONNULLARG1;
+extern char *Tobjnam(struct obj *, const char *) NONNULL NONNULLARG1;
+extern char *otense(struct obj *, const char *) NONNULL NONNULLARG12;
+extern char *vtense(const char *, const char *) NONNULL NONNULLARG2;
+extern char *Doname2(struct obj *) NONNULL NONNULLARG1;
+extern char *paydoname(struct obj *) NONNULL NONNULLARG1;
+extern char *yname(struct obj *) NONNULL NONNULLARG1;
+extern char *Yname2(struct obj *) NONNULL NONNULLARG1;
+extern char *ysimple_name(struct obj *) NONNULL NONNULLARG1;
+extern char *Ysimple_name2(struct obj *) NONNULL NONNULLARG1;
+extern char *simpleonames(struct obj *) NONNULL NONNULLARG1;
+extern char *ansimpleoname(struct obj *) NONNULL NONNULLARG1;
+extern char *thesimpleoname(struct obj *) NONNULL NONNULLARG1;
+extern char *actualoname(struct obj *) NONNULL NONNULLARG1;
+extern char *bare_artifactname(struct obj *) NONNULL NONNULLARG1;
+/* makeplural() and makesingular() never return NULL but have tests for NULL
+   arg1, and code path that leads to impossible(), preventing NONNULLARG1 */
+extern char *makeplural(const char *) NONNULL NO_NNARGS;
+extern char *makesingular(const char *) NONNULL NO_NNARGS;
+/* readobjnam() can return NULL and  allows a NULL to trigger code path for
+   random object */
+extern struct obj *readobjnam(char *, struct obj *) NO_NNARGS;
+extern int rnd_class(int, int);
+/* discover_object() passes NULL arg2 to Japanese_item_name(),
+ * preventing NONNULLARG2 */
+extern const char *Japanese_item_name(int, const char *) NO_NNARGS;
+extern const char *armor_simple_name(struct obj *) NONNULL NONNULLARG1;
+/* suit_simple_name has its code in a NULL arg test
+   conditional block, preventing NONNULLARG1 */
+extern const char *suit_simple_name(struct obj *) NONNULL NO_NNARGS;
+/* cloak_simple_name has its code in a NULL arg test
+   conditional block, preventing NONNULLARG1 */
+extern const char *cloak_simple_name(struct obj *) NONNULL NO_NNARGS;
+/* helm_simple_name always just returns hardcoded literals */
+extern const char *helm_simple_name(struct obj *) NONNULL NO_NNARGS;
+/* gloves_simple_name has its code in a NULL arg test
+   conditional block, preventing NONNULLARG1 */
+extern const char *gloves_simple_name(struct obj *) NONNULL NO_NNARGS;
+/* boots_simple_name has its code in a NULL arg test
+   conditional block, preventing NONNULLARG1 */
+extern const char *boots_simple_name(struct obj *) NONNULL NO_NNARGS;
+/* shield_simple_name has its code in a NULL arg test
+   conditional block, preventing NONNULLARG1 */
+extern const char *shield_simple_name(struct obj *) NONNULL NO_NNARGS;
+/* shirt_simple_name always just returns hardcoded "shirt" */
+extern const char *shirt_simple_name(struct obj *) NONNULL NO_NNARGS;
+extern const char *mimic_obj_name(struct monst *) NONNULL NONNULLARG1;
+/* safe_qbuf() contains tests for NULL arg2 and arg3, qprefix and qsuffix,
+   preventing use of NONNULLPTRS. */
+extern char *safe_qbuf(char *, const char *, const char *, struct obj *,
+                       char * (*)(struct obj *), char * (*)(struct obj *),
+                       const char *) NONNULL NONNULLARG14;
+extern int shiny_obj(char);
 
 /* ### options.c ### */
 
-E void NDECL(reglyph_darkroom);
-E boolean FDECL(match_optname, (const char *, const char *, int, BOOLEAN_P));
-E void NDECL(initoptions);
-E void NDECL(initoptions_init);
-E void NDECL(initoptions_finish);
-E boolean FDECL(parseoptions, (char *, BOOLEAN_P, BOOLEAN_P));
-E int NDECL(doset);
-E int NDECL(dotogglepickup);
-E void NDECL(option_help);
-E void FDECL(next_opt, (winid, const char *));
-E int FDECL(fruitadd, (char *, struct fruit *));
-E int FDECL(choose_classes_menu, (const char *, int, BOOLEAN_P,
-                                  char *, char *));
-E boolean FDECL(parsebindings, (char *));
-E void FDECL(oc_to_str, (char *, char *));
-E void FDECL(add_menu_cmd_alias, (CHAR_P, CHAR_P));
-E char FDECL(get_menu_cmd_key, (CHAR_P));
-E char FDECL(map_menu_cmd, (CHAR_P));
-E void FDECL(show_menu_controls, (winid, BOOLEAN_P));
-E void FDECL(assign_warnings, (uchar *));
-E char *FDECL(nh_getenv, (const char *));
-E void FDECL(set_duplicate_opt_detection, (int));
-E void FDECL(set_wc_option_mod_status, (unsigned long, int));
-E void FDECL(set_wc2_option_mod_status, (unsigned long, int));
-E void FDECL(set_option_mod_status, (const char *, int));
-E int FDECL(add_autopickup_exception, (const char *));
-E void NDECL(free_autopickup_exceptions);
-E int FDECL(load_symset, (const char *, int));
-E void NDECL(free_symsets);
-E boolean FDECL(parsesymbols, (char *, int));
-E struct symparse *FDECL(match_sym, (char *));
-E void NDECL(set_playmode);
-E int FDECL(sym_val, (const char *));
-E int FDECL(query_color, (const char *));
-E int FDECL(query_attr, (const char *));
-E const char *FDECL(clr2colorname, (int));
-E int FDECL(match_str2clr, (char *));
-E int FDECL(match_str2attr, (const char *, BOOLEAN_P));
-E boolean FDECL(add_menu_coloring, (char *));
-E boolean FDECL(get_menu_coloring, (const char *, int *, int *));
-E void NDECL(free_menu_coloring);
-E boolean FDECL(msgtype_parse_add, (char *));
-E int FDECL(msgtype_type, (const char *, BOOLEAN_P));
-E void FDECL(hide_unhide_msgtypes, (BOOLEAN_P, int));
-E void NDECL(msgtype_free);
+extern boolean ask_do_tutorial(void);
+extern boolean match_optname(const char *, const char *, int, boolean) NONNULLARG12;
+extern uchar txt2key(char *) NONNULLARG1;
+extern void initoptions(void);
+extern void initoptions_init(void);
+extern void initoptions_finish(void);
+extern boolean parseoptions(char *, boolean, boolean) NONNULLARG1;
+extern void freeroleoptvals(void);
+extern char *get_option_value(const char *, boolean) NONNULLARG1;
+extern int doset_simple(void);
+extern int doset(void);
+extern int dotogglepickup(void);
+extern int toggle_bool_option(const char *);
+extern void option_help(void);
+extern void all_options_strbuf(strbuf_t *) NONNULLARG1;
+extern void next_opt(winid, const char *) NONNULLARG2;
+extern int fruitadd(char *, struct fruit *) NONNULLARG1;
+extern boolean parsebindings(char *) NONNULLARG1;
+extern void oc_to_str(char *, char *) NONNULLARG12;
+extern void add_menu_cmd_alias(char, char);
+extern char get_menu_cmd_key(char);
+extern char map_menu_cmd(char);
+extern char *collect_menu_keys(char *, unsigned, boolean) NONNULLARG1;
+extern void show_menu_controls(winid, boolean);
+extern void assign_warnings(uchar *) NONNULLARG1;
+extern char *nh_getenv(const char *) NONNULLARG1;
+extern void reset_duplicate_opt_detection(void);
+extern void set_wc_option_mod_status(unsigned long, int);
+extern void set_wc2_option_mod_status(unsigned long, int);
+extern void set_option_mod_status(const char *, int) NONNULLARG1;
+extern int add_autopickup_exception(const char *) NONNULLARG1;
+extern void free_autopickup_exceptions(void);
+extern void set_playmode(void);
+extern int sym_val(const char *) NONNULLARG1;
+extern boolean msgtype_parse_add(char *) NONNULLARG1;
+extern int msgtype_type(const char *, boolean) NONNULLARG1;
+extern void hide_unhide_msgtypes(boolean, int);
+extern void msgtype_free(void);
+extern void options_free_window_colors(void);
+extern void heed_all_options(void);
+extern void disregard_all_options(void);
+extern void heed_this_option(enum opt);
+extern void disregard_this_option(enum opt);
+extern void clear_ignore_errors_on_unmatched(void);
+#ifdef TTY_PERM_INVENT
+extern void check_perm_invent_again(void);
+#endif
 
 /* ### pager.c ### */
 
-E char *FDECL(self_lookat, (char *));
-E void FDECL(mhidden_description, (struct monst *, BOOLEAN_P, char *));
-E boolean FDECL(object_from_map, (int,int,int,struct obj **));
-E int FDECL(do_screen_description, (coord, BOOLEAN_P, int, char *,
-                                    const char **, struct permonst **));
-E int FDECL(do_look, (int, coord *));
-E int NDECL(dowhatis);
-E int NDECL(doquickwhatis);
-E int NDECL(doidtrap);
-E int NDECL(dowhatdoes);
-E char *FDECL(dowhatdoes_core, (CHAR_P, char *));
-E int NDECL(dohelp);
-E int NDECL(dohistory);
+extern char *self_lookat(char *) NONNULL NONNULLARG1;
+extern char *monhealthdescr(struct monst *mon, boolean,
+                            char *) NONNULL NONNULLARG3;
+extern void mhidden_description(struct monst *, unsigned, char *) NONNULLPTRS;
+extern boolean object_from_map(int, coordxy, coordxy,
+                               struct obj **) NONNULLPTRS;
+extern const char *waterbody_name(coordxy, coordxy) NONNULL;
+extern char *ice_descr(coordxy, coordxy, char *) NONNULL NONNULLARG3;
+extern boolean ia_checkfile(struct obj *) NONNULLARG1;
+extern int do_screen_description(coord, boolean, int, char *, const char **,
+                                 struct permonst **) NONNULLARG45;
+extern int do_look(int, coord *);
+extern int dowhatis(void);
+extern int doquickwhatis(void);
+extern int doidtrap(void);
+extern int dowhatdoes(void);
+extern char *dowhatdoes_core(char, char *) NONNULLARG2; /*might return NULL*/
+extern int dohelp(void);
+extern int dohistory(void);
+void allopt_array_init(void);
 
 /* ### xxmain.c ### */
 
-#if defined(MICRO) || defined(WIN32)
+#if defined(UNIX) || defined(MICRO) || defined(WIN32)
 #ifdef CHDIR
-E void FDECL(chdirx, (char *, BOOLEAN_P));
+extern void chdirx(const char *, boolean);
 #endif /* CHDIR */
-E boolean NDECL(authorize_wizard_mode);
-#endif /* MICRO || WIN32 */
+extern boolean authorize_wizard_mode(void);
+extern boolean authorize_explore_mode(void);
+#endif
 #if defined(WIN32)
-E int NDECL(getlock);
-E const char *NDECL(get_portable_device);
+extern int getlock(void);
+extern const char *get_portable_device(void);
 #endif
 
-/* ### pcsys.c ### */
+/* ### pcsys.c, windsys.c ### */
+#if defined(MICRO) || defined(WIN32)
+ATTRNORETURN extern void nethack_exit(int) NORETURN;
+#else
+#define nethack_exit exit
+#endif
+
+/* ### pcsys.c  ### */
 
 #if defined(MICRO) || defined(WIN32)
-E void NDECL(flushout);
-E int NDECL(dosh);
-#ifdef MFLOPPY
-E void FDECL(eraseall, (const char *, const char *));
-E void FDECL(copybones, (int));
-E void NDECL(playwoRAMdisk);
-E int FDECL(saveDiskPrompt, (int));
-E void NDECL(gameDiskPrompt);
-#endif
-E void FDECL(append_slash, (char *));
-E void FDECL(getreturn, (const char *));
+extern void flushout(void);
+extern int dosh(void);
+extern void append_slash(char *);
+extern void getreturn(const char *);
 #ifndef AMIGA
-E void VDECL(msmsg, (const char *, ...));
+extern void msmsg(const char *, ...) PRINTF_F(1, 2);
 #endif
-E FILE *FDECL(fopenp, (const char *, const char *));
-#endif /* MICRO || WIN32 */
+/* E FILE *fopenp(const char *, const char *); */
+#endif /* MICRO || WIN2 */
 
 /* ### pctty.c ### */
 
 #if defined(MICRO) || defined(WIN32)
-E void NDECL(gettty);
-E void FDECL(settty, (const char *));
-E void NDECL(setftty);
-E void VDECL(error, (const char *, ...));
+extern void gettty(void);
+extern void settty(const char *);
+extern void setftty(void);
+ATTRNORETURN extern void error(const char *, ...) PRINTF_F(1, 2) NORETURN;
 #if defined(TIMED_DELAY) && defined(_MSC_VER)
-E void FDECL(msleep, (unsigned));
+extern void msleep(unsigned);
 #endif
 #endif /* MICRO || WIN32 */
 
 /* ### pcunix.c ### */
-
 #if defined(MICRO)
-E void FDECL(regularize, (char *));
+extern void regularize(char *);
 #if defined(PC_LOCKING)
-E void NDECL(getlock);
+extern void getlock(void);
 #endif
 #endif /* MICRO */
 
 /* ### pickup.c ### */
 
-E int FDECL(collect_obj_classes, (char *, struct obj *, BOOLEAN_P,
-                                  boolean FDECL((*), (OBJ_P)), int *));
-E boolean FDECL(rider_corpse_revival, (struct obj *, BOOLEAN_P));
-E boolean FDECL(menu_class_present, (int));
-E void FDECL(add_valid_menu_class, (int));
-E boolean FDECL(allow_all, (struct obj *));
-E boolean FDECL(allow_category, (struct obj *));
-E boolean FDECL(is_worn_by_type, (struct obj *));
-E int FDECL(ck_bag, (struct obj *));
-#ifdef USE_TRAMPOLI
-E int FDECL(in_container, (struct obj *));
-E int FDECL(out_container, (struct obj *));
-#endif
-E int FDECL(pickup, (int));
-E int FDECL(pickup_object, (struct obj *, long, BOOLEAN_P));
-E int FDECL(query_category, (const char *, struct obj *, int,
-                             menu_item **, int));
-E int FDECL(query_objlist, (const char *, struct obj **, int,
-                            menu_item **, int, boolean (*)(OBJ_P)));
-E struct obj *FDECL(pick_obj, (struct obj *));
-E int NDECL(encumber_msg);
-E int FDECL(container_at, (int, int, BOOLEAN_P));
-E int NDECL(doloot);
-E void FDECL(observe_quantum_cat, (struct obj *, BOOLEAN_P, BOOLEAN_P));
-E boolean FDECL(container_gone, (int (*)(OBJ_P)));
-E boolean NDECL(u_handsy);
-E int FDECL(use_container, (struct obj **, int, BOOLEAN_P));
-E int FDECL(loot_mon, (struct monst *, int *, boolean *));
-E int NDECL(dotip);
-E struct autopickup_exception *FDECL(check_autopickup_exceptions, (struct obj *));
-E boolean FDECL(autopick_testobj, (struct obj *, BOOLEAN_P));
+extern int collect_obj_classes(char *, struct obj *, boolean,
+                               boolean(*)(struct obj *), int *) NONNULLARG5;
+extern boolean rider_corpse_revival(struct obj *, boolean) NO_NNARGS;
+extern void force_decor(boolean);
+extern void deferred_decor(boolean);
+extern boolean menu_class_present(int);
+extern void add_valid_menu_class(int);
+extern boolean allow_all(struct obj *) NO_NNARGS;
+extern boolean allow_category(struct obj *) NONNULLARG1;
+extern boolean is_worn_by_type(struct obj *) NONNULLARG1;
+extern int ck_bag(struct obj *) NONNULLARG1;
+extern void removed_from_icebox(struct obj *) NONNULLARG1;
+/* reset_justpicked() is sometimes passed gi.invent
+ * which can be null */
+extern void reset_justpicked(struct obj *) NO_NNARGS;
+/* sometimes count_justpicked(gi.invent) which can be null */
+extern int count_justpicked(struct obj *) NO_NNARGS;
+/* sometimes find_justpicked(gi.invent) which can be null */
+extern struct obj *find_justpicked(struct obj *) NO_NNARGS;
+extern int pickup(int);
+extern int pickup_object(struct obj *, long, boolean) NONNULLARG1;
+extern int query_category(const char *, struct obj *, int, menu_item **, int) NONNULLARG14;
+/* dotypeinv() call query_objlist with NULL arg1 */
+extern int query_objlist(const char *, struct obj **, int, menu_item **, int,
+                         boolean(*)(struct obj *)) NONNULLARG24;
+extern boolean reroll_menu(void);
+extern struct obj *pick_obj(struct obj *) NONNULLARG1;
+extern void encumber_msg(void);
+extern int container_at(coordxy, coordxy, boolean);
+extern int doloot(void);
+extern void observe_quantum_cat(struct obj *, boolean, boolean) NONNULLARG1;
+extern boolean container_gone(int(*)(struct obj *)) NONNULLARG1;
+extern boolean u_handsy(void);
+extern int use_container(struct obj **, boolean, boolean) NONNULLARG1;
+extern int loot_mon(struct monst *, int *, boolean *) NO_NNARGS;
+extern int dotip(void);
+extern struct autopickup_exception *check_autopickup_exceptions(struct obj *) NONNULLARG1;
+extern boolean autopick_testobj(struct obj *, boolean) NONNULLARG1;
+extern boolean u_safe_from_fatal_corpse(struct obj *obj, int) NONNULLARG1;
 
 /* ### pline.c ### */
 
-#ifdef DUMPLOG
-E void FDECL(dumplogmsg, (const char *));
-E void NDECL(dumplogfreemessages);
+#ifdef DUMPLOG_CORE
+extern void dumplogmsg(const char *);
+extern void dumplogfreemessages(void);
 #endif
-E void VDECL(pline, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(custompline, (unsigned, const char *, ...)) PRINTF_F(2, 3);
-E void VDECL(Norep, (const char *, ...)) PRINTF_F(1, 2);
-E void NDECL(free_youbuf);
-E void VDECL(You, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(Your, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(You_feel, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(You_cant, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(You_hear, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(You_see, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(pline_The, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(There, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(verbalize, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(raw_printf, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(impossible, (const char *, ...)) PRINTF_F(1, 2);
-E void VDECL(config_error_add, (const char *, ...)) PRINTF_F(1, 2);
+extern void pline(const char *, ...) PRINTF_F(1, 2);
+extern void pline_dir(int, const char *, ...) PRINTF_F(2, 3);
+extern void pline_xy(coordxy, coordxy, const char *, ...) PRINTF_F(3, 4);
+extern void pline_mon(struct monst *, const char *, ...) PRINTF_F(2, 3) NONNULLARG1;
+extern void set_msg_dir(int);
+extern void set_msg_xy(coordxy, coordxy);
+extern void custompline(unsigned, const char *, ...) PRINTF_F(2, 3);
+extern void urgent_pline(const char *, ...) PRINTF_F(1, 2);
+extern void Norep(const char *, ...) PRINTF_F(1, 2);
+extern void free_youbuf(void);
+extern void You(const char *, ...) PRINTF_F(1, 2);
+extern void Your(const char *, ...) PRINTF_F(1, 2);
+extern void You_feel(const char *, ...) PRINTF_F(1, 2);
+extern void You_cant(const char *, ...) PRINTF_F(1, 2);
+extern void You_hear(const char *, ...) PRINTF_F(1, 2);
+extern void You_see(const char *, ...) PRINTF_F(1, 2);
+extern void pline_The(const char *, ...) PRINTF_F(1, 2);
+extern void There(const char *, ...) PRINTF_F(1, 2);
+extern void verbalize(const char *, ...) PRINTF_F(1, 2);
+extern void gamelog_add(long, long, const char *);
+extern void livelog_printf(long, const char *, ...) PRINTF_F(2, 3);
+extern void raw_printf(const char *, ...) PRINTF_F(1, 2);
+extern void impossible(const char *, ...) PRINTF_F(1, 2);
+extern void config_error_add(const char *, ...) PRINTF_F(1, 2);
+extern void nhassert_failed(const char *, const char *, int);
 
 /* ### polyself.c ### */
 
-E void NDECL(set_uasmon);
-E void NDECL(float_vs_flight);
-E void NDECL(change_sex);
-E void FDECL(polyself, (int));
-E int FDECL(polymon, (int));
-E void NDECL(rehumanize);
-E int NDECL(dobreathe);
-E int NDECL(dospit);
-E int NDECL(doremove);
-E int NDECL(dospinweb);
-E int NDECL(dosummon);
-E int NDECL(dogaze);
-E int NDECL(dohide);
-E int NDECL(dopoly);
-E int NDECL(domindblast);
-E void NDECL(uunstick);
-E void FDECL(skinback, (BOOLEAN_P));
-E const char *FDECL(mbodypart, (struct monst *, int));
-E const char *FDECL(body_part, (int));
-E int NDECL(poly_gender);
-E void FDECL(ugolemeffects, (int, int));
-E boolean NDECL(ugenocided);
-E const char *NDECL(udeadinside);
+extern void set_uasmon(void);
+extern void float_vs_flight(void);
+extern void steed_vs_stealth(void);
+extern void change_sex(void);
+extern void livelog_newform(boolean, int, int);
+extern void polyself(int);
+extern int polymon(int);
+extern schar uasmon_maxStr(void);
+extern void rehumanize(void);
+extern int dobreathe(void);
+extern int dospit(void);
+extern int doremove(void);
+extern int dospinweb(void);
+extern int dosummon(void);
+extern int dogaze(void);
+extern int dohide(void);
+extern int dopoly(void);
+extern int domindblast(void);
+extern void uunstick(void);
+extern void skinback(boolean);
+extern const char *mbodypart(struct monst *, int) NONNULLARG1;
+extern const char *body_part(int);
+extern int poly_gender(void);
+extern void ugolemeffects(int, int);
+extern boolean ugenocided(void);
+extern const char *udeadinside(void);
 
 /* ### potion.c ### */
 
-E void FDECL(set_itimeout, (long *, long));
-E void FDECL(incr_itimeout, (long *, int));
-E void FDECL(make_confused, (long, BOOLEAN_P));
-E void FDECL(make_stunned, (long, BOOLEAN_P));
-E void FDECL(make_sick, (long, const char *, BOOLEAN_P, int));
-E void FDECL(make_slimed, (long, const char *));
-E void FDECL(make_stoned, (long, const char *, int, const char *));
-E void FDECL(make_vomiting, (long, BOOLEAN_P));
-E void FDECL(make_blinded, (long, BOOLEAN_P));
-E void NDECL(toggle_blindness);
-E boolean FDECL(make_hallucinated, (long, BOOLEAN_P, long));
-E void FDECL(make_deaf, (long, BOOLEAN_P));
-E void FDECL(make_glib, (int));
-E void NDECL(self_invis_message);
-E int NDECL(dodrink);
-E int FDECL(dopotion, (struct obj *));
-E int FDECL(peffects, (struct obj *));
-E void FDECL(healup, (int, int, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(strange_feeling, (struct obj *, const char *));
-E void FDECL(potionhit, (struct monst *, struct obj *, int));
-E void FDECL(potionbreathe, (struct obj *));
-E int NDECL(dodip);
-E void FDECL(mongrantswish, (struct monst **));
-E void FDECL(djinni_from_bottle, (struct obj *));
-E struct monst *FDECL(split_mon, (struct monst *, struct monst *));
-E const char *NDECL(bottlename);
+extern void set_itimeout(long *, long) NONNULLARG1;
+extern void incr_itimeout(long *, int) NONNULLARG1;
+extern void make_confused(long, boolean);
+extern void make_stunned(long, boolean);
+extern void make_sick(long, const char *, boolean, int) NO_NNARGS;
+extern void make_slimed(long, const char *) NO_NNARGS;
+extern void make_stoned(long, const char *, int, const char *) NO_NNARGS;
+extern void make_vomiting(long, boolean);
+extern void make_blinded(long, boolean);
+extern void toggle_blindness(void);
+extern boolean make_hallucinated(long, boolean, long);
+extern void make_deaf(long, boolean);
+extern void make_glib(int);
+extern void self_invis_message(void);
+extern int dodrink(void);
+extern int dopotion(struct obj *) NONNULLARG1;
+extern int peffects(struct obj *) NONNULLARG1;
+extern void healup(int, int, boolean, boolean);
+extern void strange_feeling(struct obj *, const char *) NO_NNARGS;
+extern void impact_arti_light(struct obj *, boolean, boolean) NONNULLARG1;
+extern void potionhit(struct monst *, struct obj *, int) NONNULLARG12;
+extern void potionbreathe(struct obj *) NONNULLARG1;
+extern int dodip(void);
+extern int dip_into(void); /* altdip */
+extern void mongrantswish(struct monst **) NONNULLARG1;
+extern void djinni_from_bottle(struct obj *) NONNULLARG1;
+extern struct monst *split_mon(struct monst *, struct monst *) NONNULLARG1;
+extern const char *bottlename(void);
+extern void speed_up(long);
 
 /* ### pray.c ### */
 
-E boolean FDECL(critically_low_hp, (BOOLEAN_P));
-E boolean NDECL(stuck_in_wall);
-#ifdef USE_TRAMPOLI
-E int NDECL(prayer_done);
-#endif
-E int NDECL(dosacrifice);
-E boolean FDECL(can_pray, (BOOLEAN_P));
-E int NDECL(dopray);
-E const char *NDECL(u_gname);
-E int NDECL(doturn);
-E const char *NDECL(a_gname);
-E const char *FDECL(a_gname_at, (XCHAR_P x, XCHAR_P y));
-E const char *FDECL(align_gname, (ALIGNTYP_P));
-E const char *FDECL(halu_gname, (ALIGNTYP_P));
-E const char *FDECL(align_gtitle, (ALIGNTYP_P));
-E void FDECL(altar_wrath, (int, int));
+extern boolean critically_low_hp(boolean);
+extern boolean stuck_in_wall(void);
+extern void desecrate_altar(boolean, aligntyp);
+extern int dosacrifice(void);
+extern boolean can_pray(boolean);
+extern int dopray(void);
+extern const char *u_gname(void);
+extern int doturn(void);
+extern int altarmask_at(coordxy, coordxy);
+extern const char *a_gname(void);
+extern const char *a_gname_at(coordxy x, coordxy y);
+extern const char *align_gname(aligntyp);
+extern const char *halu_gname(aligntyp);
+extern const char *align_gtitle(aligntyp);
+extern void altar_wrath(coordxy, coordxy);
 
 /* ### priest.c ### */
 
-E int FDECL(move_special, (struct monst *, BOOLEAN_P, SCHAR_P, BOOLEAN_P,
-                           BOOLEAN_P, XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P));
-E char FDECL(temple_occupied, (char *));
-E boolean FDECL(inhistemple, (struct monst *));
-E int FDECL(pri_move, (struct monst *));
-E void FDECL(priestini, (d_level *, struct mkroom *, int, int, BOOLEAN_P));
-E aligntyp FDECL(mon_aligntyp, (struct monst *));
-E char *FDECL(priestname, (struct monst *, char *));
-E boolean FDECL(p_coaligned, (struct monst *));
-E struct monst *FDECL(findpriest, (CHAR_P));
-E void FDECL(intemple, (int));
-E void FDECL(forget_temple_entry, (struct monst *));
-E void FDECL(priest_talk, (struct monst *));
-E struct monst *FDECL(mk_roamer, (struct permonst *, ALIGNTYP_P, XCHAR_P,
-                                  XCHAR_P, BOOLEAN_P));
-E void FDECL(reset_hostility, (struct monst *));
-E boolean FDECL(in_your_sanctuary, (struct monst *, XCHAR_P, XCHAR_P));
-E void FDECL(ghod_hitsu, (struct monst *));
-E void NDECL(angry_priest);
-E void NDECL(clearpriests);
-E void FDECL(restpriest, (struct monst *, BOOLEAN_P));
-E void FDECL(newepri, (struct monst *));
-E void FDECL(free_epri, (struct monst *));
-E const char *FDECL(align_str, (ALIGNTYP_P));
-E char *FDECL(piousness, (BOOLEAN_P, const char *));
-E void FDECL(mstatusline, (struct monst *));
-E void NDECL(ustatusline);
+extern int move_special(struct monst *, boolean, schar, boolean, boolean,
+                        coordxy, coordxy, coordxy, coordxy) NONNULLARG1;
+extern char temple_occupied(char *) NONNULLARG1;
+extern boolean inhistemple(struct monst *) NO_NNARGS;
+extern int pri_move(struct monst *) NONNULLARG1;
+extern void priestini(d_level *, struct mkroom *, int, int, boolean) NONNULLARG12;
+extern aligntyp mon_aligntyp(struct monst *) NONNULLARG1;
+extern char *priestname(struct monst *, int, boolean, char *) NONNULLARG1;
+extern boolean p_coaligned(struct monst *) NONNULLARG1;
+extern struct monst *findpriest(char);
+extern void intemple(int);
+extern void forget_temple_entry(struct monst *) NONNULLARG1;
+extern void priest_talk(struct monst *) NONNULLARG1;
+extern struct monst *mk_roamer(struct permonst *, aligntyp, coordxy, coordxy,
+                               boolean) NO_NNARGS;
+extern void reset_hostility(struct monst *) NONNULLARG1;
+extern boolean in_your_sanctuary(struct monst *, coordxy, coordxy) NO_NNARGS;
+extern void ghod_hitsu(struct monst *) NONNULLARG1;
+extern void angry_priest(void);
+extern void clearpriests(void);
+extern void restpriest(struct monst *, boolean) NONNULLARG1;
+extern void newepri(struct monst *) NONNULLARG1;
+extern void free_epri(struct monst *) NONNULLARG1;
 
 /* ### quest.c ### */
 
-E void NDECL(onquest);
-E void NDECL(nemdead);
-E void FDECL(artitouch, (struct obj *));
-E boolean NDECL(ok_to_quest);
-E void FDECL(leader_speaks, (struct monst *));
-E void NDECL(nemesis_speaks);
-E void FDECL(quest_chat, (struct monst *));
-E void FDECL(quest_talk, (struct monst *));
-E void FDECL(quest_stat_check, (struct monst *));
-E void FDECL(finish_quest, (struct obj *));
+extern void onquest(void);
+extern void nemdead(void);
+extern void leaddead(void);
+extern void artitouch(struct obj *) NONNULLARG1;
+extern boolean ok_to_quest(void);
+extern void leader_speaks(struct monst *) NONNULLARG1;
+extern void nemesis_speaks(void);
+extern void nemesis_stinks(coordxy, coordxy);
+extern void quest_chat(struct monst *) NONNULLARG1;
+extern void quest_talk(struct monst *) NONNULLARG1;
+extern void quest_stat_check(struct monst *) NONNULLARG1;
+extern void finish_quest(struct obj *) NO_NNARGS;
 
 /* ### questpgr.c ### */
 
-E void NDECL(load_qtlist);
-E void NDECL(unload_qtlist);
-E short FDECL(quest_info, (int));
-E const char *NDECL(ldrname);
-E boolean FDECL(is_quest_artifact, (struct obj *));
-E struct obj *FDECL(find_quest_artifact, (unsigned));
-E void FDECL(com_pager, (int));
-E void FDECL(qt_pager, (int));
-E struct permonst *NDECL(qt_montype);
-E void NDECL(deliver_splev_message);
+extern void load_qtlist(void);
+extern void unload_qtlist(void);
+extern short quest_info(int);
+extern const char *ldrname(void);
+extern boolean is_quest_artifact(struct obj *) NONNULLARG1;
+extern struct obj *find_quest_artifact(unsigned);
+extern int stinky_nemesis(struct monst *);
+extern void com_pager(const char *);
+extern void qt_pager(const char *);
+extern struct permonst *qt_montype(void);
+extern void deliver_splev_message(void);
 
 /* ### random.c ### */
 
 #if defined(RANDOM) && !defined(__GO32__) /* djgpp has its own random */
-E void FDECL(srandom, (unsigned));
-E char *FDECL(initstate, (unsigned, char *, int));
-E char *FDECL(setstate, (char *));
-E long NDECL(random);
+#ifndef CROSS_TO_AMIGA
+extern void srandom(unsigned);
+extern char *initstate(unsigned, char *, int);
+extern char *setstate(char *);
+extern long random(void);
+#endif /* CROSS_TO_AMIGA */
 #endif /* RANDOM */
 
 /* ### read.c ### */
 
-E void FDECL(learnscroll, (struct obj *));
-E char *FDECL(tshirt_text, (struct obj *, char *));
-E int NDECL(doread);
-E boolean FDECL(is_chargeable, (struct obj *));
-E void FDECL(recharge, (struct obj *, int));
-E void FDECL(forget_objects, (int));
-E void FDECL(forget_levels, (int));
-E void NDECL(forget_traps);
-E void FDECL(forget_map, (int));
-E int FDECL(seffects, (struct obj *));
-E void FDECL(drop_boulder_on_player,
-             (BOOLEAN_P, BOOLEAN_P, BOOLEAN_P, BOOLEAN_P));
-E boolean FDECL(drop_boulder_on_monster, (int, int, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(wand_explode, (struct obj *, int));
-#ifdef USE_TRAMPOLI
-E void FDECL(set_lit, (int, int, genericptr_t));
-#endif
-E void FDECL(litroom, (BOOLEAN_P, struct obj *));
-E void FDECL(do_genocide, (int));
-E void FDECL(punish, (struct obj *));
-E void NDECL(unpunish);
-E boolean FDECL(cant_revive, (int *, BOOLEAN_P, struct obj *));
-E boolean NDECL(create_particular);
+extern void learnscroll(struct obj *) NONNULLARG1;
+extern char *tshirt_text(struct obj *, char *) NONNULLARG12;
+extern char *hawaiian_motif(struct obj *, char *) NONNULLARG12;
+extern char *apron_text(struct obj *, char *) NONNULLARG12;
+extern const char *candy_wrapper_text(struct obj *) NONNULLARG1;
+extern void assign_candy_wrapper(struct obj *) NONNULLARG1;
+extern int doread(void);
+extern int charge_ok(struct obj *) NO_NNARGS;
+extern void recharge(struct obj *, int) NONNULLARG1;
+extern boolean valid_cloud_pos(coordxy, coordxy);
+extern int seffects(struct obj *) NONNULLARG1;
+extern void drop_boulder_on_player(boolean, boolean, boolean, boolean);
+extern boolean drop_boulder_on_monster(coordxy, coordxy, boolean, boolean);
+extern void wand_explode(struct obj *, int) NONNULLARG1;
+extern void litroom(boolean, struct obj *) NO_NNARGS;
+extern void do_genocide(int);
+extern void punish(struct obj *) NO_NNARGS;
+extern void unpunish(void);
+extern boolean cant_revive(int *, boolean, struct obj *) NO_NNARGS;
+extern boolean create_particular(void);
 
 /* ### rect.c ### */
 
-E void NDECL(init_rect);
-E NhRect *FDECL(get_rect, (NhRect *));
-E NhRect *NDECL(rnd_rect);
-E void FDECL(remove_rect, (NhRect *));
-E void FDECL(add_rect, (NhRect *));
-E void FDECL(split_rects, (NhRect *, NhRect *));
+extern void init_rect(void);
+extern void free_rect(void);
+extern NhRect *get_rect(NhRect *) NONNULLARG1;
+extern NhRect *rnd_rect(void);
+extern void rect_bounds(NhRect, NhRect, NhRect *) NONNULLARG3;
+extern void remove_rect(NhRect *) NONNULLARG1;
+extern void add_rect(NhRect *) NONNULLARG1;
+extern void split_rects(NhRect *, NhRect *) NONNULLARG12;
 
 /* ## region.c ### */
-E void NDECL(clear_regions);
-E void NDECL(run_regions);
-E boolean FDECL(in_out_region, (XCHAR_P, XCHAR_P));
-E boolean FDECL(m_in_out_region, (struct monst *, XCHAR_P, XCHAR_P));
-E void NDECL(update_player_regions);
-E void FDECL(update_monster_region, (struct monst *));
-E NhRegion *FDECL(visible_region_at, (XCHAR_P, XCHAR_P));
-E void FDECL(show_region, (NhRegion *, XCHAR_P, XCHAR_P));
-E void FDECL(save_regions, (int, int));
-E void FDECL(rest_regions, (int, BOOLEAN_P));
-E void FDECL(region_stats, (const char *, char *, long *, long *));
-E NhRegion *FDECL(create_gas_cloud, (XCHAR_P, XCHAR_P, int, int));
-E boolean NDECL(region_danger);
-E void NDECL(region_safety);
+
+extern boolean inside_region(NhRegion *, int, int) NO_NNARGS;
+extern void clear_regions(void);
+extern void run_regions(void);
+extern boolean in_out_region(coordxy, coordxy);
+extern boolean m_in_out_region(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern void update_player_regions(void);
+extern void update_monster_region(struct monst *) NONNULLARG1;
+extern int reg_damg(NhRegion *) NONNULLARG1;
+extern boolean any_visible_region(void);
+extern void visible_region_summary(winid);
+extern NhRegion *visible_region_at(coordxy, coordxy);
+extern void show_region(NhRegion *, coordxy, coordxy) NONNULLARG1;
+extern void save_regions(NHFILE *) NONNULLARG1;
+extern void rest_regions(NHFILE *) NONNULLARG1;
+extern void region_stats(const char *, char *, long *, long *) NONNULLPTRS;
+extern NhRegion *create_gas_cloud(coordxy, coordxy, int, int);
+extern NhRegion *create_gas_cloud_selection(struct selectionvar *, int);
+extern boolean region_danger(void);
+extern void region_safety(void);
+
+/* ### report.c ### */
+
+#ifdef CRASHREPORT
+extern boolean submit_web_report(int, const char *, const char *);
+extern boolean submit_web_report(int, const char *, const char *);
+extern void crashreport_init(int, char *[]);
+extern void crashreport_bidshow(void);
+extern boolean swr_add_uricoded(const char *, char **, int *, char *);
+extern int dobugreport(void);
+#endif /* CRASHREPORT */
+# ifndef NO_SIGNAL
+extern void panictrace_handler(int);
+# endif
+#ifdef PANICTRACE
+extern const char *get_saved_pline(int);
+extern boolean NH_panictrace_libc(void);
+extern boolean NH_panictrace_gdb(void);
+#if defined(PANICTRACE) && !defined(NO_SIGNAL)
+extern void panictrace_setsignals(boolean);
+#endif
+#endif /* PANICTRACE */
 
 /* ### restore.c ### */
 
-E void FDECL(inven_inuse, (BOOLEAN_P));
-E int FDECL(dorecover, (int));
-E void FDECL(restcemetery, (int, struct cemetery **));
-E void FDECL(trickery, (char *));
-E void FDECL(getlev, (int, int, XCHAR_P, BOOLEAN_P));
-E void FDECL(get_plname_from_file, (int, char *));
+extern void inven_inuse(boolean);
+extern int dorecover(NHFILE *) NONNULLARG1;
+extern void restcemetery(NHFILE *, struct cemetery **) NONNULLARG12;
+extern void trickery(char *) NO_NNARGS;
+extern void getlev(NHFILE *, int, xint8) NONNULLARG1;
+extern void get_plname_from_file(NHFILE *, char *, boolean) NONNULLARG12;
 #ifdef SELECTSAVED
-E int FDECL(restore_menu, (winid));
+extern int restore_menu(winid);
 #endif
-E void NDECL(minit);
-E boolean FDECL(lookup_id_mapping, (unsigned, unsigned *));
-E void FDECL(mread, (int, genericptr_t, unsigned int));
-E int FDECL(validate, (int, const char *));
-E void NDECL(reset_restpref);
-E void FDECL(set_restpref, (const char *));
-E void FDECL(set_savepref, (const char *));
+extern boolean lookup_id_mapping(unsigned, unsigned *) NONNULLARG2;
+/* extern void reset_restpref(void); */
+/* extern void set_restpref(const char *); */
+/* extern void set_savepref(const char *); */
+#ifdef SFCTOOL
+void rest_bubbles(NHFILE *);
+void restore_gamelog(NHFILE *);
+boolean restgamestate(NHFILE *);
+void restore_msghistory(NHFILE *);
+#endif
+extern void rest_adjust_levelflags(void);
+extern void moves_to_relative_time(long *);
+extern void relative_time_to_moves(long *);
 
 /* ### rip.c ### */
 
-E void FDECL(genl_outrip, (winid, int, time_t));
+extern void genl_outrip(winid, int, time_t);
 
 /* ### rnd.c ### */
 
 #ifdef USE_ISAAC64
-E void FDECL(init_isaac64, (unsigned long, int FDECL((*fn), (int))));
-E long NDECL(nhrand);
+extern void init_isaac64(unsigned long, int(*fn)(int));
+extern long nhrand(void);
 #endif
-E int FDECL(rn2, (int));
-E int FDECL(rn2_on_display_rng, (int));
-E int FDECL(rnl, (int));
-E int FDECL(rnd, (int));
-E int FDECL(d, (int, int));
-E int FDECL(rne, (int));
-E int FDECL(rnz, (int));
+extern int rn2(int);
+extern int rn2_on_display_rng(int);
+extern int rnd_on_display_rng(int);
+extern int rnl(int);
+extern int rnd(int);
+extern int d(int, int);
+extern int rne(int);
+extern int rnz(int);
+extern void init_random(int(*fn)(int));
+extern void reseed_random(int(*fn)(int));
+extern void shuffle_int_array(int *, int) NONNULLARG1;
 
 /* ### role.c ### */
 
-E boolean FDECL(validrole, (int));
-E boolean FDECL(validrace, (int, int));
-E boolean FDECL(validgend, (int, int, int));
-E boolean FDECL(validalign, (int, int, int));
-E int FDECL(randrole, (BOOLEAN_P));
-E int FDECL(randrace, (int));
-E int FDECL(randgend, (int, int));
-E int FDECL(randalign, (int, int));
-E int FDECL(str2role, (const char *));
-E int FDECL(str2race, (const char *));
-E int FDECL(str2gend, (const char *));
-E int FDECL(str2align, (const char *));
-E boolean FDECL(ok_role, (int, int, int, int));
-E int FDECL(pick_role, (int, int, int, int));
-E boolean FDECL(ok_race, (int, int, int, int));
-E int FDECL(pick_race, (int, int, int, int));
-E boolean FDECL(ok_gend, (int, int, int, int));
-E int FDECL(pick_gend, (int, int, int, int));
-E boolean FDECL(ok_align, (int, int, int, int));
-E int FDECL(pick_align, (int, int, int, int));
-E void NDECL(rigid_role_checks);
-E boolean FDECL(setrolefilter, (const char *));
-E boolean NDECL(gotrolefilter);
-E void NDECL(clearrolefilter);
-E char *FDECL(build_plselection_prompt, (char *, int, int, int, int, int));
-E char *FDECL(root_plselection_prompt, (char *, int, int, int, int, int));
-E void NDECL(plnamesuffix);
-E void FDECL(role_selection_prolog, (int, winid));
-E void FDECL(role_menu_extra, (int, winid, BOOLEAN_P));
-E void NDECL(role_init);
-E const char *FDECL(Hello, (struct monst *));
-E const char *NDECL(Goodbye);
+extern boolean validrole(int);
+extern boolean validrace(int, int);
+extern boolean validgend(int, int, int);
+extern boolean validalign(int, int, int);
+extern int randrole(boolean);
+extern int randrace(int);
+extern int randgend(int, int);
+extern int randalign(int, int);
+extern int str2role(const char *) NO_NNARGS;
+extern int str2race(const char *) NO_NNARGS;
+extern int str2gend(const char *) NO_NNARGS;
+extern int str2align(const char *) NO_NNARGS;
+extern boolean ok_role(int, int, int, int);
+extern int pick_role(int, int, int, int);
+extern boolean ok_race(int, int, int, int);
+extern int pick_race(int, int, int, int);
+extern boolean ok_gend(int, int, int, int);
+extern int pick_gend(int, int, int, int);
+extern boolean ok_align(int, int, int, int);
+extern int pick_align(int, int, int, int);
+extern void rigid_role_checks(void);
+extern boolean setrolefilter(const char *) NONNULLARG1;
+extern boolean gotrolefilter(void);
+extern char *rolefilterstring(char *, int) NONNULLARG1;
+extern void clearrolefilter(int);
+extern char *root_plselection_prompt(char *, int, int, int, int, int) NO_NNARGS;
+extern char *build_plselection_prompt(char *, int, int, int, int, int) NONNULLARG1;
+extern void plnamesuffix(void);
+extern void role_selection_prolog(int, winid);
+extern void role_menu_extra(int, winid, boolean);
+extern void role_init(void);
+extern const char *Hello(struct monst *) NO_NNARGS;
+extern const char *Goodbye(void);
+extern const struct Race *character_race(short);
+extern void genl_player_selection(void);
+extern int genl_player_setup(int);
 
 /* ### rumors.c ### */
 
-E char *FDECL(getrumor, (int, char *, BOOLEAN_P));
-E char *FDECL(get_rnd_text, (const char *, char *, int FDECL((*), (int))));
-E void FDECL(outrumor, (int, int));
-E void FDECL(outoracle, (BOOLEAN_P, BOOLEAN_P));
-E void FDECL(save_oracles, (int, int));
-E void FDECL(restore_oracles, (int));
-E int FDECL(doconsult, (struct monst *));
-E void NDECL(rumor_check);
+extern char *getrumor(int, char *, boolean) NONNULLARG2;
+extern char *get_rnd_text(const char *, char *, int(*)(int),
+                          unsigned) NONNULLPTRS;
+extern void outrumor(int, int);
+extern void outoracle(boolean, boolean);
+extern void save_oracles(NHFILE *) NONNULLARG1;
+extern void restore_oracles(NHFILE *) NONNULLARG1;
+extern int doconsult(struct monst *) NO_NNARGS;
+extern void rumor_check(void);
+extern boolean CapitalMon(const char *) NO_NNARGS;
+extern void free_CapMons(void);
 
 /* ### save.c ### */
 
-E int NDECL(dosave);
-E int NDECL(dosave0);
-E boolean FDECL(tricked_fileremoved, (int, char *));
+extern int dosave(void);
+extern int dosave0(void);
+extern boolean tricked_fileremoved(NHFILE *, char *) NONNULLARG2;
 #ifdef INSURANCE
-E void NDECL(savestateinlock);
+extern void savestateinlock(void);
 #endif
-#ifdef MFLOPPY
-E boolean FDECL(savelev, (int, XCHAR_P, int));
-E boolean FDECL(swapin_file, (int));
-E void NDECL(co_false);
-#else
-E void FDECL(savelev, (int, XCHAR_P, int));
+extern void savelev(NHFILE *, xint8) NONNULLARG1;
+/* extern genericptr_t mon_to_buffer(struct monst *, int *); */
+extern void savecemetery(NHFILE *, struct cemetery **) NONNULLARG12;
+extern void savefruitchn(NHFILE *) NONNULLARG1;
+extern void store_plname_in_file(NHFILE *) NONNULLARG1;
+extern void free_dungeons(void);
+extern void freedynamicdata(void);
+extern void store_savefileinfo(NHFILE *) NONNULLARG1;
+extern void store_savefileinfo(NHFILE *) NONNULLARG1;
+extern int nhdatatypes_size(void);
+#if 0
+extern void assignlog(char *, char*, int);
+extern FILE *getlog(NHFILE *);
+extern void closelog(NHFILE *);
 #endif
-E genericptr_t FDECL(mon_to_buffer, (struct monst *, int *));
-E void FDECL(bufon, (int));
-E void FDECL(bufoff, (int));
-E void FDECL(bflush, (int));
-E void FDECL(bwrite, (int, genericptr_t, unsigned int));
-E void FDECL(bclose, (int));
-E void FDECL(def_bclose, (int));
-#if defined(ZEROCOMP)
-E void FDECL(zerocomp_bclose, (int));
-#endif
-E void FDECL(savecemetery, (int, int, struct cemetery **));
-E void FDECL(savefruitchn, (int, int));
-E void FDECL(store_plname_in_file, (int));
-E void NDECL(free_dungeons);
-E void NDECL(freedynamicdata);
-E void FDECL(store_savefileinfo, (int));
+
+/* ### selvar.c ### */
+
+extern struct selectionvar *selection_new(void);
+extern void selection_free(struct selectionvar *, boolean) NO_NNARGS;
+extern void selection_clear(struct selectionvar *, int) NONNULLARG1;
+extern struct selectionvar *selection_clone(struct selectionvar *) NONNULLARG1;
+extern void selection_getbounds(struct selectionvar *, NhRect *) NO_NNARGS;
+extern void selection_recalc_bounds(struct selectionvar *) NONNULLARG1;
+extern coordxy selection_getpoint(coordxy, coordxy, struct selectionvar *) NO_NNARGS;
+extern void selection_setpoint(coordxy, coordxy, struct selectionvar *, int);
+extern struct selectionvar * selection_not(struct selectionvar *);
+extern struct selectionvar *selection_filter_percent(struct selectionvar *,
+                                                     int);
+extern struct selectionvar *selection_filter_mapchar(struct selectionvar *,
+                                                     xint16, int);
+extern int selection_rndcoord(struct selectionvar *, coordxy *, coordxy *,
+                              boolean);
+extern void selection_do_grow(struct selectionvar *, int);
+extern void set_selection_floodfillchk(int(*)(coordxy, coordxy));
+extern void selection_floodfill(struct selectionvar *, coordxy, coordxy,
+                                boolean);
+extern void selection_do_ellipse(struct selectionvar *, int, int, int, int,
+                                 int);
+extern void selection_do_gradient(struct selectionvar *, long, long, long,
+                                  long, long, long, long);
+extern void selection_do_line(coordxy, coordxy, coordxy, coordxy,
+                              struct selectionvar *);
+extern void selection_do_randline(coordxy, coordxy, coordxy, coordxy,
+                                  schar, schar, struct selectionvar *);
+extern void selection_iterate(struct selectionvar *, select_iter_func,
+                              genericptr_t);
+extern boolean selection_is_irregular(struct selectionvar *);
+extern char *selection_size_description(struct selectionvar *, char *);
+extern struct selectionvar *selection_from_mkroom(struct mkroom *) NO_NNARGS;
+extern void selection_force_newsyms(struct selectionvar *) NONNULLARG1;
+
+/* ### sfstruct.c ### */
+
+extern boolean close_check(int);
+/* extern void newread(NHFILE *, int, int, genericptr_t, unsigned); */
+extern void bufon(int);
+extern void bufoff(int);
+extern void bflush(int);
+extern void bwrite(int, const genericptr_t, unsigned) NONNULLARG2;
+extern void mread(int, genericptr_t, unsigned) NONNULLARG2;
+extern void bclose(int);
 
 /* ### shk.c ### */
 
-E void FDECL(setpaid, (struct monst *));
-E long FDECL(money2mon, (struct monst *, long));
-E void FDECL(money2u, (struct monst *, long));
-E void FDECL(shkgone, (struct monst *));
-E void FDECL(set_residency, (struct monst *, BOOLEAN_P));
-E void FDECL(replshk, (struct monst *, struct monst *));
-E void FDECL(restshk, (struct monst *, BOOLEAN_P));
-E char FDECL(inside_shop, (XCHAR_P, XCHAR_P));
-E void FDECL(u_left_shop, (char *, BOOLEAN_P));
-E void FDECL(remote_burglary, (XCHAR_P, XCHAR_P));
-E void FDECL(u_entered_shop, (char *));
-E void FDECL(pick_pick, (struct obj *));
-E boolean FDECL(same_price, (struct obj *, struct obj *));
-E void NDECL(shopper_financial_report);
-E int FDECL(inhishop, (struct monst *));
-E struct monst *FDECL(shop_keeper, (CHAR_P));
-E boolean FDECL(tended_shop, (struct mkroom *));
-E boolean FDECL(is_unpaid, (struct obj *));
-E void FDECL(delete_contents, (struct obj *));
-E void FDECL(obfree, (struct obj *, struct obj *));
-E void FDECL(home_shk, (struct monst *, BOOLEAN_P));
-E void FDECL(make_happy_shk, (struct monst *, BOOLEAN_P));
-E void FDECL(make_happy_shoppers, (BOOLEAN_P));
-E void FDECL(hot_pursuit, (struct monst *));
-E void FDECL(make_angry_shk, (struct monst *, XCHAR_P, XCHAR_P));
-E int NDECL(dopay);
-E boolean FDECL(paybill, (int, BOOLEAN_P));
-E void NDECL(finish_paybill);
-E struct obj *FDECL(find_oid, (unsigned));
-E long FDECL(contained_cost,
-             (struct obj *, struct monst *, long, BOOLEAN_P, BOOLEAN_P));
-E long FDECL(contained_gold, (struct obj *));
-E void FDECL(picked_container, (struct obj *));
-E void FDECL(gem_learned, (int));
-E void FDECL(alter_cost, (struct obj *, long));
-E long FDECL(unpaid_cost, (struct obj *, BOOLEAN_P));
-E boolean FDECL(billable, (struct monst **, struct obj *, CHAR_P, BOOLEAN_P));
-E void FDECL(addtobill, (struct obj *, BOOLEAN_P, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(splitbill, (struct obj *, struct obj *));
-E void FDECL(subfrombill, (struct obj *, struct monst *));
-E long FDECL(stolen_value,
-             (struct obj *, XCHAR_P, XCHAR_P, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(sellobj_state, (int));
-E void FDECL(sellobj, (struct obj *, XCHAR_P, XCHAR_P));
-E int FDECL(doinvbill, (int));
-E struct monst *FDECL(shkcatch, (struct obj *, XCHAR_P, XCHAR_P));
-E void FDECL(add_damage, (XCHAR_P, XCHAR_P, long));
-E int FDECL(repair_damage, (struct monst *, struct damage *, int *,
-                            BOOLEAN_P));
-E int FDECL(shk_move, (struct monst *));
-E void FDECL(after_shk_move, (struct monst *));
-E boolean FDECL(is_fshk, (struct monst *));
-E void FDECL(shopdig, (int));
-E void FDECL(pay_for_damage, (const char *, BOOLEAN_P));
-E boolean FDECL(costly_spot, (XCHAR_P, XCHAR_P));
-E struct obj *FDECL(shop_object, (XCHAR_P, XCHAR_P));
-E void FDECL(price_quote, (struct obj *));
-E void FDECL(shk_chat, (struct monst *));
-E void FDECL(check_unpaid_usage, (struct obj *, BOOLEAN_P));
-E void FDECL(check_unpaid, (struct obj *));
-E void FDECL(costly_gold, (XCHAR_P, XCHAR_P, long));
-E long FDECL(get_cost_of_shop_item, (struct obj *, int *));
-E int FDECL(oid_price_adjustment, (struct obj *, unsigned));
-E boolean FDECL(block_door, (XCHAR_P, XCHAR_P));
-E boolean FDECL(block_entry, (XCHAR_P, XCHAR_P));
-E char *FDECL(shk_your, (char *, struct obj *));
-E char *FDECL(Shk_Your, (char *, struct obj *));
-E void FDECL(globby_bill_fixup, (struct obj *, struct obj *));
-E void FDECL(globby_donation, (struct obj *, struct obj *));
+/* setpaid() has a conditional code block near the end of the
+   function, where arg1 is tested for NULL, preventing NONNULLARG1 */
+extern void setpaid(struct monst *) NO_NNARGS;
+extern void record_price_quote(int, unsigned long, boolean);
+extern void append_price_quote(char *, char **, int) NONNULLARG12;
+extern long money2mon(struct monst *, long) NONNULLARG1;
+extern void money2u(struct monst *, long) NONNULLARG1;
+extern void shkgone(struct monst *) NONNULLARG1;
+extern void set_residency(struct monst *, boolean) NONNULLARG1;
+extern void replshk(struct monst *, struct monst *) NONNULLARG12;
+extern void restshk(struct monst *, boolean) NONNULLARG1;
+extern char inside_shop(coordxy, coordxy);
+extern void u_left_shop(char *, boolean) NONNULLARG1;
+extern void remote_burglary(coordxy, coordxy);
+extern void u_entered_shop(char *);
+extern void pick_pick(struct obj *) NONNULLARG1;
+extern boolean same_price(struct obj *, struct obj *) NONNULLARG12;
+extern void shopper_financial_report(void);
+extern int inhishop(struct monst *) NONNULLARG1;
+extern struct monst *shop_keeper(char);
+extern struct monst *find_objowner(struct obj *,
+                                   coordxy x, coordxy y) NONNULLARG1;
+extern boolean tended_shop(struct mkroom *) NONNULLARG1;
+extern boolean onshopbill(struct obj *, struct monst *, boolean) NONNULLARG1;
+extern boolean is_unpaid(struct obj *) NONNULLARG1;
+extern void delete_contents(struct obj *) NONNULLARG1;
+extern void obfree(struct obj *, struct obj *) NONNULLARG1;
+extern void make_happy_shk(struct monst *, boolean) NONNULLARG1;
+extern void make_happy_shoppers(boolean);
+extern void hot_pursuit(struct monst *) NONNULLARG1;
+extern void make_angry_shk(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern int dopay(void);
+extern boolean paybill(int, boolean);
+extern void finish_paybill(void);
+extern struct obj *find_oid(unsigned);
+extern long contained_cost(struct obj *, struct monst *, long, boolean,
+                           boolean) NONNULLARG12;
+extern long contained_gold(struct obj *, boolean) NONNULLARG1;
+extern void picked_container(struct obj *) NONNULLARG1;
+extern void gem_learned(int);
+extern void alter_cost(struct obj *, long) NONNULLARG1;
+extern long unpaid_cost(struct obj *, uchar) NONNULLARG1;
+extern boolean billable(struct monst **, struct obj *, char,
+                        boolean) NONNULLARG12;
+extern void addtobill(struct obj *, boolean, boolean, boolean) NONNULLARG1;
+extern void splitbill(struct obj *, struct obj *) NONNULLARG12;
+extern void subfrombill(struct obj *, struct monst *) NONNULLARG12;
+extern long stolen_value(struct obj *, coordxy, coordxy,
+                         boolean, boolean) NONNULLARG1;
+extern void donate_gold(long, struct monst *, boolean) NONNULLARG2;
+extern void sellobj_state(int);
+extern void sellobj(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern int doinvbill(int);
+extern struct monst *shkcatch(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern void add_damage(coordxy, coordxy, long);
+extern void fix_shop_damage(void);
+extern int shk_move(struct monst *) NONNULLARG1;
+extern void after_shk_move(struct monst *) NONNULLARG1;
+extern boolean is_fshk(struct monst *) NONNULLARG1;
+extern void shopdig(int);
+extern void pay_for_damage(const char *, boolean);
+extern boolean costly_spot(coordxy, coordxy);
+/* costly_adjacent() has checks for null 1st arg, and an early return,
+   so it cannot be NONNULLARG1 */
+extern boolean costly_adjacent(struct monst *, coordxy, coordxy) NO_NNARGS;
+extern struct obj *shop_object(coordxy, coordxy);
+extern void price_quote(struct obj *) NONNULLARG1;
+extern void shk_chat(struct monst *) NONNULLARG1;
+extern void check_unpaid_usage(struct obj *, boolean) NONNULLARG1;
+extern void check_unpaid(struct obj *) NONNULLARG1;
+extern void costly_gold(coordxy, coordxy, long, boolean);
+extern long get_cost_of_shop_item(struct obj *, int *) NONNULLARG1;
+extern int oid_price_adjustment(struct obj *, unsigned) NONNULLARG1;
+extern boolean block_door(coordxy, coordxy);
+extern boolean block_entry(coordxy, coordxy);
+extern char *shk_your(char *, struct obj *) NONNULLPTRS;
+extern char *Shk_Your(char *, struct obj *) NONNULLPTRS;
+extern void globby_bill_fixup(struct obj *, struct obj *) NONNULLARG12;
+/*extern void globby_donation(struct obj *, struct obj *); */
+extern void credit_report(struct monst *shkp, int idx,
+                          boolean silent) NONNULLARG1;
+extern void use_unpaid_trapobj(struct obj *, coordxy, coordxy) NONNULLARG1;
+extern void noisy_shop(struct mkroom *);
+
 
 /* ### shknam.c ### */
 
-E void FDECL(neweshk, (struct monst *));
-E void FDECL(free_eshk, (struct monst *));
-E void FDECL(stock_room, (int, struct mkroom *));
-E boolean FDECL(saleable, (struct monst *, struct obj *));
-E int FDECL(get_shop_item, (int));
-E char *FDECL(Shknam, (struct monst *));
-E char *FDECL(shkname, (struct monst *));
-E boolean FDECL(shkname_is_pname, (struct monst *));
-E boolean FDECL(is_izchak, (struct monst *, BOOLEAN_P));
+extern void neweshk(struct monst *) NONNULLARG1;
+extern void free_eshk(struct monst *) NONNULLARG1;
+extern void stock_room(int, struct mkroom *) NONNULLARG2;
+extern boolean saleable(struct monst *, struct obj *) NONNULLARG12;
+extern int get_shop_item(int);
+extern char *Shknam(struct monst *) NONNULLARG1;
+extern char *shkname(struct monst *) NONNULLARG1;
+extern boolean shkname_is_pname(struct monst *) NONNULLARG1;
+extern boolean is_izchak(struct monst *, boolean) NONNULLARG1;
 
 /* ### sit.c ### */
 
-E void NDECL(take_gold);
-E int NDECL(dosit);
-E void NDECL(rndcurse);
-E void NDECL(attrcurse);
+extern void take_gold(void);
+extern int dosit(void);
+extern void rndcurse(void);
+extern int attrcurse(void);
 
 /* ### sounds.c ### */
 
-E void NDECL(dosounds);
-E const char *FDECL(growl_sound, (struct monst *));
-E void FDECL(growl, (struct monst *));
-E void FDECL(yelp, (struct monst *));
-E void FDECL(whimper, (struct monst *));
-E void FDECL(beg, (struct monst *));
-E int NDECL(dotalk);
+extern void dosounds(void);
+extern const char *growl_sound(struct monst *) NONNULLARG1;
+extern void growl(struct monst *) NONNULLARG1;
+extern void yelp(struct monst *) NONNULLARG1;
+extern void whimper(struct monst *) NONNULLARG1;
+extern void beg(struct monst *) NONNULLARG1;
+extern const char *maybe_gasp(struct monst *) NONNULLARG1;
+extern const char *cry_sound(struct monst *) NONNULLARG1;
+extern int domonnoise(struct monst *) NONNULLARG1;
+extern int dotalk(void);
+extern int tiphat(void);
 #ifdef USER_SOUNDS
-E int FDECL(add_sound_mapping, (const char *));
-E void FDECL(play_sound_for_message, (const char *));
+extern int add_sound_mapping(const char *) NONNULLARG1;
+extern void play_sound_for_message(const char *) NONNULLARG1;
+extern void maybe_play_sound(const char *) NONNULLARG1;
+extern void release_sound_mappings(void);
+#if defined(WIN32) || defined(QT_GRAPHICS)
+extern void play_usersound(const char *, int);
 #endif
-
-/* ### sys.c ### */
-
-E void NDECL(sys_early_init);
-E void NDECL(sysopt_release);
-E void FDECL(sysopt_seduce_set, (int));
-
-/* ### sys/msdos/sound.c ### */
-
-#ifdef MSDOS
-E int FDECL(assign_soundcard, (char *));
+#if defined(TTY_SOUND_ESCCODES)
+extern void play_usersound_via_idx(int, int);
 #endif
+#endif /* USER SOUNDS */
+extern void assign_soundlib(int);
+extern void activate_chosen_soundlib(void);
+extern void get_soundlib_name(char *dest, int maxlen) NONNULLARG1;
+#ifdef SND_SOUNDEFFECTS_AUTOMAP
+extern char *get_sound_effect_filename(int32_t seidint,
+                                       char *buf, size_t bufsz, int32_t);
+#endif
+extern char *base_soundname_to_filename(char *, char *, size_t, int32_t) NONNULLARG1;
+extern void set_voice(struct monst *, int32_t, int32_t, int32_t) NO_NNARGS;
+extern void sound_speak(const char *) NO_NNARGS;
+extern enum soundlib_ids soundlib_id_from_opt(char *);
 
 /* ### sp_lev.c ### */
 
-E boolean FDECL(check_room, (xchar *, xchar *, xchar *, xchar *, BOOLEAN_P));
-E boolean FDECL(create_room, (XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P, XCHAR_P,
-                              XCHAR_P, XCHAR_P, XCHAR_P));
-E void FDECL(create_secret_door, (struct mkroom *, XCHAR_P));
-E boolean
-FDECL(dig_corridor, (coord *, coord *, BOOLEAN_P, SCHAR_P, SCHAR_P));
-E void FDECL(fill_room, (struct mkroom *, BOOLEAN_P));
-E boolean FDECL(load_special, (const char *));
-E xchar FDECL(selection_getpoint, (int, int, struct opvar *));
-E struct opvar *FDECL(selection_opvar, (char *));
-E void FDECL(opvar_free_x, (struct opvar *));
-E void FDECL(set_selection_floodfillchk, (int FDECL((*), (int,int))));
-E void FDECL(selection_floodfill, (struct opvar *, int, int, BOOLEAN_P));
+#if !defined(CROSSCOMPILE) || defined(CROSSCOMPILE_TARGET)
+extern boolean match_maptyps(xint16, xint16);
+extern void create_des_coder(void);
+extern void reset_xystart_size(void);
+extern struct mapfragment *mapfrag_fromstr(char *) NONNULLARG1;
+extern void mapfrag_free(struct mapfragment **) NO_NNARGS;
+extern schar mapfrag_get(struct mapfragment *, int, int) NONNULLARG1;
+extern boolean mapfrag_canmatch(struct mapfragment *) NONNULLARG1;
+extern const char * mapfrag_error(struct mapfragment *) NO_NNARGS;
+extern boolean mapfrag_match(struct mapfragment *, int, int) NONNULLARG1;
+extern void flip_level(int, boolean);
+extern void flip_level_rnd(int, boolean);
+extern boolean check_room(coordxy *, coordxy *, coordxy *, coordxy *, boolean) NONNULLPTRS;
+extern boolean create_room(coordxy, coordxy, coordxy, coordxy,
+                           coordxy, coordxy, xint16, xint16);
+extern boolean dig_corridor(coord *, coord *, int *, boolean, schar, schar) NONNULLARG12;
+extern void fill_special_room(struct mkroom *) NO_NNARGS;
+extern void wallify_map(coordxy, coordxy, coordxy, coordxy);
+extern boolean load_special(const char *) NONNULLARG1;
+extern coordxy random_wdir(void);
+extern boolean pm_good_location(coordxy, coordxy, struct permonst *) NONNULLARG3;
+extern void get_location_coord(coordxy *, coordxy *, int, struct mkroom *,
+                               long) NONNULLARG12;
+extern void set_floodfillchk_match_under(coordxy);
+extern int lspo_reset_level(lua_State *) NO_NNARGS; /* wiz_load_splua NULL */
+/* lspo_finalize_level() has tests for whether arg1 L is null, and chooses
+   code paths to follow based on that. Also preventing NONNULLARG1 is it
+   being called from wiz_load_splua() with a NULL arg.
+   Side note: The parameter is also marked as UNUSED, but apparently it is */
+extern int lspo_finalize_level(lua_State *) NO_NNARGS;
+extern boolean get_coord(lua_State *, int, lua_Integer *, lua_Integer *) NONNULLPTRS;
+extern void cvt_to_abscoord(coordxy *, coordxy *) NONNULLPTRS;
+extern void cvt_to_relcoord(coordxy *, coordxy *) NONNULLPTRS;
+extern int nhl_abs_coord(lua_State *) NONNULLARG1;
+extern void update_croom(void);
+extern const char *get_trapname_bytype(int);
+extern void l_register_des(lua_State *) NONNULLARG1;
+extern int get_table_objclass(lua_State *) NONNULLARG1;
+extern int get_table_objtype(lua_State *) NONNULLARG1;
+#endif /* !CROSSCOMPILE || CROSSCOMPILE_TARGET */
 
 /* ### spell.c ### */
 
-E void FDECL(book_cursed, (struct obj *));
-#ifdef USE_TRAMPOLI
-E int NDECL(learn);
-#endif
-E int FDECL(study_book, (struct obj *));
-E void FDECL(book_disappears, (struct obj *));
-E void FDECL(book_substitution, (struct obj *, struct obj *));
-E void NDECL(age_spells);
-E int NDECL(docast);
-E int FDECL(spell_skilltype, (int));
-E int FDECL(spelleffects, (int, BOOLEAN_P));
-E int FDECL(tport_spell, (int));
-E void NDECL(losespells);
-E int NDECL(dovspell);
-E void FDECL(initialspell, (struct obj *));
+extern void book_cursed(struct obj *) NONNULLARG1;
+extern int study_book(struct obj *) NONNULLARG1;
+extern void book_disappears(struct obj *) NONNULLARG1;
+extern void book_substitution(struct obj *, struct obj *) NONNULLARG12;
+extern void age_spells(void);
+extern int dowizcast(void);
+extern int docast(void);
+extern int spell_skilltype(int);
+extern int spelleffects(int, boolean, boolean);
+extern int tport_spell(int);
+extern void losespells(void);
+extern int dovspell(void);
+extern void show_spells(void);
+extern void initialspell(struct obj *) NONNULLARG1;
+extern int known_spell(short);
+extern int spell_idx(short);
+extern char force_learn_spell(short);
+extern int num_spells(void);
+extern void skill_based_spellbook_id(void);
+
+/* ### stairs.c ### */
+
+extern void stairway_add(coordxy, coordxy,
+                         boolean, boolean, d_level *) NONNULLPTRS;
+extern void stairway_free_all(void);
+extern stairway *stairway_at(coordxy, coordxy);
+extern stairway *stairway_find(d_level *) NONNULLARG1;
+extern stairway *stairway_find_from(d_level *, boolean) NONNULLARG1;
+extern stairway *stairway_find_dir(boolean);
+extern stairway *stairway_find_type_dir(boolean, boolean);
+extern stairway *stairway_find_special_dir(boolean);
+extern void u_on_sstairs(int);
+extern void u_on_upstairs(void);
+extern void u_on_dnstairs(void);
+extern boolean On_stairs(coordxy, coordxy);
+extern boolean On_ladder(coordxy, coordxy);
+extern boolean On_stairs_up(coordxy, coordxy);
+extern boolean On_stairs_dn(coordxy, coordxy);
+extern boolean known_branch_stairs(stairway *);
+extern char *stairs_description(stairway *, char *, boolean) NONNULLARG1;
 
 /* ### steal.c ### */
 
-#ifdef USE_TRAMPOLI
-E int NDECL(stealarm);
-#endif
-E long FDECL(somegold, (long));
-E void FDECL(stealgold, (struct monst *));
-E void FDECL(remove_worn_item, (struct obj *, BOOLEAN_P));
-E int FDECL(steal, (struct monst *, char *));
-E int FDECL(mpickobj, (struct monst *, struct obj *));
-E void FDECL(stealamulet, (struct monst *));
-E void FDECL(maybe_absorb_item, (struct monst *, struct obj *, int, int));
-E void FDECL(mdrop_obj, (struct monst *, struct obj *, BOOLEAN_P));
-E void FDECL(mdrop_special_objs, (struct monst *));
-E void FDECL(relobj, (struct monst *, int, BOOLEAN_P));
-E struct obj *FDECL(findgold, (struct obj *));
+extern long somegold(long);
+extern void stealgold(struct monst *) NONNULLARG1;
+extern void thiefdead(void);
+extern boolean unresponsive(void);
+extern void remove_worn_item(struct obj *, boolean) NONNULLARG1;
+extern int steal(struct monst *, char *) NONNULLARG1;
+/* mpickobj() contains a test for NULL arg2 obj and a code path
+   that leads to impossible(). Prevents NONNULLARG12. */
+extern int mpickobj(struct monst *, struct obj *) NONNULLARG1;
+extern void stealamulet(struct monst *) NONNULLARG1;
+extern void maybe_absorb_item(struct monst *, struct obj *, int, int) NONNULLARG12;
+extern void mdrop_obj(struct monst *, struct obj *, boolean) NONNULLARG12;
+extern void mdrop_special_objs(struct monst *) NONNULLARG1;
+extern void relobj(struct monst *, int, boolean) NONNULLARG1;
+extern struct obj *findgold(struct obj *) NO_NNARGS;
 
 /* ### steed.c ### */
 
-E void NDECL(rider_cant_reach);
-E boolean FDECL(can_saddle, (struct monst *));
-E int FDECL(use_saddle, (struct obj *));
-E void FDECL(put_saddle_on_mon, (struct obj *, struct monst *));
-E boolean FDECL(can_ride, (struct monst *));
-E int NDECL(doride);
-E boolean FDECL(mount_steed, (struct monst *, BOOLEAN_P));
-E void NDECL(exercise_steed);
-E void NDECL(kick_steed);
-E void FDECL(dismount_steed, (int));
-E void FDECL(place_monster, (struct monst *, int, int));
-E boolean FDECL(stucksteed, (BOOLEAN_P));
+extern void rider_cant_reach(void);
+extern boolean can_saddle(struct monst *) NONNULLARG1;
+extern int use_saddle(struct obj *) NONNULLARG1;
+extern void put_saddle_on_mon(struct obj *, struct monst *) NONNULLARG2;
+extern boolean can_ride(struct monst *) NONNULLARG1;
+extern int doride(void);
+extern boolean mount_steed(struct monst *, boolean) NO_NNARGS;
+extern void exercise_steed(void);
+extern void kick_steed(void);
+extern void dismount_steed(int);
+extern void place_monster(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern void poly_steed(struct monst *, struct permonst *) NONNULLARG12;
+extern boolean stucksteed(boolean);
+
+/* ### symbols.c ### */
+
+extern void switch_symbols(int);
+extern void assign_graphics(int);
+extern void init_symbols(void);
+extern void init_showsyms(void);
+extern void init_primary_symbols(void);
+extern void init_rogue_symbols(void);
+extern void init_ov_primary_symbols(void);
+extern void init_ov_rogue_symbols(void);
+extern void clear_symsetentry(int, boolean);
+extern void update_primary_symset(const struct symparse *, int) NONNULLARG1;
+extern void update_rogue_symset(const struct symparse *, int) NONNULLARG1;
+extern void update_ov_primary_symset(const struct symparse *, int) NONNULLARG1;
+extern void update_ov_rogue_symset(const struct symparse *, int) NONNULLARG1;
+extern int parse_sym_line(char *, int) NONNULLARG1;
+extern nhsym get_othersym(int, int);
+extern boolean symset_is_compatible(enum symset_handling_types, unsigned long);
+extern void set_symhandling(char *handling, int which_set) NONNULLARG1;
+extern boolean proc_symset_line(char *) NONNULLARG1;
+extern int do_symset(boolean);
+extern int load_symset(const char *, int) NONNULLARG1;
+extern void free_symsets(void);
+extern const struct symparse *match_sym(char *) NONNULLARG1;
+extern void savedsym_free(void);
+extern void savedsym_strbuf(strbuf_t *) NONNULLARG1;
+extern boolean parsesymbols(char *, int) NONNULLARG1;
+
+/* ### sys.c ### */
+
+extern void sys_early_init(void);
+extern void sysopt_release(void);
+extern void sysopt_seduce_set(int);
 
 /* ### teleport.c ### */
 
-E boolean FDECL(goodpos, (int, int, struct monst *, unsigned));
-E boolean FDECL(enexto, (coord *, XCHAR_P, XCHAR_P, struct permonst *));
-E boolean FDECL(enexto_core, (coord *, XCHAR_P, XCHAR_P,
-                              struct permonst *, unsigned));
-E void FDECL(teleds, (int, int, BOOLEAN_P));
-E boolean FDECL(safe_teleds, (BOOLEAN_P));
-E boolean FDECL(teleport_pet, (struct monst *, BOOLEAN_P));
-E void NDECL(tele);
-E boolean FDECL(scrolltele, (struct obj *));
-E int NDECL(dotelecmd);
-E int FDECL(dotele, (BOOLEAN_P));
-E void NDECL(level_tele);
-E void FDECL(domagicportal, (struct trap *));
-E void FDECL(tele_trap, (struct trap *));
-E void FDECL(level_tele_trap, (struct trap *, unsigned));
-E void FDECL(rloc_to, (struct monst *, int, int));
-E boolean FDECL(rloc, (struct monst *, BOOLEAN_P));
-E boolean FDECL(tele_restrict, (struct monst *));
-E void FDECL(mtele_trap, (struct monst *, struct trap *, int));
-E int FDECL(mlevel_tele_trap, (struct monst *, struct trap *,
-                               BOOLEAN_P, int));
-E boolean FDECL(rloco, (struct obj *));
-E int NDECL(random_teleport_level);
-E boolean FDECL(u_teleport_mon, (struct monst *, BOOLEAN_P));
-
-/* ### tile.c ### */
-#ifdef USE_TILES
-E void FDECL(substitute_tiles, (d_level *));
-#endif
+extern boolean noteleport_level(struct monst *) NONNULLARG1;
+/* rloc_engr() passes NULL monst arg to goodpos()*/
+extern boolean goodpos(coordxy, coordxy, struct monst *,
+                       mmflags_nht) NO_NNARGS;
+extern boolean enexto(coord *, coordxy, coordxy,
+                      struct permonst *) NONNULLARG1;
+extern boolean enexto_gpflags(coord *, coordxy, coordxy, struct permonst *,
+                           mmflags_nht) NONNULLARG1;
+extern boolean enexto_core(coord *, coordxy, coordxy, struct permonst *,
+                           mmflags_nht) NONNULLARG1;
+extern void teleds(coordxy, coordxy, int);
+extern int collect_coords(coord *, coordxy, coordxy, int, unsigned,
+                          boolean (*)(coordxy, coordxy)) NONNULLARG1;
+extern boolean safe_teleds(int);
+extern boolean teleport_pet(struct monst *, boolean) NONNULLARG1;
+extern void tele_to_rnd_pet(void);
+extern void tele(void);
+extern void scrolltele(struct obj *) NO_NNARGS;
+extern int dotelecmd(void);
+extern int dotele(boolean);
+extern void level_tele(void);
+extern void domagicportal(struct trap *) NONNULLARG1;
+extern void tele_trap(struct trap *) NONNULLARG1;
+extern void level_tele_trap(struct trap *, unsigned) NONNULLARG1;
+extern void rloc_to(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern void rloc_to_flag(struct monst *, coordxy, coordxy,
+                         unsigned) NONNULLARG1;
+extern boolean rloc(struct monst *, unsigned) NONNULLARG1;
+extern boolean control_mon_tele(struct monst *, coord *cc, unsigned,
+                                boolean) NONNULLARG1;
+extern boolean tele_restrict(struct monst *) NONNULLARG1;
+extern void mtele_trap(struct monst *, struct trap *, int) NONNULLARG12;
+extern int mlevel_tele_trap(struct monst *, struct trap *,
+                            boolean, int) NONNULLARG1;
+extern boolean rloco(struct obj *) NONNULLARG1;
+extern int random_teleport_level(void);
+extern boolean u_teleport_mon(struct monst *, boolean) NONNULLARG1;
 
 /* ### timeout.c ### */
 
-E void NDECL(burn_away_slime);
-E void NDECL(nh_timeout);
-E void FDECL(fall_asleep, (int, BOOLEAN_P));
-E void FDECL(attach_egg_hatch_timeout, (struct obj *, long));
-E void FDECL(attach_fig_transform_timeout, (struct obj *));
-E void FDECL(kill_egg, (struct obj *));
-E void FDECL(hatch_egg, (ANY_P *, long));
-E void FDECL(learn_egg_type, (int));
-E void FDECL(burn_object, (ANY_P *, long));
-E void FDECL(begin_burn, (struct obj *, BOOLEAN_P));
-E void FDECL(end_burn, (struct obj *, BOOLEAN_P));
-E void NDECL(do_storms);
-E boolean FDECL(start_timer, (long, SHORT_P, SHORT_P, ANY_P *));
-E long FDECL(stop_timer, (SHORT_P, ANY_P *));
-E long FDECL(peek_timer, (SHORT_P, ANY_P *));
-E void NDECL(run_timers);
-E void FDECL(obj_move_timers, (struct obj *, struct obj *));
-E void FDECL(obj_split_timers, (struct obj *, struct obj *));
-E void FDECL(obj_stop_timers, (struct obj *));
-E boolean FDECL(obj_has_timer, (struct obj *, SHORT_P));
-E void FDECL(spot_stop_timers, (XCHAR_P, XCHAR_P, SHORT_P));
-E long FDECL(spot_time_expires, (XCHAR_P, XCHAR_P, SHORT_P));
-E long FDECL(spot_time_left, (XCHAR_P, XCHAR_P, SHORT_P));
-E boolean FDECL(obj_is_local, (struct obj *));
-E void FDECL(save_timers, (int, int, int));
-E void FDECL(restore_timers, (int, int, BOOLEAN_P, long));
-E void FDECL(timer_stats, (const char *, char *, long *, long *));
-E void FDECL(relink_timers, (BOOLEAN_P));
-E int NDECL(wiz_timeout_queue);
-E void NDECL(timer_sanity_check);
+extern const char *property_by_index(int, int *) NO_NNARGS;
+extern void burn_away_slime(void);
+extern void nh_timeout(void);
+extern void fall_asleep(int, boolean);
+extern void attach_egg_hatch_timeout(struct obj *, long) NONNULLARG1;
+extern void attach_fig_transform_timeout(struct obj *) NONNULLARG1;
+extern void kill_egg(struct obj *) NONNULLARG1;
+extern void hatch_egg(union any *, long) NONNULLARG1;
+extern void learn_egg_type(int);
+extern void burn_object(union any *, long) NONNULLARG1;
+extern void begin_burn(struct obj *, boolean) NONNULLARG1;
+extern void end_burn(struct obj *, boolean) NONNULLARG1;
+extern void do_storms(void);
+extern boolean start_timer(long, short, short, union any *) NONNULLARG4;
+extern long stop_timer(short, union any *) NONNULLARG2;
+extern long peek_timer(short, union any *) NONNULLARG2;
+extern void run_timers(void);
+extern void obj_move_timers(struct obj *, struct obj *) NONNULLARG12;
+extern void obj_split_timers(struct obj *, struct obj *) NONNULLARG12;
+extern void obj_stop_timers(struct obj *) NONNULLARG1;
+extern boolean obj_has_timer(struct obj *, short) NONNULLARG1;
+extern void spot_stop_timers(coordxy, coordxy, short);
+extern long spot_time_expires(coordxy, coordxy, short);
+extern long spot_time_left(coordxy, coordxy, short);
+extern boolean obj_is_local(struct obj *) NONNULLARG1;
+extern void save_timers(NHFILE *, int) NONNULLARG1;
+extern void restore_timers(NHFILE *, int, long) NONNULLARG1;
+extern void timer_stats(const char *, char *, long *, long *) NONNULLPTRS;
+extern void relink_timers(boolean);
+extern int wiz_timeout_queue(void);
+extern void timer_sanity_check(void);
 
 /* ### topten.c ### */
 
-E void FDECL(formatkiller, (char *, unsigned, int, BOOLEAN_P));
-E int FDECL(observable_depth, (d_level *));
-E void FDECL(topten, (int, time_t));
-E void FDECL(prscore, (int, char **));
-E struct toptenentry *NDECL(get_rnd_toptenentry);
-E struct obj *FDECL(tt_oname, (struct obj *));
+extern void formatkiller(char *, unsigned, int, boolean) NONNULLARG1;
+extern int observable_depth(d_level *) NONNULLARG1;
+extern void topten(int, time_t);
+extern void prscore(int, char **);
+extern struct toptenentry *get_rnd_toptenentry(void);
+extern struct obj *tt_oname(struct obj *) NO_NNARGS;
+extern int tt_doppel(struct monst *) NONNULLARG1;
 
 /* ### track.c ### */
 
-E void NDECL(initrack);
-E void NDECL(settrack);
-E coord *FDECL(gettrack, (int, int));
+extern void initrack(void);
+extern void settrack(void);
+extern coord *gettrack(coordxy, coordxy);
+extern boolean hastrack(coordxy, coordxy);
+extern void save_track(NHFILE *) NONNULLARG1;
+extern void rest_track(NHFILE *) NONNULLARG1;
 
 /* ### trap.c ### */
 
-E boolean FDECL(burnarmor, (struct monst *));
-E int FDECL(erode_obj, (struct obj *, const char *, int, int));
-E boolean FDECL(grease_protect, (struct obj *, const char *, struct monst *));
-E struct trap *FDECL(maketrap, (int, int, int));
-E void FDECL(fall_through, (BOOLEAN_P, unsigned));
-E struct monst *FDECL(animate_statue,
-                      (struct obj *, XCHAR_P, XCHAR_P, int, int *));
-E struct monst *FDECL(activate_statue_trap,
-                      (struct trap *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void FDECL(set_utrap, (unsigned, unsigned));
-E void FDECL(reset_utrap, (BOOLEAN_P));
-E void FDECL(dotrap, (struct trap *, unsigned));
-E void FDECL(seetrap, (struct trap *));
-E void FDECL(feeltrap, (struct trap *));
-E int FDECL(mintrap, (struct monst *));
-E void FDECL(instapetrify, (const char *));
-E void FDECL(minstapetrify, (struct monst *, BOOLEAN_P));
-E void FDECL(selftouch, (const char *));
-E void FDECL(mselftouch, (struct monst *, const char *, BOOLEAN_P));
-E void NDECL(float_up);
-E void FDECL(fill_pit, (int, int));
-E int FDECL(float_down, (long, long));
-E void NDECL(climb_pit);
-E boolean FDECL(fire_damage, (struct obj *, BOOLEAN_P, XCHAR_P, XCHAR_P));
-E int FDECL(fire_damage_chain,
-            (struct obj *, BOOLEAN_P, BOOLEAN_P, XCHAR_P, XCHAR_P));
-E boolean FDECL(lava_damage, (struct obj *, XCHAR_P, XCHAR_P));
-E void acid_damage(struct obj *);
-E int FDECL(water_damage, (struct obj *, const char *, BOOLEAN_P));
-E void FDECL(water_damage_chain, (struct obj *, BOOLEAN_P));
-E boolean NDECL(drown);
-E void FDECL(drain_en, (int));
-E int NDECL(dountrap);
-E void FDECL(cnv_trap_obj, (int, int, struct trap *, BOOLEAN_P));
-E int FDECL(untrap, (BOOLEAN_P));
-E boolean FDECL(openholdingtrap, (struct monst *, boolean *));
-E boolean FDECL(closeholdingtrap, (struct monst *, boolean *));
-E boolean FDECL(openfallingtrap, (struct monst *, BOOLEAN_P, boolean *));
-E boolean FDECL(chest_trap, (struct obj *, int, BOOLEAN_P));
-E void FDECL(deltrap, (struct trap *));
-E boolean FDECL(delfloortrap, (struct trap *));
-E struct trap *FDECL(t_at, (int, int));
-E void FDECL(b_trapped, (const char *, int));
-E boolean NDECL(unconscious);
-E void FDECL(blow_up_landmine, (struct trap *));
-E int FDECL(launch_obj, (SHORT_P, int, int, int, int, int));
-E boolean NDECL(launch_in_progress);
-E void NDECL(force_launch_placement);
-E boolean FDECL(uteetering_at_seen_pit, (struct trap *));
-E boolean FDECL(uescaped_shaft, (struct trap *));
-E boolean NDECL(lava_effects);
-E void NDECL(sink_into_lava);
-E void NDECL(sokoban_guilt);
+extern boolean burnarmor(struct monst *) NO_NNARGS;
+extern int erode_obj(struct obj *, const char *, int, int) NO_NNARGS;
+extern boolean grease_protect(struct obj *, const char *,
+                              struct monst *) NONNULLARG1;
+extern struct trap *maketrap(coordxy, coordxy, int);
+extern d_level *clamp_hole_destination(d_level *) NONNULLARG1;
+extern void fall_through(boolean, unsigned);
+extern struct monst *animate_statue(struct obj *, coordxy, coordxy,
+                                    int, int *) NONNULLARG1;
+extern struct monst *activate_statue_trap(struct trap *, coordxy, coordxy,
+                                          boolean) NONNULLARG1;
+extern int immune_to_trap(struct monst *, unsigned) NO_NNARGS; /* revisit */
+extern void set_utrap(unsigned, unsigned);
+extern void reset_utrap(boolean);
+extern boolean wearing_iron_shoes(struct monst *);
+extern boolean m_harmless_trap(struct monst *, struct trap *) NONNULLPTRS;
+extern void dotrap(struct trap *, unsigned) NONNULLARG1;
+extern void seetrap(struct trap *) NONNULLARG1;
+extern void feeltrap(struct trap *) NONNULLARG1;
+extern int mintrap(struct monst *, unsigned) NONNULLARG1;
+extern void instapetrify(const char *) NO_NNARGS;
+extern void minstapetrify(struct monst *, boolean) NONNULLARG1;
+extern void selftouch(const char *) NONNULLARG1;
+extern void mselftouch(struct monst *, const char *, boolean) NONNULLARG1;
+extern void float_up(void);
+extern void fill_pit(coordxy, coordxy);
+extern int float_down(long, long);
+extern void climb_pit(void);
+extern boolean fire_damage(struct obj *, boolean,
+                           coordxy, coordxy) NONNULLARG1;
+extern int fire_damage_chain(struct obj *, boolean, boolean,
+                            coordxy, coordxy) NO_NNARGS;
+extern boolean lava_damage(struct obj *, coordxy, coordxy) NONNULLARG1;
+/* acid_damage() has a test for NULL arg and early return if so,
+   preventing NONNULLARG1 */
+extern void acid_damage(struct obj *) NO_NNARGS;
+extern int water_damage(struct obj *, const char *, boolean) NO_NNARGS;
+extern void water_damage_chain(struct obj *, boolean) NO_NNARGS;
+extern boolean rnd_nextto_goodpos(coordxy *, coordxy *,
+                                  struct monst *) NONNULLPTRS;
+extern void back_on_ground(boolean);
+extern void rescued_from_terrain(int);
+extern boolean drown(void);
+extern void drain_en(int, boolean);
+extern int dountrap(void);
+extern int could_untrap(boolean, boolean);
+extern void cnv_trap_obj(int, int, struct trap *, boolean) NONNULLARG3;
+extern boolean into_vs_onto(int);
+extern int untrap(boolean, coordxy, coordxy, struct obj *) NO_NNARGS;
+extern boolean openholdingtrap(struct monst *, boolean *) NO_NNARGS;
+extern boolean closeholdingtrap(struct monst *, boolean *) NO_NNARGS;
+extern boolean openfallingtrap(struct monst *, boolean, boolean *) NONNULLARG3;
+extern boolean chest_trap(struct obj *, int, boolean) NONNULLARG1;
+extern void deltrap(struct trap *) NONNULLARG1;
+extern boolean delfloortrap(struct trap *) NO_NNARGS;
+extern struct trap *t_at(coordxy, coordxy);
+extern int count_traps(int);
+extern void b_trapped(const char *, int) NONNULLARG1;
+extern boolean unconscious(void);
+extern void blow_up_landmine(struct trap *) NONNULLARG1;
+extern int launch_obj(short, coordxy, coordxy, coordxy, coordxy, int);
+extern boolean launch_in_progress(void);
+extern void force_launch_placement(void);
+extern boolean uteetering_at_seen_pit(struct trap *) NO_NNARGS;
+extern boolean uescaped_shaft(struct trap *) NO_NNARGS;
+extern boolean lava_effects(void);
+extern void sink_into_lava(void);
+extern void sokoban_guilt(void);
+extern const char * trapname(int, boolean);
+extern void ignite_items(struct obj *) NO_NNARGS;
+extern void trap_ice_effects(coordxy x, coordxy y, boolean ice_is_melting);
+extern void trap_sanity_check(void);
 
 /* ### u_init.c ### */
 
-E void NDECL(u_init);
+extern void u_init_misc(void);
+extern void u_init_inventory_attrs(void);
+extern void u_init_skills_discoveries(void);
 
 /* ### uhitm.c ### */
 
-E void FDECL(erode_armor, (struct monst *, int));
-E boolean FDECL(attack_checks, (struct monst *, struct obj *));
-E void FDECL(check_caitiff, (struct monst *));
-E int FDECL(find_roll_to_hit, (struct monst *, UCHAR_P, struct obj *,
-                               int *, int *));
-E boolean FDECL(attack, (struct monst *));
-E boolean FDECL(hmon, (struct monst *, struct obj *, int, int));
-E boolean FDECL(shade_miss, (struct monst *, struct monst *, struct obj *,
-                             BOOLEAN_P, BOOLEAN_P));
-E int FDECL(damageum, (struct monst *, struct attack *, int));
-E void FDECL(missum, (struct monst *, struct attack *, BOOLEAN_P));
-E int FDECL(passive, (struct monst *, struct obj *, BOOLEAN_P, int,
-                      UCHAR_P, BOOLEAN_P));
-E void FDECL(passive_obj, (struct monst *, struct obj *, struct attack *));
-E void FDECL(stumble_onto_mimic, (struct monst *));
-E int FDECL(flash_hits_mon, (struct monst *, struct obj *));
-E void FDECL(light_hits_gremlin, (struct monst *, int));
+extern void dynamic_multi_reason(struct monst *, const char *, boolean) NONNULLARG12;
+extern void erode_armor(struct monst *, int) NONNULLARG1;
+extern boolean attack_checks(struct monst *, struct obj *) NONNULLARG1;
+extern void check_caitiff(struct monst *) NONNULLARG1;
+extern void mon_maybe_unparalyze(struct monst *) NONNULLARG1;
+extern int find_roll_to_hit(struct monst *, uchar, struct obj *,
+                            int *, int *) NONNULLARG145;
+extern boolean force_attack(struct monst *, boolean) NONNULLARG1;
+extern boolean do_attack(struct monst *) NONNULLARG1;
+extern boolean hmon(struct monst *, struct obj *, int, int) NONNULLARG1;
+extern boolean shade_miss(struct monst *, struct monst *, struct obj *,
+                          boolean, boolean) NONNULLARG12;
+extern void mhitm_ad_rust(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_corr(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_dcay(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_dren(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_drli(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_fire(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_cold(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_elec(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_acid(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_sgld(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_tlpt(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+/* gazemm() calls mhitm_ad_blnd with a NULL 4th arg */
+extern void mhitm_ad_blnd(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLARG123;
+extern void mhitm_ad_curs(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_drst(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_drin(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_stck(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_wrap(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_plys(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_slee(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_slim(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_ench(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_slow(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_conf(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_poly(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_famn(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_pest(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_deth(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_halu(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_phys(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_ston(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_were(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_heal(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_stun(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_legs(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_dgst(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_samu(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_dise(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_sedu(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_ad_ssex(struct monst *, struct attack *, struct monst *,
+                          struct mhitm_data *) NONNULLPTRS;
+extern void mhitm_adtyping(struct monst *, struct attack *, struct monst *,
+                           struct mhitm_data *) NONNULLPTRS;
+extern boolean do_stone_u(struct monst *) NONNULLARG1;
+extern void do_stone_mon(struct monst *, struct attack *, struct monst *,
+                         struct mhitm_data *) NONNULLARG134;
+extern int damageum(struct monst *, struct attack *, int) NONNULLARG12;
+/* domove_fight_empty passes NULL to explum arg1 */
+extern int explum(struct monst *, struct attack *) NONNULLARG2;
+extern void missum(struct monst *, struct attack *, boolean) NONNULLARG12;
+extern boolean m_is_steadfast(struct monst *) NONNULLARG1;
+extern boolean mhitm_knockback(struct monst *, struct monst *,struct attack *,
+                               int *, boolean) NONNULLPTRS;
+extern int passive(struct monst *, struct obj *, boolean, boolean, uchar,
+                   boolean) NONNULLARG1;
+extern void passive_obj(struct monst *, struct obj *, struct attack *) NONNULLARG1;
+extern void that_is_a_mimic(struct monst *, unsigned) NONNULLARG1;
+extern void stumble_onto_mimic(struct monst *) NONNULLARG1;
+extern boolean disguised_as_non_mon(struct monst *) NONNULLARG1;
+extern boolean disguised_as_mon(struct monst *) NONNULLARG1;
+extern int flash_hits_mon(struct monst *, struct obj *) NONNULLARG12;
+extern void light_hits_gremlin(struct monst *, int) NONNULLARG1;
+
 
 /* ### unixmain.c ### */
-
 #ifdef UNIX
 #ifdef PORT_HELP
-E void NDECL(port_help);
+extern void port_help(void);
 #endif
-E void FDECL(sethanguphandler, (void (*)(int)));
-E boolean NDECL(authorize_wizard_mode);
-E boolean FDECL(check_user_string, (char *));
-E char *NDECL(get_login_name);
+extern void sethanguphandler(void(*)(int));
+extern boolean authorize_wizard_mode(void);
+extern boolean authorize_explore_mode(void);
+extern void append_slash(char *) NONNULLARG1;
+extern boolean check_user_string(const char *) NONNULLARG1;
+extern char *get_login_name(void);
+extern unsigned long sys_random_seed(void);
 #endif /* UNIX */
+ATTRNORETURN extern void after_opt_showpaths(const char *) NORETURN;
 
 /* ### unixtty.c ### */
 
 #if defined(UNIX) || defined(__BEOS__)
-E void NDECL(gettty);
-E void FDECL(settty, (const char *));
-E void NDECL(setftty);
-E void NDECL(intron);
-E void NDECL(introff);
-/* GCC's libc has error() */
+extern void gettty(void);
+extern void settty(const char *) NO_NNARGS;
+extern void setftty(void);
+extern void intron(void);
+extern void introff(void);
+/* NLE: GCC's libc has error() */
 #ifdef error
 #undef error
 #endif
-E void VDECL(error, (const char *, ...)) PRINTF_F(1, 2);
+ATTRNORETURN extern void error(const char *, ...) PRINTF_F(1, 2) NORETURN;
+#ifdef ENHANCED_SYMBOLS
+extern void tty_utf8graphics_fixup(void);
+#endif
 #endif /* UNIX || __BEOS__ */
 
 /* ### unixunix.c ### */
 
 #ifdef UNIX
-E void NDECL(getlock);
-E void FDECL(regularize, (char *));
+extern void getlock(void);
+extern void ask_about_panic_save(void);
+extern void regularize(char *) NONNULLARG1;
 #if defined(TIMED_DELAY) && !defined(msleep) && defined(SYSV)
-E void FDECL(msleep, (unsigned));
+extern void msleep(unsigned);
 #endif
 #ifdef SHELL
-E int NDECL(dosh);
+extern int dosh(void);
 #endif /* SHELL */
 #if defined(SHELL) || defined(DEF_PAGER) || defined(DEF_MAILREADER)
-E int FDECL(child, (int));
+extern int child(int);
 #endif
 #ifdef PANICTRACE
-E boolean FDECL(file_exists, (const char *));
+extern boolean file_exists(const char *) NONNULLARG1;
 #endif
 #endif /* UNIX */
 
@@ -2635,386 +3533,516 @@ E boolean FDECL(file_exists, (const char *));
 
 #ifdef UNIX
 #ifdef GNOME_GRAPHICS
-E int FDECL(hide_privileges, (BOOLEAN_P));
+extern int hide_privileges(boolean);
 #endif
 #endif /* UNIX */
 
+/* ### utf8map.c ### */
+
+#ifdef ENHANCED_SYMBOLS
+extern char *mixed_to_utf8(char *buf, size_t bufsz, const char *str,
+                           int *) NONNULLARG1;
+void free_all_glyphmap_u(void);
+int set_map_u(glyph_map *gm, uint32 utf32ch, const uint8 *utf8str) NONNULLPTRS;
+#endif /* ENHANCED_SYMBOLS */
+extern void reset_customsymbols(void);
+
 /* ### vault.c ### */
 
-E void FDECL(newegd, (struct monst *));
-E void FDECL(free_egd, (struct monst *));
-E boolean FDECL(grddead, (struct monst *));
-E struct monst *NDECL(findgd);
-E void NDECL(vault_summon_gd);
-E char FDECL(vault_occupied, (char *));
-E void FDECL(uleftvault, (struct monst *));
-E void NDECL(invault);
-E int FDECL(gd_move, (struct monst *));
-E void FDECL(paygd, (BOOLEAN_P));
-E long NDECL(hidden_gold);
-E boolean NDECL(gd_sound);
-E void FDECL(vault_gd_watching, (unsigned int));
+extern void newegd(struct monst *) NONNULLARG1;
+extern void free_egd(struct monst *) NONNULLARG1;
+extern boolean grddead(struct monst *) NONNULLARG1;
+extern struct monst *findgd(void);
+extern void vault_summon_gd(void);
+extern char vault_occupied(char *) NONNULLARG1;
+extern void uleftvault(struct monst *); /* NULL leads to impossible() */
+extern void invault(void);
+extern int gd_move(struct monst *) NONNULLARG1;
+extern void paygd(boolean);
+extern long hidden_gold(boolean);
+extern boolean gd_sound(void);
+extern void vault_gd_watching(unsigned int);
 
 /* ### version.c ### */
 
-E char *FDECL(version_string, (char *));
-E char *FDECL(getversionstring, (char *));
-E int NDECL(doversion);
-E int NDECL(doextversion);
+extern char *version_string(char *, size_t bufsz) NONNULL NONNULLARG1;
+extern char *getversionstring(char *, size_t bufsz) NONNULL NONNULLARG1;
+extern char *status_version(char *, size_t, boolean) NONNULL NONNULLARG1;
+extern int doversion(void);
+extern int doextversion(void);
 #ifdef MICRO
-E boolean FDECL(comp_times, (long));
+extern boolean comp_times(long);
 #endif
-E boolean
-FDECL(check_version, (struct version_info *, const char *, BOOLEAN_P));
-E boolean FDECL(uptodate, (int, const char *));
-E void FDECL(store_version, (int));
-E unsigned long FDECL(get_feature_notice_ver, (char *));
-E unsigned long NDECL(get_current_feature_ver);
-E const char *FDECL(copyright_banner_line, (int));
-E void FDECL(early_version_info, (BOOLEAN_P));
-
-#ifdef RUNTIME_PORT_ID
-E char *FDECL(get_port_id, (char *));
-#endif
-#ifdef RUNTIME_PASTEBUF_SUPPORT
-E void FDECL(port_insert_pastebuf, (char *));
-#endif
+extern boolean check_version(struct version_info *, const char *, boolean,
+                             unsigned long) NONNULLARG1;
+extern int uptodate(NHFILE *, const char *, unsigned long) NONNULLARG1;
+extern void store_version(NHFILE *) NONNULLARG1;
+extern unsigned long get_feature_notice_ver(char *) NO_NNARGS;
+extern unsigned long get_current_feature_ver(void);
+extern const char *copyright_banner_line(int) NONNULL;
+extern void early_version_info(boolean);
+extern void dump_version_info(void);
+extern void store_critical_bytes(NHFILE *) NONNULLARG1;
+extern int compare_critical_bytes(NHFILE *, int *, unsigned long) NONNULLARG1;
+extern int get_critical_size_count(void);
+extern int validate(NHFILE *, const char *, boolean) NONNULLARG1;
 
 /* ### video.c ### */
 
 #ifdef MSDOS
-E int FDECL(assign_video, (char *));
+extern int assign_video(char *) NONNULLARG1;
 #ifdef NO_TERMS
-E void NDECL(gr_init);
-E void NDECL(gr_finish);
+extern void gr_init(void);
+extern void gr_finish(void);
 #endif
-E void FDECL(tileview, (BOOLEAN_P));
+extern void tileview(boolean);
 #endif
 #ifdef VIDEOSHADES
-E int FDECL(assign_videoshades, (char *));
-E int FDECL(assign_videocolors, (char *));
-#endif
-
-/* ### vis_tab.c ### */
-
-#ifdef VISION_TABLES
-E void NDECL(vis_tab_init);
+extern int assign_videoshades(char *) NONNULLARG1;
+extern int assign_videocolors(char *) NONNULLARG1;
 #endif
 
 /* ### vision.c ### */
 
-E void NDECL(vision_init);
-E int FDECL(does_block, (int, int, struct rm *));
-E void NDECL(vision_reset);
-E void FDECL(vision_recalc, (int));
-E void FDECL(block_point, (int, int));
-E void FDECL(unblock_point, (int, int));
-E boolean FDECL(clear_path, (int, int, int, int));
-E void FDECL(do_clear_area, (int, int, int,
-                             void (*)(int, int, genericptr), genericptr_t));
-E unsigned FDECL(howmonseen, (struct monst *));
+extern boolean get_viz_clear(int, int);
+extern void vision_init(void);
+extern int does_block(int, int, struct rm *) NONNULLARG3;
+extern void vision_reset(void);
+extern void vision_recalc(int);
+extern void block_point(int, int);
+extern void unblock_point(int, int);
+extern void recalc_block_point(coordxy, coordxy);
+extern boolean clear_path(int, int, int, int);
+extern void do_clear_area(coordxy, coordxy, int,
+                          void(*)(coordxy, coordxy, void *), genericptr_t);
+extern unsigned howmonseen(struct monst *) NONNULLARG1;
 
 #ifdef VMS
 
 /* ### vmsfiles.c ### */
 
-E int FDECL(vms_link, (const char *, const char *));
-E int FDECL(vms_unlink, (const char *));
-E int FDECL(vms_creat, (const char *, unsigned int));
-E int FDECL(vms_open, (const char *, int, unsigned int));
-E boolean FDECL(same_dir, (const char *, const char *));
-E int FDECL(c__translate, (int));
-E char *FDECL(vms_basename, (const char *));
+extern int vms_link(const char *, const char *);
+extern int vms_unlink(const char *);
+extern int vms_creat(const char *, unsigned int);
+extern int vms_open(const char *, int, unsigned int);
+extern boolean same_dir(const char *, const char *);
+extern int c__translate(int);
+extern char *vms_basename(const char *, boolean);
 
 /* ### vmsmail.c ### */
 
-E unsigned long NDECL(init_broadcast_trapping);
-E unsigned long NDECL(enable_broadcast_trapping);
-E unsigned long NDECL(disable_broadcast_trapping);
+extern unsigned long init_broadcast_trapping(void);
+extern unsigned long enable_broadcast_trapping(void);
+extern unsigned long disable_broadcast_trapping(void);
 #if 0
-E struct mail_info *NDECL(parse_next_broadcast);
+extern struct mail_info *parse_next_broadcast(void);
 #endif /*0*/
 
 /* ### vmsmain.c ### */
 
-E int FDECL(main, (int, char **));
+extern int main(int, char **);
 #ifdef CHDIR
-E void FDECL(chdirx, (const char *, BOOLEAN_P));
+extern void chdirx(const char *, boolean);
 #endif /* CHDIR */
-E void FDECL(sethanguphandler, (void (*)(int)));
-E boolean NDECL(authorize_wizard_mode);
+extern void sethanguphandler(void(*)(int));
+extern boolean authorize_wizard_mode(void);
+extern boolean authorize_explore_mode(void);
 
 /* ### vmsmisc.c ### */
 
-E void NDECL(vms_abort) NORETURN;
-E void FDECL(vms_exit, (int)) NORETURN;
+ATTRNORETURN extern void vms_abort(void) NORETURN;
+ATTRNORETURN extern void vms_exit(int) NORETURN;
 #ifdef PANICTRACE
-E void FDECL(vms_traceback, (int));
+extern void vms_traceback(int);
 #endif
 
 /* ### vmstty.c ### */
 
-E int NDECL(vms_getchar);
-E void NDECL(gettty);
-E void FDECL(settty, (const char *));
-E void FDECL(shuttty, (const char *));
-E void NDECL(setftty);
-E void NDECL(intron);
-E void NDECL(introff);
-E void VDECL(error, (const char *, ...)) PRINTF_F(1, 2);
+extern int vms_getchar(void);
+extern void gettty(void);
+extern void settty(const char *);
+extern void shuttty(const char *);
+extern void setftty(void);
+extern void intron(void);
+extern void introff(void);
+ATTRNORETURN extern void error (const char *, ...) PRINTF_F(1, 2) NORETURN;
 #ifdef TIMED_DELAY
-E void FDECL(msleep, (unsigned));
+extern void msleep(unsigned);
+#endif
+#ifdef SIGWINCH
+extern void getwindowsz(void);
+#endif
+#ifdef ENHANCED_SYMBOLS
+extern void tty_utf8graphics_fixup(void);
 #endif
 
 /* ### vmsunix.c ### */
 
-E void NDECL(getlock);
-E void FDECL(regularize, (char *));
-E int NDECL(vms_getuid);
-E boolean FDECL(file_is_stmlf, (int));
-E int FDECL(vms_define, (const char *, const char *, int));
-E int FDECL(vms_putenv, (const char *));
-E char *NDECL(verify_termcap);
+extern void getlock(void);
+extern void regularize(char *);
+extern int vms_getuid(void);
+extern boolean file_is_stmlf(int);
+extern int vms_define(const char *, const char *, int);
+extern int vms_putenv(const char *);
+extern char *verify_termcap(void);
 #if defined(CHDIR) || defined(SHELL) || defined(SECURE)
-E void NDECL(privoff);
-E void NDECL(privon);
+extern void privoff(void);
+extern void privon(void);
+#endif
+#ifdef SYSCF
+extern boolean check_user_string(const char *);
 #endif
 #ifdef SHELL
-E int NDECL(dosh);
+extern int dosh(void);
 #endif
 #if defined(SHELL) || defined(MAIL)
-E int FDECL(vms_doshell, (const char *, BOOLEAN_P));
+extern int vms_doshell(const char *, boolean);
 #endif
 #ifdef SUSPEND
-E int NDECL(dosuspend);
+extern int dosuspend(void);
 #endif
 #ifdef SELECTSAVED
-E int FDECL(vms_get_saved_games, (const char *, char ***));
+extern int vms_get_saved_games(const char *, char ***);
 #endif
 
 #endif /* VMS */
 
 /* ### weapon.c ### */
 
-E const char *FDECL(weapon_descr, (struct obj *));
-E int FDECL(hitval, (struct obj *, struct monst *));
-E int FDECL(dmgval, (struct obj *, struct monst *));
-E int FDECL(special_dmgval, (struct monst *, struct monst *, long, long *));
-E void FDECL(silver_sears, (struct monst *, struct monst *, long));
-E struct obj *FDECL(select_rwep, (struct monst *));
-E boolean FDECL(monmightthrowwep, (struct obj *));
-E struct obj *FDECL(select_hwep, (struct monst *));
-E void FDECL(possibly_unwield, (struct monst *, BOOLEAN_P));
-E void FDECL(mwepgone, (struct monst *));
-E int FDECL(mon_wield_item, (struct monst *));
-E int NDECL(abon);
-E int NDECL(dbon);
-E void FDECL(wet_a_towel, (struct obj *, int, BOOLEAN_P));
-E void FDECL(dry_a_towel, (struct obj *, int, BOOLEAN_P));
-E char *FDECL(skill_level_name, (int, char *));
-E const char *FDECL(skill_name, (int));
-E boolean FDECL(can_advance, (int, BOOLEAN_P));
-E int NDECL(enhance_weapon_skill);
-E void FDECL(unrestrict_weapon_skill, (int));
-E void FDECL(use_skill, (int, int));
-E void FDECL(add_weapon_skill, (int));
-E void FDECL(lose_weapon_skill, (int));
-E int FDECL(weapon_type, (struct obj *));
-E int NDECL(uwep_skill_type);
-E int FDECL(weapon_hit_bonus, (struct obj *));
-E int FDECL(weapon_dam_bonus, (struct obj *));
-E void FDECL(skill_init, (const struct def_skill *));
+extern const char *weapon_descr(struct obj *) NONNULLARG1;
+extern int hitval(struct obj *, struct monst *) NONNULLARG12;
+extern int dmgval(struct obj *, struct monst *) NONNULLARG12;
+extern int special_dmgval(struct monst *, struct monst *, long, long *) NONNULLARG12;
+extern void silver_sears(struct monst *, struct monst *, long) NONNULLARG2;
+extern struct obj *select_rwep(struct monst *) NONNULLARG1;
+extern boolean monmightthrowwep(struct obj *) NONNULLARG1;
+extern struct obj *select_hwep(struct monst *) NONNULLARG1;
+extern void possibly_unwield(struct monst *, boolean) NONNULLARG1;
+extern int mon_wield_item(struct monst *) NONNULLARG1;
+extern void mwepgone(struct monst *) NONNULLARG1;
+extern int abon(void);
+extern int dbon(void);
+extern void wet_a_towel(struct obj *, int, boolean) NONNULLARG1;
+extern void dry_a_towel(struct obj *, int, boolean) NONNULLARG1;
+extern char *skill_level_name(int, char *) NONNULLARG2;
+extern const char *skill_name(int);
+extern boolean can_advance(int, boolean);
+extern void show_skills(void);
+extern int enhance_weapon_skill(void);
+extern void unrestrict_weapon_skill(int);
+extern void use_skill(int, int);
+extern void add_weapon_skill(int);
+extern void lose_weapon_skill(int);
+extern void drain_weapon_skill(int);
+extern int weapon_type(struct obj *) NO_NNARGS;
+extern int uwep_skill_type(void);
+/* find_roll_to_hit() calls weapon_hit_bonus() with a NULL argument,
+   preventing NONNULLARG1 */
+extern int weapon_hit_bonus(struct obj *) NO_NNARGS;
+extern int weapon_dam_bonus(struct obj *) NO_NNARGS;
+extern void skill_init(const struct def_skill *) NONNULLARG1;
+extern void setmnotwielded(struct monst *, struct obj *) NONNULLARG1;
+extern const struct throw_and_return_weapon *autoreturn_weapon(struct obj *)
+    NONNULLARG1;
 
 /* ### were.c ### */
 
-E void FDECL(were_change, (struct monst *));
-E int FDECL(counter_were, (int));
-E int FDECL(were_beastie, (int));
-E void FDECL(new_were, (struct monst *));
-E int FDECL(were_summon, (struct permonst *, BOOLEAN_P, int *, char *));
-E void NDECL(you_were);
-E void FDECL(you_unwere, (BOOLEAN_P));
-E void FDECL(set_ulycn, (int));
+extern void were_change(struct monst *) NONNULLARG1;
+extern int counter_were(int);
+extern int were_beastie(int);
+extern void new_were(struct monst *) NONNULLARG1;
+extern int were_summon(struct permonst *, boolean, int *, char *) NONNULLARG13;
+extern void you_were(void);
+extern void you_unwere(boolean);
+extern void set_ulycn(int);
 
 /* ### wield.c ### */
 
-E void FDECL(setuwep, (struct obj *));
-E void FDECL(setuqwep, (struct obj *));
-E void FDECL(setuswapwep, (struct obj *));
-E int NDECL(dowield);
-E int NDECL(doswapweapon);
-E int NDECL(dowieldquiver);
-E boolean FDECL(wield_tool, (struct obj *, const char *));
-E int NDECL(can_twoweapon);
-E void NDECL(drop_uswapwep);
-E int NDECL(dotwoweapon);
-E void NDECL(uwepgone);
-E void NDECL(uswapwepgone);
-E void NDECL(uqwepgone);
-E void NDECL(untwoweapon);
-E int FDECL(chwepon, (struct obj *, int));
-E int FDECL(welded, (struct obj *));
-E void FDECL(weldmsg, (struct obj *));
-E void FDECL(setmnotwielded, (struct monst *, struct obj *));
-E boolean FDECL(mwelded, (struct obj *));
+extern void setuwep(struct obj *) NO_NNARGS; /* NULL:ball.c, do.c */
+extern const char *empty_handed(void);
+extern void setuqwep(struct obj *) NO_NNARGS;  /* NULL:ball.c, do.c */
+extern void setuswapwep(struct obj *) NO_NNARGS; /* NULL: ball.c, do.c */
+extern int dowield(void);
+extern int doswapweapon(void);
+extern int dowieldquiver(void);
+extern int doquiver_core(const char *) NONNULLARG1;
+extern boolean wield_tool(struct obj *, const char *) NONNULLARG1;
+extern int can_twoweapon(void);
+extern void drop_uswapwep(void);
+extern int dotwoweapon(void);
+extern void uwepgone(void);
+extern void uswapwepgone(void);
+extern void uqwepgone(void);
+extern void set_twoweap(boolean);
+extern void untwoweapon(void);
+extern int chwepon(struct obj *, int) NO_NNARGS;
+extern int welded(struct obj *) NO_NNARGS;
+extern void weldmsg(struct obj *) NONNULLARG1;
+extern boolean mwelded(struct obj *) NO_NNARGS;
 
 /* ### windows.c ### */
 
-E void FDECL(choose_windows, (const char *));
+extern void choose_windows(const char *) NONNULLARG1;
 #ifdef WINCHAIN
-void FDECL(addto_windowchain, (const char *s));
-void NDECL(commit_windowchain);
+void addto_windowchain(const char *s) NONNULLARG1;
+void commit_windowchain(void);
 #endif
-E boolean NDECL(genl_can_suspend_no);
-E boolean NDECL(genl_can_suspend_yes);
-E char FDECL(genl_message_menu, (CHAR_P, int, const char *));
-E void FDECL(genl_preference_update, (const char *));
-E char *FDECL(genl_getmsghistory, (BOOLEAN_P));
-E void FDECL(genl_putmsghistory, (const char *, BOOLEAN_P));
+#ifdef TTY_GRAPHICS
+extern boolean check_tty_wincap(unsigned long);
+extern boolean check_tty_wincap2(unsigned long);
+#endif
+extern boolean genl_can_suspend_no(void);
+extern boolean genl_can_suspend_yes(void);
+extern char genl_message_menu(char, int, const char *) NONNULLARG3;
+extern void genl_preference_update(const char *) NO_NNARGS;
+extern char *genl_getmsghistory(boolean);
+extern void genl_putmsghistory(const char *, boolean) NONNULLARG1;
 #ifdef HANGUPHANDLING
-E void NDECL(nhwindows_hangup);
+extern void nhwindows_hangup(void);
 #endif
-E void NDECL(genl_status_init);
-E void NDECL(genl_status_finish);
-E void FDECL(genl_status_enablefield, (int, const char *, const char *,
-                                       BOOLEAN_P));
-E void FDECL(genl_status_update, (int, genericptr_t, int, int, int,
-                                  unsigned long *));
+extern void genl_status_init(void);
+extern void genl_status_finish(void);
+extern void genl_status_enablefield(int, const char *, const char *,
+                                    boolean) NONNULLPTRS;
+extern void genl_status_update(int, genericptr_t, int, int, int,
+                               unsigned long *) NONNULLARG2;
 #ifdef DUMPLOG
-E char *FDECL(dump_fmtstr, (const char *, char *, BOOLEAN_P));
+extern char *dump_fmtstr(const char *, char *, boolean) NONNULLPTRS;
 #endif
-E void FDECL(dump_open_log, (time_t));
-E void NDECL(dump_close_log);
-E void FDECL(dump_redirect, (BOOLEAN_P));
-E void FDECL(dump_forward_putstr, (winid, int, const char*, int));
+extern void dump_open_log(time_t);
+extern void dump_close_log(void);
+extern void dump_redirect(boolean);
+extern void dump_forward_putstr(winid, int, const char*, int) NONNULLARG3;
+extern int has_color(int);
+extern int glyph2ttychar(int);
+extern int glyph2symidx(int);
+extern char *encglyph(int);
+extern int decode_glyph(const char *str, int *glyph_ptr) NONNULLPTRS;
+extern char *decode_mixed(char *, const char *) NONNULLARG1;
+extern void genl_putmixed(winid, int, const char *) NONNULLARG3;
+extern void genl_display_file(const char *, boolean) NONNULLARG1;
+extern boolean menuitem_invert_test(int, unsigned, boolean);
+extern const char *mixed_to_glyphinfo(const char *str,
+                                      glyph_info *gip) NO_NNARGS;
+extern void adjust_menu_promptstyle(winid, color_attr *) NONNULLARG2;
+extern int choose_classes_menu(const char *, int, boolean,
+                               char *, char *) NONNULLARG1;
+extern void add_menu(winid, const glyph_info *, const ANY_P *,
+                     char, char, int, int, const char *, unsigned int);
+extern void add_menu_heading(winid, const char *) NONNULLARG2;
+extern void add_menu_str(winid, const char *) NONNULLARG2;
+extern int select_menu(winid, int, menu_item **) NONNULLARG3;
+extern void getlin(const char *, char *) NONNULLARG2;
 
-/* ### winnt.c ### */
+/* ### windsys.c ### */
+
 #ifdef WIN32
-E void NDECL(nethack_enter_winnt);
+extern void nethack_enter_windows(void);
 #endif
 
 /* ### wizard.c ### */
 
-E void NDECL(amulet);
-E int FDECL(mon_has_amulet, (struct monst *));
-E int FDECL(mon_has_special, (struct monst *));
-E int FDECL(tactics, (struct monst *));
-E boolean FDECL(has_aggravatables, (struct monst *));
-E void NDECL(aggravate);
-E void NDECL(clonewiz);
-E int NDECL(pick_nasty);
-E int FDECL(nasty, (struct monst *));
-E void NDECL(resurrect);
-E void NDECL(intervene);
-E void NDECL(wizdead);
-E void FDECL(cuss, (struct monst *));
+extern void amulet(void);
+extern int mon_has_amulet(struct monst *) NONNULLARG1;
+extern int mon_has_special(struct monst *) NONNULLARG1;
+extern void choose_stairs(coordxy *, coordxy *, boolean) NONNULLARG12;
+extern int tactics(struct monst *) NONNULLARG1;
+extern boolean has_aggravatables(struct monst *) NONNULLARG1;
+extern void aggravate(void);
+extern void clonewiz(void);
+extern int pick_nasty(int);
+extern int nasty(struct monst *) NO_NNARGS;
+extern void resurrect(void);
+extern void intervene(void);
+extern void wizdeadorgone(void);
+extern void cuss(struct monst *) NONNULLARG1;
+
+/* ### wizcmds.c ### */
+
+extern int wiz_custom(void);
+extern int wiz_detect(void);
+extern int wiz_flip_level(void);
+extern int wiz_fuzzer(void);
+extern int wiz_genesis(void);
+extern int wiz_identify(void);
+extern int wiz_intrinsic(void);
+extern int wiz_kill(void);
+extern int wiz_level_change(void);
+extern int wiz_level_tele(void);
+extern int wiz_load_lua(void);
+extern int wiz_load_splua(void);
+extern int wiz_makemap(void);
+extern int wiz_map(void);
+extern int wiz_migrate_mons(void);
+extern int wiz_panic(void);
+extern int wiz_polyself(void);
+extern int wiz_rumor_check(void);
+extern int wiz_show_seenv(void);
+extern int wiz_show_stats(void);
+extern int wiz_show_vision(void);
+extern int wiz_show_wmodes(void);
+extern int wiz_smell(void);
+extern int wiz_telekinesis(void);
+extern int wiz_where(void);
+extern int wiz_wish(void);
+extern void makemap_remove_mons(void);
+extern void wiz_levltyp_legend(void);
+extern void wiz_map_levltyp(void);
+extern void wizcustom_callback(winid win, int glyphnum, char *id);
+#if (NH_DEVEL_STATUS != NH_STATUS_RELEASED) || defined(DEBUG)
+extern int wiz_display_macros(void);
+extern int wiz_mon_diff(void);
+extern int wiz_objprobs(void);
+extern int wiz_show_nhuuid(void);
+#endif
+extern void sanity_check(void);
 
 /* ### worm.c ### */
 
-E int NDECL(get_wormno);
-E void FDECL(initworm, (struct monst *, int));
-E void FDECL(worm_move, (struct monst *));
-E void FDECL(worm_nomove, (struct monst *));
-E void FDECL(wormgone, (struct monst *));
-E void FDECL(wormhitu, (struct monst *));
-E void FDECL(cutworm, (struct monst *, XCHAR_P, XCHAR_P, BOOLEAN_P));
-E void FDECL(see_wsegs, (struct monst *));
-E void FDECL(detect_wsegs, (struct monst *, BOOLEAN_P));
-E void FDECL(save_worm, (int, int));
-E void FDECL(rest_worm, (int));
-E void FDECL(place_wsegs, (struct monst *, struct monst *));
-E void FDECL(sanity_check_worm, (struct monst *));
-E void FDECL(remove_worm, (struct monst *));
-E void FDECL(place_worm_tail_randomly, (struct monst *, XCHAR_P, XCHAR_P));
-E int FDECL(size_wseg, (struct monst *));
-E int FDECL(count_wsegs, (struct monst *));
-E boolean FDECL(worm_known, (struct monst *));
-E boolean FDECL(worm_cross, (int, int, int, int));
-E int FDECL(wseg_at, (struct monst *, int, int));
+extern int get_wormno(void);
+extern void initworm(struct monst *, int) NONNULLARG1;
+extern void worm_move(struct monst *) NONNULLARG1;
+extern void worm_nomove(struct monst *) NONNULLARG1;
+extern void wormgone(struct monst *) NONNULLARG1;
+extern int wormhitu(struct monst *) NONNULLARG1;
+extern void cutworm(struct monst *, coordxy, coordxy, boolean) NONNULLARG1;
+extern void see_wsegs(struct monst *) NONNULLARG1;
+extern void detect_wsegs(struct monst *, boolean) NONNULLARG1;
+extern void save_worm(NHFILE *) NONNULLARG1;
+extern void rest_worm(NHFILE *) NONNULLARG1;
+extern void place_wsegs(struct monst *, struct monst *) NONNULLARG1;
+extern void sanity_check_worm(struct monst *);  /* NULL leads to impossible */
+extern void wormno_sanity_check(void);
+extern void remove_worm(struct monst *) NONNULLARG1;
+extern void place_worm_tail_randomly(struct monst *, coordxy, coordxy) NONNULLARG1;
+extern int size_wseg(struct monst *) NONNULLARG1;
+extern int count_wsegs(struct monst *) NONNULLARG1;
+extern boolean worm_known(struct monst *) NONNULLARG1;
+extern boolean worm_cross(int, int, int, int);
+extern int wseg_at(struct monst *, int, int) NO_NNARGS;
+extern void flip_worm_segs_vertical(struct monst *, int, int) NONNULLARG1;
+extern void flip_worm_segs_horizontal(struct monst *, int, int) NONNULLARG1;
+extern void redraw_worm(struct monst *);
 
 /* ### worn.c ### */
 
-E void FDECL(setworn, (struct obj *, long));
-E void FDECL(setnotworn, (struct obj *));
-E struct obj *FDECL(wearmask_to_obj, (long));
-E long FDECL(wearslot, (struct obj *));
-E void FDECL(mon_set_minvis, (struct monst *));
-E void FDECL(mon_adjust_speed, (struct monst *, int, struct obj *));
-E void FDECL(update_mon_intrinsics,
-             (struct monst *, struct obj *, BOOLEAN_P, BOOLEAN_P));
-E int FDECL(find_mac, (struct monst *));
-E void FDECL(m_dowear, (struct monst *, BOOLEAN_P));
-E struct obj *FDECL(which_armor, (struct monst *, long));
-E void FDECL(mon_break_armor, (struct monst *, BOOLEAN_P));
-E void FDECL(bypass_obj, (struct obj *));
-E void NDECL(clear_bypasses);
-E void FDECL(bypass_objlist, (struct obj *, BOOLEAN_P));
-E struct obj *FDECL(nxt_unbypassed_obj, (struct obj *));
-E struct obj *FDECL(nxt_unbypassed_loot, (Loot *, struct obj *));
-E int FDECL(racial_exception, (struct monst *, struct obj *));
+extern void recalc_telepat_range(void);
+extern void setworn(struct obj *, long) NO_NNARGS; /* has tests for obj */
+extern void setnotworn(struct obj *) NO_NNARGS; /* has tests for obj */
+extern void allunworn(void);
+extern struct obj *wearmask_to_obj(long);
+extern int wornmask_to_armcat(long);
+extern long armcat_to_wornmask(int);
+extern long wearslot(struct obj *) NONNULLARG1;
+extern void check_wornmask_slots(void);
+extern void mon_set_minvis(struct monst *, boolean) NONNULLARG1;
+extern void mon_adjust_speed(struct monst *, int, struct obj *) NONNULLARG1;
+extern void update_mon_extrinsics(struct monst *, struct obj *, boolean,
+                                  boolean) NONNULLARG12;
+extern int find_mac(struct monst *) NONNULLARG1;
+extern void m_dowear(struct monst *, boolean) NONNULLARG1;
+extern struct obj *which_armor(struct monst *, long) NONNULLARG1;
+extern void mon_break_armor(struct monst *, boolean) NONNULLARG1;
+extern void bypass_obj(struct obj *) NONNULLARG1;
+extern void clear_bypasses(void);
+/* callers don't check gi.invent before passing to bypass_objlist */
+extern void bypass_objlist(struct obj *, boolean) NO_NNARGS;
+extern struct obj *nxt_unbypassed_obj(struct obj *) NO_NNARGS;
+extern struct obj *nxt_unbypassed_loot(Loot *, struct obj *) NONNULLARG1;
+extern int racial_exception(struct monst *, struct obj *) NONNULLARG12;
+extern void extract_from_minvent(struct monst *, struct obj *, boolean,
+                                 boolean) NONNULLARG12;
 
 /* ### write.c ### */
 
-E int FDECL(dowrite, (struct obj *));
+extern int dowrite(struct obj *) NONNULLARG1;
 
 /* ### zap.c ### */
 
-E void FDECL(learnwand, (struct obj *));
-E int FDECL(bhitm, (struct monst *, struct obj *));
-E void FDECL(probe_monster, (struct monst *));
-E boolean FDECL(get_obj_location, (struct obj *, xchar *, xchar *, int));
-E boolean FDECL(get_mon_location, (struct monst *, xchar *, xchar *, int));
-E struct monst *FDECL(get_container_location,
-                      (struct obj * obj, int *, int *));
-E struct monst *FDECL(montraits, (struct obj *, coord *, BOOLEAN_P));
-E struct monst *FDECL(revive, (struct obj *, BOOLEAN_P));
-E int FDECL(unturn_dead, (struct monst *));
-E void FDECL(cancel_item, (struct obj *));
-E boolean FDECL(drain_item, (struct obj *, BOOLEAN_P));
-E struct obj *FDECL(poly_obj, (struct obj *, int));
-E boolean FDECL(obj_resists, (struct obj *, int, int));
-E boolean FDECL(obj_shudders, (struct obj *));
-E void FDECL(do_osshock, (struct obj *));
-E int FDECL(bhito, (struct obj *, struct obj *));
-E int FDECL(bhitpile,
-            (struct obj *, int (*)(OBJ_P, OBJ_P), int, int, SCHAR_P));
-E int FDECL(zappable, (struct obj *));
-E void FDECL(zapnodir, (struct obj *));
-E int NDECL(dozap);
-E int FDECL(zapyourself, (struct obj *, BOOLEAN_P));
-E void FDECL(ubreatheu, (struct attack *));
-E int FDECL(lightdamage, (struct obj *, BOOLEAN_P, int));
-E boolean FDECL(flashburn, (long));
-E boolean FDECL(cancel_monst, (struct monst *, struct obj *, BOOLEAN_P,
-                               BOOLEAN_P, BOOLEAN_P));
-E void NDECL(zapsetup);
-E void NDECL(zapwrapup);
-E void FDECL(weffects, (struct obj *));
-E int FDECL(spell_damage_bonus, (int));
-E const char *FDECL(exclam, (int force));
-E void FDECL(hit, (const char *, struct monst *, const char *));
-E void FDECL(miss, (const char *, struct monst *));
-E struct monst *FDECL(bhit, (int, int, int, enum bhit_call_types,
-                             int (*)(MONST_P, OBJ_P),
-                             int (*)(OBJ_P, OBJ_P), struct obj **));
-E struct monst *FDECL(boomhit, (struct obj *, int, int));
-E int FDECL(zhitm, (struct monst *, int, int, struct obj **));
-E int FDECL(burn_floor_objects, (int, int, BOOLEAN_P, BOOLEAN_P));
-E void FDECL(buzz, (int, int, XCHAR_P, XCHAR_P, int, int));
-E void FDECL(dobuzz, (int, int, XCHAR_P, XCHAR_P, int, int, BOOLEAN_P));
-E void FDECL(melt_ice, (XCHAR_P, XCHAR_P, const char *));
-E void FDECL(start_melt_ice_timeout, (XCHAR_P, XCHAR_P, long));
-E void FDECL(melt_ice_away, (ANY_P *, long));
-E int FDECL(zap_over_floor, (XCHAR_P, XCHAR_P, int, boolean *, SHORT_P));
-E void FDECL(fracture_rock, (struct obj *));
-E boolean FDECL(break_statue, (struct obj *));
-E void FDECL(destroy_item, (int, int));
-E int FDECL(destroy_mitem, (struct monst *, int, int));
-E int FDECL(resist, (struct monst *, CHAR_P, int, int));
-E void NDECL(makewish);
+extern void learnwand(struct obj *) NONNULLARG1;
+extern int bhitm(struct monst *, struct obj *) NONNULLARG12;
+extern void release_hold(void);
+extern void probe_monster(struct monst *) NONNULLARG1;
+extern boolean get_obj_location(struct obj *, coordxy *, coordxy *,
+                                int) NONNULLPTRS;
+extern boolean get_mon_location(struct monst *, coordxy *, coordxy *,
+                                int) NONNULLPTRS;
+extern struct monst *get_container_location(struct obj *,
+                                            int *, int *) NONNULLARG2;
+extern struct monst *montraits(struct obj *, coord *, boolean) NONNULLARG12;
+extern struct monst *revive(struct obj *, boolean) NONNULLARG1;
+extern int unturn_dead(struct monst *) NONNULLARG1;
+extern void unturn_you(void);
+extern void cancel_item(struct obj *) NONNULLARG1;
+extern void blank_novel(struct obj *) NONNULLARG1;
+extern boolean drain_item(struct obj *, boolean) NO_NNARGS; /* tests !obj */
+extern boolean obj_unpolyable(struct obj *) NONNULLARG1;
+extern struct obj *poly_obj(struct obj *, int) NONNULLARG1;
+extern boolean obj_resists(struct obj *, int, int) NONNULLARG1;
+extern boolean obj_shudders(struct obj *) NONNULLARG1;
+extern void do_osshock(struct obj *) NONNULLARG1;
+extern int bhito(struct obj *, struct obj *) NONNULLARG12;
+extern int bhitpile(struct obj *, int(*)(struct obj *, struct obj *),
+                    coordxy, coordxy, schar) NONNULLARG12;
+extern int zappable(struct obj *) NONNULLARG1;
+extern void do_enlightenment_effect(void);
+extern void zapnodir(struct obj *) NONNULLARG1;
+extern int dozap(void);
+extern int zapyourself(struct obj *, boolean) NONNULLARG1;
+extern void ubreatheu(struct attack *) NONNULLARG1;
+extern int lightdamage(struct obj *, boolean, int) NONNULLARG1;
+extern boolean flashburn(long, boolean);
+extern boolean cancel_monst(struct monst *, struct obj *, boolean, boolean,
+                            boolean) NONNULLARG12;
+extern void zapsetup(void);
+extern void zapwrapup(void);
+extern void weffects(struct obj *) NONNULLARG1;
+extern int spell_damage_bonus(int);
+extern const char *exclam(int force) NONNULL;
+extern void hit(const char *, struct monst *, const char *) NONNULLPTRS;
+extern void miss(const char *, struct monst *) NONNULLPTRS;
+extern struct monst *bhit(int, int, int, enum bhit_call_types,
+                          int(*)(struct monst *, struct obj *),
+                          int(*)(struct obj *, struct obj *),
+                          struct obj **) NONNULLARG7;
+extern struct monst *boomhit(struct obj *, int, int) NONNULLARG1;
+extern int zhitm(struct monst *, int, int, struct obj **) NONNULLPTRS;
+extern int burn_floor_objects(coordxy, coordxy, boolean, boolean);
+extern void ubuzz(int, int);
+extern void buzz(int, int, coordxy, coordxy, int, int);
+extern void dobuzz(int, int, coordxy, coordxy, int, int,
+                   boolean, boolean, boolean);
+extern void melt_ice(coordxy, coordxy, const char *) NO_NNARGS;
+extern void start_melt_ice_timeout(coordxy, coordxy, long);
+extern void melt_ice_away(union any *, long) NONNULLARG1;
+extern int zap_over_floor(coordxy, coordxy, int, boolean *,
+                          boolean, short) NONNULLARG4;
+extern void mon_spell_hits_spot(struct monst *, int, coordxy x, coordxy y);
+extern void fracture_rock(struct obj *) NONNULLARG1;
+extern boolean break_statue(struct obj *) NONNULLARG1;
+extern int u_adtyp_resistance_obj(int);
+extern boolean inventory_resistance_check(int);
+extern char *item_what(int);
+extern int destroy_items(struct monst *, int, int) NONNULLARG1;
+extern int resist(struct monst *, char, int, int) NONNULLARG1;
+extern void wish_history_add(char *);
+extern void wish_history_flush(void);
+extern void makewish(void);
+extern const char *flash_str(int, boolean) NONNULL;
 
-#endif /* !MAKEDEFS_C && !LEV_LEX_C */
+/* ### unixmain.c, windsys.c ### */
 
-#undef E
+#ifdef RUNTIME_PORT_ID
+extern char *get_port_id(char *);
+#endif
+#ifdef RUNTIME_PASTEBUF_SUPPORT
+extern void port_insert_pastebuf(char *);
+#endif
+extern void get_nhuuid(void);
+extern void free_nhuuid(void);
+
+#endif /* !MAKEDEFS_C && !MDLIB_C */
 
 #endif /* EXTERN_H */
+
+/*extern.h*/
