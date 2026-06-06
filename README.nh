@@ -1,45 +1,43 @@
-         NetHack 3.6.7 -- General information February 2023
+         NetHack 5.0.0 -- General information
 
-NetHack 3.6 is an enhancement to the dungeon exploration game NetHack,
-which is a distant descendent of Rogue and Hack, and a direct descendent of
-NetHack 3.4 as there was no NetHack 3.5 release.
+NetHack 5.0 is an enhancement to the dungeon exploration game NetHack,
+which is a distant descendent of Rogue and Hack, and a direct descendent
+of NetHack 3.6.
 
-NetHack 3.6.7 is the official release of NetHack that follows NetHack 3.6.6
-and contains bug fixes since 3.6.6, including a security fix which prompted
-the release.
+NetHack 5.0.0 is a release of NetHack. As a .0 version, there may be some
+bugs encountered. Constructive suggestions, GitHub pull requests, and bug
+reports are all welcome and encouraged.
 
-The file doc/fixes36.7 in the source distribution has a full list of fixes.
-The text in there was written for the development team's own use and is
-provided "as is", so please do not ask us to further explain the entries in
-that file.  Some entries might be considered "spoilers", particularly in the
-"new features" section.
+The file doc/fixes5-0-0.txt in the source distribution contains a full list
+of fixes and changes as they were committed. The text in there was written
+for the development team's own use and is provided  "as is", so please do
+not ask us to further explain the entries in that file. Some entries might
+be considered "spoilers", particularly in the "new features" section.
 
-Below you will find some other general notes that were not considered
-spoilers:
+Along with the game improvements and bug fixes, NetHack 5.0 strives to make
+some general architectural improvements to the game or to its building
+process. Among them, 5.0 has:
 
- *  during engraving, spaces were counted instead of non-space (cherry-pick of
-        4e0a1e04 from NetHack-3.7)
- *  avoid potential buffer overflow in append_str()
- *  resolve missing dependency in NetHack.sln
- *  code in include/tradstdc.h was trying to suppress warn_unused result by
-        defining warn_unused_result to an empty string and that began causing
-        a build error within a system-supplied header file cdefs.h when using
-        ubuntu impish 21.10; disable that for any Linux unless GCC_URWARN is
-        defined to force it back into effect
- *  update_inventory() after leash goes slack
- *  player assigned name for monsters, specific objects, or object types could be
-        longer than what was intented to be allowed; for 'curses', much longer
- *  windows: added winflexbison to travis-ci configuration to permit full build of
-             levcomp and dgncomp
- *  windows: a bad chdir specified in win/win32/dgnstuff.mak caused full build to
-             abort
- *  windows: the console.rc file had outdated information stating 3.6.3 when the
-             official 3.6.6 binary was built.
- *  windows: switch from using keyhandling dll's to incorporating the three 
-             variations (default, ray, 340) in sys/winnt/nttty.c
- *  curses: cherry-picked selectsaved code from 3.7 for menu of save files
- *  NetHackW: fix delay rendering of cursor when using farlook
- 
+ *  The source code is compliant with the C99 standard.
+
+ *  removes barriers to building NetHack on one platform and operating system,
+    for later execution on another (possibly quite different) platform and/or
+    operating system. That capability is generally known as "cross-compiling."
+    See the file "Cross-compiling" in the top-level folder for more information
+    on that.
+
+ *  The build-time "yacc and lex"-based level compiler, the
+    "yacc and lex"-based dungeon compiler, and the quest text file processing
+    previously done by NetHack's "makedefs" utility, have been replaced with
+    Lua text alternatives that are loaded and processed by the game during play.
+
+Here are some other general notes on the changes in NetHack 5.0 that were not
+considered spoilers:
+ -  automatic annotation "gateway to Moloch's Sanctum" for vibrating square
+        level once that square's location becomes known (found or magic
+        mapped); goes away once sanctum temple is found (entered or high altar
+        mapped)
+
                         - - - - - - - - - - -
 
 Please read items (1), (2) and (3) BEFORE doing anything with your new code.
@@ -66,80 +64,45 @@ Please read items (1), (2) and (3) BEFORE doing anything with your new code.
     "license" in the 'dat' subdirectory.  It is expected that you comply
     with the terms of that license, and we are very serious about it.
 
-4.  If everything is in order, you can now turn to trying to get the program
+4.  If you are attempting to build NetHack on one platform/processor, to
+    produce a game on a different platform/processor it may behoove you to
+    read the file "Cross-compiling" in your Top directory.
+
+5.  If everything is in order, you can now turn to trying to get the program
     to compile and run on your particular system.  It is worth mentioning
     that the default configuration is SysV/Sun/Solaris2.x (simply because
     the code was housed on such a system).
 
-    The files sys/*/Install.* were written to guide you in configuring the
-    program for your operating system.  The files win/*/Install.* are
-    available, where necessary, to help you in configuring the program
-    for particular windowing environments.  Reading them, and the man pages,
-    should answer most of your questions.
+    The files sys/*/Install.*, or sys/*/NewInstall.* were written to guide
+    you in configuring the program for your operating system.  The files
+    win/*/Install.* are available, where necessary, to help you in
+    configuring the program for particular windowing environments.
+    Reading them, and the man pages, should answer most of your questions.
 
-    At the time of this release, NetHack 3.6 has been tested to run/compile
-    on:
 
-        Intel Pentium or better (or clone) running Linux, BSDI, or
-                Windows (7 through 10)
-        Intel 80386 or greater (or clone) boxes running Linux, or BSDI
-        Mac OS X 10.11 (follow the instructions in sys/unix, not sys/mac)
+    At the time of the most recent official release, NetHack 5.0, it had
+    been tested to run and/or compile on:
+
+        Intel Pentium or better running Linux, BSDI
+            [compiles, runs]
+        Intel Pentium or better running Windows 10 or 11
+            [compiles, runs]
+        Intel-based, or Apple M1, M2, M3, M4, M5 Macs running
+            [compiles, runs]
+            macOS 10.11 (El Capitan) to macOS 26 (Tahoe) [compile, run]
+            (follow the instructions in sys/unix/NewInstall.unx)
+        Intel 80386 or greater running MS-DOS with DPMI
+            [cross-compiles on Linux, runs on MS-DOS, emulator/dosbox]
+            built via djgpp compiler (native or Linux-hosted cross-compiler)
+        AmigaOS 3.0 or later
+            [cross-compiles on Linux or macOS, runs on Amiga or emulator]
+            Running requires Kickstart 39+
+            6 MB free RAM minimum (8 MB recommended)
+            Hard drive with ~5 MB free space
+
+    There has also been some success runing/comiling on:
         OpenVMS (aka VMS) V8.4 on Alpha and on Integrity/Itanium/IA64
-
-    Instructions have been provided by way of community contribution on:
-        msdos protected mode using djgpp
-
-    Previous versions of NetHack were tested and known to run on the
-    following systems, but it is unknown if they can still build and
-    execute NetHack 3.6:
-
-        Apple Macintosh running MacOS 7.5 or higher, LinuxPPC, BeOS 4.0
-        Atari ST/TT/Falcon running TOS (or MultiTOS) with GCC
-        AT&T 3B1 running System V (3.51)
-        AT&T 3B2/600 & 3B2/622 running System V R3.2.1
-        AT&T 3B2/1000 Model 80 running System V R3.2.2
-        AT&T 3B4000 running System V
-        AT&T 6386 running System V R3.2
-        Commodore Amiga running AmigaDOS 3.0 or higher with SAS/C 6.x
-                (but see Makefile.ami about DICE and Manx)
-        Data General AViiON systems running DG/UX
-        DEC Alpha/VMS (aka OpenVMS AXP), running V1.x through V7.1
-        DEC VAX/VMS, running V4.6 through V7.1
-        DEC vaxen running BSD, Ultrix
-        Decstations running Ultrix 3.1, 4.x
-        Encore Multimax running UMAX 4.2
-        Gould NP1 running UTX 3/2
-        HP 9000s300 running HP-UX
-        HP 9000s700 running HP-UX 9.x, 10.x, 11.x
-        H/PC Pro devices running Windows CE 2.11 and higher.
-        IBM PC/RT and RS/6000 running AIX 3.x
-        IBM PS/2 and AT compatibles running OS/2 - 2.0 and up with GCC emx
-        IBM PS/2 and AT compatibles running OS/2 1.1 - 2.0 (and probably
-           Warp) with Microsoft 6.0, and OS/2 2.0 and up with IBM CSet++ 2.0.
-        Intel 80386 or greater (or clone) running 386BSD
-        Intel 80386 or greater (or clone) boxes running MS-DOS with DPMI.
-        Intel x86 running a version of Windows prior to XP.
-        Mips M2000 running RiscOS 4.1
-        NeXT running Mach (using BSD configuration)
-        Palm Size PC 1.1 devices running Windows CE 2.11
-        Pocket PC devices running Windows CE 3.0 and higher
-        Pyramid 9820x running OSx 4.4c
-        SGI Iris running IRIX
-        Stardent Vistra 800 running SysV R4.0
-        Stride 460 running UniStride 2.1
-        Sun-3s, -4s, and -386is running SunOS 3.x
-        Sun-3s and -386is running SunOS 4.x
-        Sun SPARC based machine running SunOS 4.x, Solaris 2.x, or Solaris 7
-        Valid Logic Systems SCALD-System
-
-    Previous versions, using a cross-compiler hosted on another platform,
-    such as  win32, could also build the following from source:
-        Pocket PC devices running Windows CE 3.0 and higher
-        H/PC Pro devices running Windows CE 2.11 and higher
-        Palm Size PC 1.1 devices running Windows CE 2.11
-
-    Unless otherwise mentioned, the compiler used was the OS-vendor's
-    C compiler.
+        OpenVMS (ask VMS) V9.2-3 on x86-64
 
                         - - - - - - - - - - -
 
@@ -186,6 +149,6 @@ In our own patches, we will assume that your code is synchronized with ours.
 
                   -- Good luck, and happy Hacking --
 
-# $NHDT-Date: 1672610729 2023/01/01 22:05:29 $ $NHDT-Branch: releasebits-3.6 $:$NHDT-Revision: 1.81 $
+# $NHDT-Date: 1652133501 2022/05/09 21:58:21 $ $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.97 $
 # Copyright (c) 2012 by Michael Allison
 # NetHack may be freely redistributed.  See license for details.
