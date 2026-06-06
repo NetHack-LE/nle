@@ -1,275 +1,280 @@
-.TH MAKEDEFS 6 "25 May 2015" NETHACK
-.de ND
-.ds Nd \\$3
-..
+.\"DO NOT REMOVE NH_DATESUB .TH MAKEDEFS 6 "Date(%-d %B %Y)" Project(uc)
+.TH MAKEDEFS 6 "26 April 2026" NETHACK
+.\"DO NOT REMOVE NH_DATESUB .ds Nd Date(%Y)
+.ds Nd 2024
 .de NB
 .ds Nb \\$2
 ..
 .de NR
 .ds Nr \\$2
 ..
-.ND $NHDT-Date: 1524689549 2018/04/25 20:52:29 $
-.NB $NHDT-Branch: NetHack-3.6.0 $
-.NR $NHDT-Revision: 1.10 $
+.NB $NHDT-Branch: NetHack-5 $
+.NR $NHDT-Revision: 1.22 $
+.ie \n(.g .ds ^ \(ha
+.el       .ds ^ ^
+.\" groff and AT&T-descended troffs use different hyphenation patterns.
+.\" Don't hyphenate the last word on a page or column, or
+.\" before/after last/first 2 characters of a word.
+.ie \n(.g .hy 12
+.el       .hy 14
 .ds Na Kenneth Lorber
 .SH NAME
 makedefs \- NetHack miscellaneous build-time functions
 .SH SYNOPSIS
 .B makedefs
-{
-.B -o
-|
-.B -d
-|
-.B -e
-|
-.B -m
-|
-.B -v
-|
-.B -p
-|
-.B -q
-|
-.B -r
-|
-.B -h
-|
-.B -z
+{\c
+.BR \-o |\c
+.BR \-d |\c
+.BR \-e |\c
+.BR \-m |\c
+.BR \-v |\c
+.BR \-p |\c
+.BR \-q |\c
+.BR \-r |\c
+.B \-h\c
 }
 .P
-.B makedefs --input
+.B makedefs \-\-input
 .I file
-.B --output
+.B \-\-output
 .I file
-.BI -- command
+.BI \-\- command
 .SH DESCRIPTION
-.PP
 .B Makedefs
 is a build-time tool used for a variety of
-.BR NetHack (6)
-source file creation and modification tasks.  For historical reasons,
+.IR nethack (6)
+source file creation and modification tasks.
+For historical reasons,
 .B makedefs
-takes two types of command lines.  When invoked with a short option, the
-files operated on are determined when
+takes two types of command lines.
+When invoked with a short option,
+the files operated on are determined when
 .B makedefs
-is compiled.  When invoked with a long option, the
-.B --input
-and 
-.B --output
+is compiled.
+When invoked with a long option,
+the
+.B \-\-input
+and
+.B \-\-output
 options are used to specify the files for the
-.BI -- command.
+.BI \-\- command.
 Each command is only available in one of the two formats.
 .SH SHORT COMMANDS
 Upper and lower case are both accepted for the short commands.
 .TP
-.B -o
+.B \-o
 Generate
-.I onames.h.
-.br
+.IR onames.h .
 .TP
-.B -d
+.B \-d
 Generate
-.I data.base.
-.br
+.IR data.base .
 .TP
-.B -e
+.B \-e
 Generate
-.I dungeon.pdf.
+.IR dungeon.pdf .
 The input file
 .I dungeon.def
 is passed through the
 same logic as that used by the
-.B --grep
+.B \-\-grep
 command; see the
 .B MDGREP FUNCTIONS
 section below for details.
-.br
 .TP
-.B -m
-Generate
-.I monster.c.
-.br
-.TP
-.B -v
+.B \-m
 Generate
 .I date.h
 and
 .I options
-file. It will read 
+file.
+It will read
 .IR dat/gitinfo.txt ,
 only if it is present, to obtain 
 .B githash=
 and 
 .B gitbranch=
- info and include related preprocessor #defines in
+info and include related preprocessor #defines in
 .I date.h
 file.
-.br
 .TP
-.B -p
+.B \-p
 Generate
-.I pm.h
-.br
+.IR pm.h .
 .TP
-.B -q
-Generate
-.IR quest.dat .
-.br
-.TP
-.B -r
+.B \-q
 Generate the
 .I rumors
 file.
-.br
 .TP
-.B -s
+.B \-s
+Generate the
+.IR bogusmon ,
+.IR engrave ,
+and
+.I epitaph
+files.
+.TP
+.B \-1
+Generate the
+.I epitaph
+file.
+.TP
+.B \-2
+Generate the
+.I engrave
+file.
+.TP
+.B \-3
 Generate the
 .I bogusmon
-,
-.I engrave
-and
-.IR epitaph files.
-.br
-.TP
-.B -h
-Generate the
-.B oracles
 file.
-.br
 .TP
-.B -z
-Generate
-.I vis_tab.c
-and
-.IR vis_tab.h .
+.B \-h
+Generate the
+.I oracles
+file.
 .SH LONG COMMANDS
 .TP
-.B --debug
+.B \-\-debug
 Show debugging output.
-.br
 .TP
-.B --make \fR[\fIcommand\fR]
-Execute a short command.  Command is given without preceding dash.
-.br
+.B \-\-make \fR[\fIcommand\fR]
+Execute a short command.
+.I Command
+is given without preceding dash.
 .TP
-.BI --input " file"
+.BI \-\-input " file"
 Specify the input
 .I file
-for the command (if needed).  If the file is - standard
-input is read.
-.br
+for the command (if needed).
+If
+.I file
+is \*(lq\-\*(rq,
+.B makedefs
+reads the standard input stream.
 .TP
-.BI --output " file"
+.BI \-\-output " file"
 Specify the output
 .I file
-for the command (if needed).  If the file is - standard
-output is written.
-.br
+for the command (if needed).
+If
+.I file
+is \*(lq\-\*(rq,
+.B makedefs
+writes to the standard input stream.
 .TP
-.B --svs \fR[\fIdelimiter\fR]
+.B \-\-svs \fR[\fIdelimiter\fR]
 Generate a version string to standard output without a trailing newline.
 If specified, the delimiter is used between each part of the version string.
-.br
 .TP
-.B --grep
+.B \-\-grep
 Filter the input
 .I file to the output
 .IR file .
 See the
 .B MDGREP FUNCTIONS
 section below for information on controlling the filtering operation.
-.br
 .TP
-.B --grep-showvars
+.B \-\-grep\-showvars
 Show the name and value for each variable known to the grep option.
-.br
 .TP
-.B --grep-trace
+.B \-\-grep\-trace
 Turn on debug tracing for the grep function (
-.B --grep
+.B \-\-grep
 must be specified as well).
-.br
 .TP
-.BI --grep-define " symbol"
+.BI \-\-grep\-defined " symbol"
+Exit shell true (0) if
+.I symbol
+is known and defined, otherwise exit shell false (1).
+.TP
+.BI \-\-grep\-define " symbol"
 Force the value of
 .I symbol
-to be "defined."
+to be \*(lqdefined.\*(rq
 .I Symbol
 must already be known to
 .BR makedefs .
-.br
 .TP
-.BI --grep-undef " symbol"
+.BI \-\-grep\-undef " symbol"
 Force the definition of
 .I symbol
-to be "undefined."
+to be \*(lqundefined.\*(rq
 .I Symbol
 must already be known to
 .BR makedefs .
 .SH MDGREP FUNCTIONS
 The
-.B --grep
+.B \-\-grep
 command (and certain other commands) filter their input, on a line-by-line
 basis, according to control lines embedded in the input and on information
 gleaned from the
-.BR NetHack (6)
-configuration.  This allows certain changes such as embedding platform-specific
+.I nethack
+configuration.
+This allows certain changes such as embedding platform-specific
 documentation into the master documentation files.
 .P
 Rules:
-.RS
-.IP - 4
+.IP \(bu
 The default conditional state is printing enabled.
-.IP - 4
+.IP \(bu
 Any line
 .I NOT
-starting with a caret (^) is either suppressed or passed through unchanged
+starting with a caret (\*^) is either suppressed or passed through unchanged
 depending on the current conditional state.
-.IP - 4
+.IP \(bu
 Any line starting with a caret is a control line; as in C, zero or more spaces
 may be embedded in the line almost anywhere (except immediately after the
 caret); however the caret must be in column 1.
-.IP - 4
+.IP \(bu
 Conditionals may be nested.
-.IP - 4
+.IP \(bu
 .I Makedefs
 will exit with an error code if any errors are detected; processing will
 continue (if it can) to allow as many errors as possible to be detected.
-.IP - 4
-Unknown identifiers are treated as both TRUE and as an error.  Note that
-.BR --undef " or " #undef
+.IP \(bu
+Unknown identifiers are treated as both TRUE and as an error.
+Note that
+.BR \-\-undef " or " #undef
 in the
-.BR NetHack (6)
+.I nethack
 configuration are different from unknown.
-.RE
 .P
 Control lines:
-.RS
-.IP ^^ 4
+.TP
+.B
+\*^\*^
 a line starting with a (single) literal caret
-.IP ^#
+.TP
+.B \*^#
 a comment
-.IP ^?\fIID
+.TP
+.B \*^?\fIID
 if the
 .I ID
 is defined set the conditional state to TRUE
-.IP ^!\fIID
+.TP
+.B \*^!\fIID
 if the
 .I ID
 is not defined set the conditional state to TRUE
-.IP ^:
+.TP
+.B \*^:
 else; invert the conditional state
-.IP ^.
+.TP
+.B \*^.
 end the most recent conditional
-.RE
 .\".SH EXAMPLES
 .SH AUTHOR
 The NetHack Development Team
-.SH "SEE ALSO"
-.PP
-.BR dgn_comp (6)
 .SH COPYRIGHT
-This file is Copyright (C) \*(Na and was last modified \*(Nd (version
-\*(Nb:\*(Nr).
-NetHack may be freely redistributed.  See license for details.
+.\" All troffs and nroffs support `\(co` except Plan 9 nroff, but Plan 9
+.\" offers no test for special character availability, and its feature
+.\" set too closely resembles DWB 3.3 to test for it.  Use a string with
+.\" any nroff-mode formatter not claiming groff compatiblity.
+.ds co \(co
+.if !\n(.g .if n .ds co (C)\" in principle, should be just "c"
+This file is Copyright \*(co \*(Na, \*(Nd for version \*(Nb:\*(Nr.
+NetHack may be freely redistributed.
+See license for details.

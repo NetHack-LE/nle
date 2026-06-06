@@ -1,0 +1,73 @@
+$NHDT-Branch: to500 $:$NHDT-Revision: 1.2 $ $NHDT-Date: 1777409988 2026/04/28 20:59:48 $
+
+fixes36.7 contains a summary of changes made to 3.6.6 in order to
+produce 3.6.7 as well as any post-release fixes in binaries.
+
+
+General Fixes and Modified Features
+-----------------------------------
+during engraving, spaces were counted instead of non-space (cherry-pick of
+	4e0a1e04 from NetHack WIP)
+avoid potential buffer overflow in append_str()
+resolve missing dependency in NetHack.sln
+code in include/tradstdc.h was trying to suppress warn_unused result by
+	defining warn_unused_result to an empty string and that began causing
+	a build error within a system-supplied header file cdefs.h when using
+	ubuntu impish 21.10; disable that for any Linux unless GCC_URWARN is
+	defined to force it back into effect
+update_inventory() after leash goes slack
+player assigned name for monsters, specific objects, or object types could be
+	longer than what was intented to be allowed; for 'curses', much longer
+
+Platform- and/or Interface-Specific Fixes or Features
+-----------------------------------------------------
+windows: added winflexbison to travis-ci configuration to permit full build of
+	levcomp and dgncomp
+windows: a bad chdir specified in win/win32/dgnstuff.mak caused full build to
+	abort
+windows: the console.rc file had outdated information stating 3.6.3 when the
+	official 3.6.6 binary was built.
+windows: switch from using keyhandling dll's to incorporating the three
+	variations (default, ray, 340) in sys/winnt/nttty.c
+curses: cherry-picked selectsaved code from NetHack WIP for menu of save files
+NetHackW: fix delay rendering of cursor when using farlook
+
+
+General New Features
+--------------------
+none
+
+
+Fixes to 3.6.7 Post-release Problems and other Post-release changes
+-------------------------------------------------------------------
+extend the fix for build failure w/ newer C library headers to macOS (pr #988)
+Windows: fix range error detected by address sanitizer in plselInitDialog()
+Windows: nethackw.exe was vertically spacing out menu items based on
+	the height of the tileset in use, even though the tiles in the
+	menu were drawn at the default height of 16 anyway; get rid of
+	the extraneous vertical spacing between the menu rows
+hilite_pile can remain on the map after eating food off the floor
+vms: update winprocs.h to ensure that CLR_MAX is defined; necessary for
+	compiling vmsmail.c which uses winprocs.h but not hack.h
+curses: when #quitting, just before the high scores are about to be shown
+	status_window was NULL and dereferenced, so add checks (issue #1090)
+unix: update Makefile.dat so that if parallel make is used, it will build
+	the data files "engrave", "epitaph", and "bogusmon" sequentially;
+	'makedefs -s' builds all three at once and doing parallel instances
+	of that can produce seemingly mysterious problems by stomping on
+	each other's results
+fix the mingw32 build of NetHack 3.6.7 by updating sys/winnt/Makefile.gcc,
+	sys/winnt/winnt.c and sys/winnt/stubs.c
+correct the Ixoth tile
+makedefs can produce individual bogusmon, engrave and epitaph files
+drinkfountain() fate 24 to curse objects could end up cursing objects
+	on the floor chain instead of the intended inventory object chain
+proceed with showpaths option even if the sysconf file is missing
+avoid memory leak in mk_artifact(); cherry-pick of 3cca4f27 from NetHack WIP
+avoid using col in Guidebook build, since some distros no longer include
+	it, particularly some that use musl libc
+back-port some nroff macro updates for Guidebook
+prevent a crash when using 'O' to interactively set a text match highlight
+	for hunger
+avoid a reported obuf reuse in use_misc() when using a bullwhip
+
