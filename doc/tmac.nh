@@ -1,4 +1,4 @@
-.\" NetHack 3.6	tmac.nh	$NHDT-Date: $ $NHDT-Branch: $:$NHDT-Revision: $
+.\" NetHack 5.0	tmac.nh	$NHDT-Date: $ $NHDT-Branch: $:$NHDT-Revision: $
 .
 .\"   Miscellaneous tmac.n-style macros specifically for nethack's Guidebook.
 .\"
@@ -7,6 +7,10 @@
 .\"   These used to be inline within Guidebook.mn but it was becoming too
 .\"   cluttered as their number increased.  It now uses the '.so' directive
 .\"   to include this file.  (tmac.n is passed to 'roff on the command line.)
+.
+.\" Protect against being sourced twice.
+.nr nH +1
+.if \n(nH>1 .nx
 .
 .\" labeled paragraph start
 .\" .PS word
@@ -25,7 +29,7 @@
 .\" labeled paragraph label (and first line)
 .de PL
 .br
-\\h'|-\\n(PYu'\\$1\\h'|-\\n(PXu'\ -\ \\c \" back up, output the label, then
+\\h'|-\\n(PYu'\\$1\\h'|-\\n(PXu'\ -\ \\c\" back up, output the label, then
 .					\" skip to width-of(" - ") before the
 .					\" normal indentation, output the " - "
 .					\" then attach the next line (the
@@ -85,7 +89,8 @@
 .	if \\n(id=0 \{\
 .		di			\" end diversion
 .		fi			\" resume filling
-.		in -\\n(piu		\" dedent
+.		ie \\n(.i<\\n(pi .in 0
+.		el .in -\\n(piu		\" dedent
 .		ev			\" pop environment
 .		ne \\n(dnu		\" be sure you have room
 .		nf			\" don't reprocess display
@@ -118,7 +123,7 @@
 .\"    $1 - repeat count for amount of padding (optional; default is 1)
 .de BR
 .ie \\.$==0 .nr bR 1v
-.el .nr bR (\\$1-0)v
+.el .nr bR 0\\$1v
 \0
 .sp \\n(bR
 .br
@@ -129,4 +134,9 @@
 \\$1\\$2
 ..
 .
+.\" groff and AT&T-descended troffs use different hyphenation patterns.
+.\" Don't hyphenate the last word on a page or column, or
+.\" before/after last/first 2 characters of a word.
+.ie \n(.g .hy 12
+.el       .hy 14
 .\"tmac.nh/"

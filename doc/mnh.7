@@ -1,5 +1,16 @@
+.\"DO NOT REMOVE NH_DATESUB .TH MAKEDEFS 6 "Date(%-d %B %Y)" Project(uc)
 .\" $NHDT-Branch: NetHack-3.6.2 $:$NHDT-Revision: 1.0 $ $NHDT-Date: 1541298620 2018/11/04 02:30:20 $
-.TH MNH 7 NETHACK
+.TH MNH 7 "4 November 2018" NETHACK
+.\"DO NOT REMOVE NH_DATESUB .ds Nd Date(%Y)
+.ds Nd 2018
+.de NB
+.ds Nb \\$2
+..
+.de NR
+.ds Nr \\$2
+..
+.NB $NHDT-Branch: NetHack-3.6.2 $
+.NR $NHDT-Revision: 1.0 $
 .SH NAME
 mnh \- additional text formatting macros for the NetHack Guidebook
 .SH SYNOPSIS
@@ -9,14 +20,14 @@ mnh \- additional text formatting macros for the NetHack Guidebook
 .\".B "troff  \-mn"
 .\"[ options ]  file  ...
 .SH DESCRIPTION
-.PP
 This package of
 .IR nroff (1)
 and
 .IR troff (1)
 macro definitions extends
 .IR tmac.n (7)
-for the NetHack Guidebook.  This document should be
+for the NetHack Guidebook.
+This document should be
 read as an addendum to the documentation for
 .IR tmac.n .
 .PP
@@ -27,11 +38,10 @@ and number registers are defined below.
 .SH FILES
 doc/tmac.nh
 .SH "SEE ALSO"
-mn(7)
+.IR mn (7)
 .SH AUTHOR
 Pat Rankin
 .SH REQUESTS
-.PP
 In the
 .I Note
 column,
@@ -76,6 +86,7 @@ and the second for
 Macro	What	Initial	Note	\0 Explanation
 Name	It Is	Value
 .sp .3
+nH	num	0	\-	avoid processing multiple times
 _BR	mac	\-	\-	hard line break with vertical padding inserted
 bR	num	\-	i
 _CC \*Y	mac	\-	\-	aligned one char key \*x with \fIshort\fP definition \*y
@@ -92,4 +103,5 @@ PX	num	\-	i
 PY	num	\-	i
 _SD \*X	mac	\-	\-	.sd with options c-center i-indent n-no indent
 SF	num	\-	i
+UR	mac	\-	\-	URL passthrough for HTML generator
 _UX	mac	\-	\-	.ux with updated trademark owner

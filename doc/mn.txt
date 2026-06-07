@@ -17,8 +17,8 @@ DESCRIPTION
 
        All -mn macros, diversions, string registers, and number registers  are
        defined below.  Many nroff and troff requests are unsafe in conjunction
-       with this package.  However,  the  requests  below  may  be  used  with
-       impunity:
+       with this package.  However, the requests below may be  used  with  im-
+       punity:
 
             .bp    begin new page
             .br    break output line
@@ -29,8 +29,8 @@ DESCRIPTION
 
        Font  and point size changes with \f and \s are also allowed; for exam-
        ple, ``\f2word\fR'' will italicize word.  Output of the tbl(1), eqn(1),
-       and  refer(1)  preprocessors  for  equations, tables, and references is
-       acceptable as input.
+       and refer(1) preprocessors for equations, tables, and references is ac-
+       ceptable as input.
 
 FILES
        /usr/lib/tmac/tmac.n
@@ -47,12 +47,12 @@ WARNINGS
        This package is not now intended for uses other than with the news doc-
        umentation.
 
-       Bug reports are  always  welcome;  please  send  them  to  the  author.
-       (Include a sample of the input; this helps track down the bug.)
+       Bug reports are always welcome; please send them to the  author.   (In-
+       clude a sample of the input; this helps track down the bug.)
 
 AUTHOR
-       Matt     Bishop     (mab@riacs.arpa,     ihnp4!ames!riacs!mab,     dec-
-       vax!decwrl!riacs!mab)
+       Matt  Bishop  (mab@riacs.arpa,  ihnp4!ames!riacs!mab, decvax!decwrl!ri-
+       acs!mab)
        Updated for versions 1.4-1.6 by The NetHack Development Team
 
 REQUESTS
@@ -75,14 +75,14 @@ b         num     -         i    used to embolden italics
 .bi x y z mac     -         -    print x in emboldened font 2, y after,
                                  z before
 bm        num     1i,1i+1v  -    height of bottom margin
-.bt       mac     -         -    print pottom title
+.bt       mac     -         -    print bottom title
 bt        num     .5i+1v    -    bottom of footer to bottom of page
 .cf x y z mac     -         -    print contents of header line (double
                                  quotes around x, y before, z after)
 cm        num     0         -    0 if no cut marks, nonzero if cut marks
 .cn x y z mac     -         -    print computer/site name; same as .i
 .dd       div     -         i    text of display
-dg        str     *,-       -    footnote mark
+dg        str     *,<*>     -    footnote mark
 dw        str     current   -    name of current day of week
 dy        str     current   -    full date
 .ed       mac     -         b    end display

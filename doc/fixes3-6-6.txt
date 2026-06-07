@@ -1,4 +1,4 @@
-$NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.4 $ $NHDT-Date: 1587039894 2020/04/16 12:24:54 $
+$NHDT-Branch: NetHack-3.6-Mar2020 $:$NHDT-Revision: 1.2 $ $NHDT-Date: 1583606861 2020/03/07 18:47:41 $
 
 fixes36.6 contains a terse summary of changes made to 3.6.5 in order to
 produce 3.6.6 as well as any post-release fixes in binaries.
@@ -17,10 +17,9 @@ avoid "<mon>'s glorkum pass harmlessly through the shade" for weaponless mon
 
 Platform- and/or Interface-Specific Fixes or Features
 -----------------------------------------------------
-teach unix/Makefile.doc how to make Guidebook.dat, an unpaginated copy of
-	Guidebook.txt
 
 
 General New Features
 --------------------
 none
+

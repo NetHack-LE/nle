@@ -1,91 +1,142 @@
-.TH NETHACK 6 "2 February 2018" NETHACK
-.de ND
-.ds Nd \\$3
-..
+.\"DO NOT REMOVE NH_DATESUB .TH NETHACK 6 "Date(%-d %B %Y)" Project(uc)
+.TH NETHACK 6 "26 April 2026" NETHACK
+.\"DO NOT REMOVE NH_DATESUB .ds Nd Date(%Y)
+.ds Nd 2024
 .de NB
 .ds Nb \\$2
 ..
 .de NR
 .ds Nr \\$2
 ..
-.ND $NHDT-Date: 1568509458 2019/09/15 01:04:18 $
-.NB $NHDT-Branch: NetHack-3.6 $
-.NR $NHDT-Revision: 1.16 $
+.NB $NHDT-Branch: NetHack-5 $
+.NR $NHDT-Revision: 1.31 $
+.\" groff and AT&T-descended troffs use different hyphenation patterns.
+.\" Don't hyphenate the last word on a page or column, or
+.\" before/after last/first 2 characters of a word.
+.ie \n(.g .hy 12
+.el       .hy 14
 .ds Na Robert Patrick Rankin
+.\" DWB, Solaris 10, and Plan 9 troffs don't support `\(ti`, `\(oq`, or
+.\" `\(cq`.  Assume the best, then detect these older troffs and fall
+.\" back as needed.
+.\"
+.\" Put NO SPACE between special character and comment escape sequences.
+.ds ~  \(ti\" The name "ti" is taken by *roff's `ti` request.
+.ds oq \(oq
+.ds cq \(cq
+.if !\n(.g \{\
+.  ds ~  ~
+.  ds oq `
+.  ds cq '
+.\}
+.\" Define string to exercise groff's hyphenless break point feature.
+.ie \n(.g .ds : \:
+.el       .ds : \" empty
+.\" Define string to exercise groff's adjustable, unbreakable space.
+.ie \n(.g .ds _ \~
+.el       .ds _ \ \" backslash, space
+.\" Define local versions of groff's "an-ext.tmac" macros if needed.
+.ds %% \" empty
+.if \n(.g .ig %%
+.\" Add supplementary paragraph tag on its own line after TP.
+.de TQ
+.  br
+.  ns
+.  \" Do not quote the argument to `TP`; the user might specify
+.  \" their own quotes for multi-word tags or to exercise AT&T troff
+.  \" quoting rules.
+.  TP \\$1\"
+..
+.%%
 .SH NAME
 nethack \- Exploring The Mazes of Menace
 .SH SYNOPSIS
+.HP
+.nr sA \n(.j \" Save the adjustment mode.
 .na
-.hy 0
 .B nethack
-[
-.B \-d
-.I directory
+.RI [ role-option ]
+.RB [ \-d | \-\-directory\*_\c
+.IR directory ]
+.RB [ \-w | \-\-windowtype\*_\c
+.IR interface ]
+\%[\c
+.BI \-\-nethackrc: rc-file\c
+|\c
+.B \-\-no\-nethackrc\c
 ]
-[
-.B \-n
-]
-[
-.B \-p
-.I profession
-]
-[
-.B \-r
-.I race
-]
-[
-.B \-[DX]
-]
-[
-.B \-u
-.I playername
-]
-[
-.B \-dec
-]
-[
-.B \-ibm
-]
-[
-.BR \-\-showpaths
-]
-[
-.BR \-\-version [ :paste ]
-]
+.RB [ \-n ]
+.RB [ \-dec | \-ibm ]
+.RB [ \-u\*_\c
+.IR player-name ]
+.RB [ \-X | \-D ]
+.RB [ \-p\*_\c
+.IR profession ]
+.RB [ \-r\*_\c
+.IR race ]
+.RB [ \-@ ]
+.PP
+.I role-option
+can be any of the following.
+.PP
+.RS
+.nf
+.BR \-A | \-Arc
+.BR \-B | \-Bar
+.BR \-C | \-Cav
+.BR \-H | \-Hea
+.BR \-K | \-Kni
+.BR \-M | \-Mon
+.BR \-P | \-Pri
+.BR \-R | \-Rog
+.B \-Ran
+.BR \-S | \-Sam
+.BR \-T | \-Tou
+.BR \-V | \-Val
+.BR \-W | \-Wiz
+.fi
+.RE
+.HP
+.B nethack
+.RB { \-s | \-\-scores }
+.RB [ \-d | \-\-directory\*_\c
+.IR directory ]
+.RB [ \-v ]
+.RB [ \-p\*_\c
+.IR profession ]
+.RB [ \-r\*_\c
+.IR race ]
+.RI [ player-name\*_\c
+\&.\|.\|.]
 .PP
 .B nethack
-[
-.B \-d
-.I directory
-]
-.B \-s
-[
-.B \-v
-]
-[
-.B \-p
-.I profession
-]
-[
-.B \-r
-.I race
-]
-[
-.I playernames
-]
-.ad
-.hy 14
+.RB { \-\-usage | \-\-help }
+.PP
+.B nethack
+.B \-\-showpaths
+.PP
+.B nethack
+.BR \-\-version [ :copy | :dump\c
+.RB | :show ]
+.ad \n(sA \" Restore the adjustment mode.
 .\" Make sure path is not hyphenated below
 .hw nethackdir
 .SH DESCRIPTION
-.PP
 .I NetHack
-is a display oriented Dungeons & Dragons(tm) - like game.
-The standard tty display and command structure resemble rogue.
+is a fantasy-themed game of survival,
+exploration,
+and combat
+set in the Mazes of Menace,
+an elaborate underground complex.
 .PP
-Other, more graphical display options exist for most platforms.
+Traditionally,
+the game's interface uses a Unix terminal connection,
+depicting the interface on a grid of character cells
+and responding to keyboard-entered commands.
+Other interface options exist for most platforms.
 .PP
-To get started you really only need to know two commands.  The command
+To get started you really only need to know two commands.
+The command
 .B ?
 will give you a list of the available commands (as well as other information)
 and the command
@@ -95,9 +146,11 @@ will identify the things you see on the screen.
 To win the game (as opposed to merely playing to beat other people's high
 scores) you must locate the Amulet of Yendor which is somewhere below
 the 20th level of the dungeon and get it out.
-Few people achieve this; most never do.  Those who have go down
-in history as heroes among heroes - and then they find ways of making the
-game even harder.  See the
+Few people achieve this; most never do.
+Those who have done so go down
+in history as heroes among heroes \(em and then they find ways of making the
+game even harder.
+See the
 .I Guidebook
 section on Conduct if this game has gotten too easy for you.
 .PP
@@ -118,7 +171,7 @@ The ? command provides a description of these options and syntax.
 .B \-dec
 and
 .B \-ibm
-command line options are equivalent to the
+command line options are mutually exclusive and are equivalent to the
 .B decgraphics
 and
 .B ibmgraphics
@@ -126,20 +179,29 @@ run-time options described there,
 and are provided purely for convenience on systems
 supporting multiple types of terminals.)
 .PP
-Because the option list can be very long (particularly when specifying
-graphics characters), options may also be included in a configuration
-file.
+Because the option list can be very long,
+options may also be included in a configuration file.
 The default is located in your home directory and
-named .nethackrc on Unix systems.  On other systems, the default may be
-different, usually NetHack.cnf.  On DOS or Windows, the name is
-defaults.nh, while on the Macintosh or BeOS, it is NetHack Defaults.
-The configuration file's location may be specified by setting NETHACKOPTIONS
-to a string consisting of an @ character followed by the filename.
+named .nethackrc on UNIX systems (including descendants such as
+linux, NetBSD, and macOS).
+On Windows, the name is also .nethackrc but the location can vary
+(see
+.B \-\-showpaths
+below).
+On other systems, the default may be different, possibly NetHack.cnf.
+On MS-DOS, the name is defaults.nh in NetHack's directory (folder),
+while
+.\" on the Macintosh or BeOS, it is \*(lqNetHack Defaults\*(rq, and
+on VMS|OpenVMS it is nethack.ini in your home directory.
+The default configuration file may be overridden via the
+.BI \-\-nethackrc: rc-file
+command line option or by setting NETHACKOPTIONS in your environment
+to a string consisting of an @ character followed by the path and filename.
 .PP
 The
 .B \-u
-.I playername
-option supplies the answer to the question "Who are you?".
+.I player-name
+option supplies the answer to the question \*(lqWho are you?\*(rq.
 It overrides any name from the options or configuration file, USER, LOGNAME,
 or getlogin(), which will otherwise be tried in order.
 If none of these provides a useful name, the player will be asked for one.
@@ -148,100 +210,207 @@ so you can have several saved games under different names.
 Conversely, you must use the appropriate player name to restore a saved game.
 .PP
 A
-.I playername
+.I player-name
 suffix can be used to specify the profession, race, alignment and/or gender
-of the character.  The full syntax of the playername that includes a
-suffix is "name-ppp-rrr-aaa-ggg".  "ppp" are at least the first three letters
-of the profession (this can also be specified using a separate 
+of the character.
+The full syntax of a
+.I player-name
+including a suffix is \*(lqname\-ppp\-rrr\-aaa\-ggg\*(rq.
+\*(lqppp\*(rq are at least the first three letters
+of the profession (this can also be specified using a separate
 .B \-p
 .I profession
-option).  "rrr" are at least the first three letters of the character's
-race (this can also be specified using a separate 
+option).
+\*(lqrrr\*(rq are at least the first three letters of the character's
+race (this can also be specified using a separate
 .B \-r
 .I race
-option).  "aaa" are at least the first three letters of the character's
-alignment, and "ggg" are at least the first three letters of the
-character's gender.  Any of the parts of the suffix may be left out.
+option).
+\*(lqaaa\*(rq are at least the first three letters of the character's
+alignment, and \*(lqggg\*(rq are at least the first three letters of the
+character's gender.
+Any of the parts of the suffix may be left out.
 .PP
 .B \-p
 .I profession
 can be used to determine the character profession, also known as the role.
 You can specify either the male or female name for the character role, or
 the first three characters of the role as an abbreviation.
-.B "\-p \@"
-has been retained to explicitly request that a random role be chosen.
-It may need to be quoted with a backslash (\\@) if @
-is the "kill" character (see "stty") for the terminal, in order
-to prevent the current input line from being cleared.
+.\" .B "\-p @"
+.\" has been retained to explicitly request that a random role be chosen.
 .PP
 Likewise,
 .B \-r
 .I race
 can be used to explicitly request that a race be chosen.
 .PP
-Leaving out any of these characteristics will result in you being prompted
-during the game startup for the information.
-.PP
-.PP
+.\" Note: 'BR -A | -Arc' produces "-A|-Arc" (no spaces);
+.\" '-A | -Arc' newline '|' newline '-B | -Bar' produces "-A|-Arc | -B|-Bar"
 The
-.B \-s
-option alone will print out the list of your scores on the current version.
-An immediately following
-.B \-v
-reports on all versions present in the score file.
-The
-.B \-s
-may also be followed by arguments
-.B \-p
-and
-.B \-r
-to print the scores of particular roles and races only.
-It may also be followed by one or more player names to print the scores of the
-players mentioned, by 'all' to print out all scores, or by a number to print
-that many top scores.
+.BR \-A | \-Arc
+|
+.BR \-B | \-Bar
+|
+.BR \-C | \-Cav
+|
+.BR \-H | \-Hea
+|
+.BR \-K | \-Kni
+|
+.BR \-M | \-Mon
+|
+.BR \-P | \-Pri
+|
+.BR \-R | \-Rog
+|
+.B \-Ran
+|
+.BR \-S | \-Sam
+|
+.BR \-T | \-Tou
+|
+.BR \-V | \-Val
+|
+.BR \-W | \-Wiz
+options for role selection are maintained for compatibility with older
+versions of the program.
+They are mutually exclusive and the single-letter form must be uppercase.
+.I Ranger
+has no single-letter choice because
+.B \-R
+is already used for the
+.I Rogue
+role.
+.PP
+.B \-@
+tells NetHack to choose any omitted characteristics (profession/role, race,
+gender, alignment) randomly without prompting.
+Otherwise, leaving out any of these characteristics will result in you
+being prompted during game startup for the information.
 .PP
 The
 .B \-n
 option suppresses printing of any news from the game administrator.
 .PP
 The
-.B \-D
-or
 .B \-X
-option will start the game in a special non-scoring discovery mode.
+option will start the game in a special non-scoring discovery mode
+(also known as explore mode).
 .B \-D
-will, if the player is the game administrator, start in debugging (wizard)
-mode instead.
+will start the game in debug mode (also known as wizard mode) after
+changing the character name to \*(lqwizard\*(rq,
+if the player is allowed.
+Otherwise it will switch to
+.BR \-X .
+Control of who is allowed to use debug mode is done via the
+.\" The `lq` and `rq` strings are not reliable in macro calls, because
+.\" some nroffs interpolate `"` for them, messing up macro argument
+.\" delimitation.  Use an (initially) uglier method than `RI`.
+.\".RI "\*(lq" WIZARDS= "\*(rq line in NetHack's " sysconf " file."
+\*(lq\c
+.I WIZARDS=\c
+\*(rq
+line in
+NetHack's
+.I sysconf
+file.
 .PP
 The
-.B \-d
+.BR \-d " or " \-\-directory
 option, which must be the first argument if it appears,
 supplies a directory which is to serve as the playground.
 It overrides the value from NETHACKDIR, HACKDIR,
 or the directory specified by the game administrator during compilation
-(usually /usr/games/lib/nethackdir).
+(usually
+.IR /usr/\*:games/\*:lib/\*:nethackdir ).
 This option is usually only useful to the game administrator.
 The playground must contain several auxiliary files such as help files,
 the list of top scorers, and a subdirectory
 .I save
 where games are saved.
 .PP
+The
+.BR \-w " or " \-\-windowtype
+.I
+interface
+option can be used to specify which interface to use if the program
+has been built with support for more than one.
+Specifying a value on the command line overrides any value
+specified in the run-time configuration file.
+NetHack's #version command shows available interfaces.
+.PP
+The
+.BI \-\-nethackrc: rc-file
+option will use
+.I rc-file
+instead of the default run-time configuration file
+.RI "(typically " \*~/.nethackrc )
+and the
+.B \-\-no\-nethackrc
+option can be used to skip any run-time configuration file.
+.PP
+Some options provide feedback and then exit rather than play the game:
+.PP
+The
+.BR \-s " or " \-\-scores
+option alone will print out the list of your scores on the current version.
+An immediately following
+.B \-v
+reports on all versions present in the score file.
+.RB \*(oq \-s | \-s\*_\-v \*(cq
+may also be followed by arguments
+.B \-p
+.I profession
+and
+.B \-r
+.I race
+to print the scores of particular roles and races only.
+Either can be specified multiple times to include more than one role
+or more than one race.
+When both are specified, score entries which match either the role or the
+race (or both) are printed rather than just entries which match both.
+.RB \*(oq \-s | \-s\*_\-v \*(cq
+may be followed by one or more player names to print the scores of the
+players mentioned, by 'all' to print out all scores, or by a number to print
+that many top scores.
+Combining names with role or race or both will report entries which match
+any of those rather than just the ones which match all.
+.PP
+.\" avoid hyphenating "version" in this paragraph (and beyond; don't care)
+.hw version
+.BR \-\-version " or " \-\-version:show
+can be used to cause NetHack to show the version number, the date and
+time that the program was built from its source code, and possibly
+some auxiliary information about that source code, then exit.
+The optional auxiliary information is \fIgit\fP
+commit hash (reflecting the source code's most recent modification when
+extracted from the \fIgit\fP version control system, if that is in use)
+if available when the program was built.
+On some platforms such as Windows and macOS, a variation,
+.BR \-\-version:copy ,
+can be used to cause NetHack to show the version information, then exit,
+while also leaving a copy of that information in the paste buffer
+or clipboard for potential insertion into things like bug reports.
+On any platform,
+.B \-\-version:dump
+can be used to show most of the data used when checking whether a save
+file or bones file is compatible with the program.
+The program will display a line containing five numbers expressed in
+hexadecimal, then exit.
+.PP
 .B \-\-showpaths
 can be used to cause NetHack to show where it is expecting
-to find various configuration files.
+to find various files.
+Among other things it shows the path to and name for the player's
+run-time configuration file, a text file which can be edited to
+customize aspects of how the game operates.
 .PP
-.B \-\-version
-can be used to cause NetHack to show the version information it
-was compiled with, then exit. That will include the
-.I git
-commit hash if the information was available when the game was compiled.
-On some platforms, such as windows and macosx, a variation 
-.B \-\-version:paste
-can be used to cause NetHack to show the version information, then exit,
-while also leaving a copy of the version information in the paste buffer 
-or clipboard for potential insertion into things like bug reports.
+.BR \-\-usage " or " \-\-help
+will display information similar to this manual page, then exit.
+Use
+.RB \*(oq "nethack \-\-usage | more" \*(cq
+to read it a page at a time.
 .SH AUTHORS
-.PP
 Jay Fenlason (+ Kenny Woodland, Mike Thome and Jon Payne) wrote the
 original hack, very much like rogue (but full of bugs).
 .PP
@@ -255,151 +424,244 @@ A number of these miscreants are immortalized in the historical
 roll of dishonor and various other places.
 .PP
 The resulting mess is now called NetHack, to denote its
-development by the Usenet.  Andries Brouwer has made this request for the
+development by the Usenet.
+Andries Brouwer has made this request for the
 distinction, as he may eventually release a new version of his own.
 .SH FILES
-.PP
 Run-time configuration options were discussed above and use a platform
-specific name for a file in a platform specific location.  For Unix, the
-name is '.nethackrc' in the user's home directory.
-
-.br
+specific name for a file in a platform specific location.
+For Unix, the
+name is
+.I .nethackrc
+in the user's home directory.
+.PP
 All other files are in the playground directory,
-normally /usr/games/lib/nethackdir.
-If DLB was defined during the compile, the data files and special levels
-will be inside a larger file, normally nhdat, instead of being separate
-files.
-
-.br
-.DT
-.ta \w'cmdhelp, opthelp, wizhelp\ \ \ 'u
-nethack		The program itself.
-.br
-data, oracles, rumors	Data files used by NetHack.
-.br
-quest.dat, bogusmon	More data files.
-.br
-engrave, epitaph, tribute	Still more data files.
-.br
-symbols	Data file holding sets of specifications
-.br
-	for how to display monsters, objects, and
-.br
-	map features.
-.br
-options	Data file containing a description of the
-	build-time option settings.
-.br
-help, hh	Help data files.
-.br
-cmdhelp, opthelp, wizhelp	More help data files.
-.br
-*.lev	Predefined special levels.
-.br
-dungeon	Control file for special levels.
-.br
-history	A short history of NetHack.
-.br
-license	Rules governing redistribution.
-.br
-record	The list of top scorers.
-.br
-logfile	An extended list of games played
-.br
-	(optional).
-.br
-xlogfile	A more detailed version of 'logfile'
-.br
-	(also optional).
-.br
-paniclog	Record of exceptional conditions
-.br
-	discovered during program execution.
-.br
-xlock.nn	Description of dungeon level 'nn' of
-.br
-	active game 'x' if there's a limit on the
-.br
-	number of simultaneously active games.
-.br
-UUcccccc.nn	Alternate form for dungeon level 'nn'
-.br
-	of active game by user 'UU' playing
-.br
-	character named 'cccccc' when there's no
-.br
-	limit on number of active games.
-.br
-perm	Lock file for xlock.0 or UUcccccc.0.
-.br
-bonesDD.nn	Descriptions of the ghost and belongings
-.br
-	of a deceased adventurer who met his
-.br
-	or her demise on level 'nn'.
-.br
-.\"following line should contain <space><tab>
- 	
-.br
-save/	A subdirectory containing saved games.
-.br
-.\"following line should contain <space><tab>
- 	
-.br
-sysconf	System-wide options.  Required if
-.br
-	program is built with 'SYSCF' option
-.br
-	enabled, ignored if not.
-.br
-
-The location of 'sysconf' is specified at build time and can't be changed
-except by updating source file "config.h" and rebuilding the program.
-.br
-
-In a perfect world, 'paniclog' would remain empty.
+normally
+.IR /usr/\*:games/\*:lib/\*:nethackdir .
+If DLB was defined during the compile,
+the data files and special levels will be inside a larger file,
+normally
+.IR nhdat ,
+instead of being separate files.
+.TP
+.I nethack
+The program itself.
+.TP
+.I Guidebook
+.TQ
+.I Guidebook.txt
+NetHack's user manual.
+.TP
+.I data
+.TQ
+.I oracles
+.TQ
+.I rumors
+Data files used by NetHack.
+.TP
+.I bogusmon
+Another data file.
+.TP
+.I engrave
+.TQ
+.I epitaph
+.TQ
+.I tribute
+Still more data files.
+.TP
+.I symbols
+Data file holding sets of specifications
+for how to display monsters, objects, and
+map features.
+.TP
+.I options
+Data file containing a description of the
+build-time option settings.
+.TP
+.I help
+.TQ
+.I hh
+.TQ
+.I cmdhelp
+Help data files.
+.RI ( cmdhelp
+is obsolete.)
+.TP
+.I opthelp
+.TQ
+.I optmenu
+.TQ
+.I wizhelp
+More help data files.
+.TP
+.I keyhelp
+.TQ
+.I usagehlp
+Even more help data files.
+.TP
+.RI * .lua
+Predefined special levels, dungeon control
+for special levels, quest texts.
+.TP
+.I history
+A short history of NetHack.
+.TP
+.I license
+Rules governing redistribution.
+.TP
+.I record
+The list of top scorers.
+.TP
+.I logfile
+An extended list of games played
+(optional).
+.TP
+.I xlogfile
+A more detailed version of
+.I logfile
+(also optional).
+.TP
+.I paniclog
+Record of exceptional conditions
+discovered during program execution.
+.TP
+.RI x lock. nn
+Description of dungeon level
+.I nn
+of active game
+.I x
+if there's a limit on the
+number of simultaneously active games.
+.TP
+.RI UUcccccc . nn
+Alternate form for dungeon level
+.I nn
+of active game by user
+.I UU
+playing character named
+.I cccccc
+when there's no
+limit on number of active games.
+.TP
+.I perm
+Lock file for
+.RI x lock.0
+or
+.RI UUcccccc .0 .
+.TP
+.IR bonD0. nn
+Descriptions of the ghost and belongings
+of a deceased adventurer who met his or
+her demise on level
+.IR nn .
+A subsequent
+character might encounter this old level.
+.TP
+.I save/
+Subdirectory containing saved games.
+.TP
+.I sysconf
+System-wide options.
+Required if
+program is built with 'SYSCF' option
+enabled, ignored if not.
+.PP
+The location of
+.I sysconf
+is specified at build time and can't be changed
+except by updating source file
+.\" We do the following in an ugly and non-idiomatic way to work around
+.\" a DWB 3.3 nroff bug.
+.\"   troff: if-else overflow.; doc/nethack.6:623
+.\"   stack: }S }S }S }S }S }S }S }S }S }S }S }S }S }S }S }S RI
+.\" Even at that, DWB insists on setting the period in roman.
+"\c
+.I config.h\c
+"
+and rebuilding the program.
+.PP
+NetHack's Guidebook might not be present if whoever packaged or installed
+the program distribution neglected to include it.
+.PP
+In a perfect world,
+.I paniclog
+would remain empty.
 .SH ENVIRONMENT
-.DT
-.ta \w'NETHACKDIR or HACKDIR\ \ \ 'u
-USER or LOGNAME	Your login name.
-.br
-HOME		Your home directory.
-.br
-SHELL		Your shell.
-.br
-TERM		The type of your terminal.
-.br
-HACKPAGER or PAGER	Replacement for default pager.
-.br
-MAIL	Mailbox file.
-.br
-MAILREADER	Replacement for default reader
-.br
-	(probably /bin/mail or /usr/ucb/mail).
-.br
-NETHACKDIR or HACKDIR	Playground.
-.br
-NETHACKOPTIONS	String predefining several NetHack
-.br
-	options.
-.br
-
-If the same option is specified in both NETHACKOPTIONS and .nethackrc,
-the value assigned in NETHACKOPTIONS takes precedence.
-.br
-
-SHOPTYPE and SPLEVTYPE can be used in debugging (wizard) mode.
-.br
-DEBUGFILES can be used if the program was built with 'DEBUG' enabled.
+In some cases,
+.I NetHack
+attempts to access multiple environment variables in sequence
+(via
+.IR getenv (3)
+or similar)
+to determine information.
+.TP 16n \" "NETHACKOPTIONS" + 2n
+.I USER
+.TQ
+.I
+LOGNAME
+Your login name.
+.TP
+.I HOME
+Your home directory.
+.TP
+.I SHELL
+Your login shell
+(not necessarily the one running when you started
+.IR NetHack ).
+.TP
+.I TERM
+Your terminal type.
+.TP
+.I HACKPAGER
+.TQ
+.I PAGER
+Replacement for default pager.
+.TP
+.I MAIL
+Mailbox file.
+.TP
+.I MAILREADER
+Replacement for default reader
+(probably
+.I /bin/\*:mail
+or
+.IR /usr/\*:ucb/\*:mail ).
+.TP
+.I NETHACKDIR
+.TQ
+.I HACKDIR
+Playground.
+.TP
+.I NETHACKOPTIONS
+Predefined
+.I NetHack
+options.
+.PP
+If the same option is specified in both
+.I \%NETHACKOPTIONS
+and
+.IR \%.nethackrc ,
+the value assigned in
+.I \%NETHACKOPTIONS
+takes precedence.
+.PP
+.I SHOPTYPE
+and
+.I \%SPLEVTYPE
+can be used in debugging (wizard) mode.
+.I \%DEBUGFILES
+can be used if the program was built with 'DEBUG' enabled.
 .SH "SEE ALSO"
-.PP
-dgn_comp(6), lev_comp(6), recover(6)
+.IR recover (6)
 .SH BUGS
-.PP
 Probably infinite.
 .SH COPYRIGHT
-This file is Copyright (C) \*(Na and was last modified \*(Nd (version
-\*(Nb:\*(Nr).
-NetHack may be freely redistributed.  See license for details.
-.PP
-Dungeons & Dragons is a Trademark of Wizards of the Coast, Inc.
+.\" All troffs and nroffs support `\(co` except Plan 9 nroff, but Plan 9
+.\" offers no test for special character availability, and its feature
+.\" set too closely resembles DWB 3.3 to test for it.  Use a string with
+.\" any nroff-mode formatter not claiming groff compatiblity.
+.ds co \(co
+.if !\n(.g .if n .ds co (C)\" in principle, should be just "c"
+This file is Copyright \*(co \*(Na, \*(Nd for version \*(Nb:\*(Nr.
+NetHack may be freely redistributed.
+See license for details.

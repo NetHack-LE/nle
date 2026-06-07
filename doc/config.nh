@@ -1,7 +1,10 @@
-# NetHack 3.6  config.nh       $NHDT-Date: 1524689547 2018/04/25 20:52:27 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.1 $
+# NetHack 3.7  config.nh       $NHDT-Date: 1745978702 2025/04/29 18:05:02 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.10 $
 # Copyright (c) 2016 by Pasi Kallinen
 # NetHack may be freely redistributed.  See license for details.
-# Sample config file for NetHack 3.6
+#
+# Sample run-time configuration file for NetHack 5.0.0
+# usually named ".nethackrc" (note leading dot; location
+# depends upon the type of system nethack is running on).
 #
 # A '#' at the beginning of a line means the rest of the line is a comment.
 #
@@ -9,9 +12,10 @@
 # playing.
 #
 # Copy the contents of this file into
-# * defaults.nh, same folder as nethack.exe or nethackW.exe (DOS, Windows)
-# * ~/.nethackrc (Unix, linux, Mac OS X)
+# * %USERPROFILE%\nethack\.nethackrc on Windows
+# * ~/.nethackrc (Unix, linux, macOS)
 # * "NetHack Defaults" on pre-OSX Mac and BeOS
+# * defaults.nh, same folder as nethack.exe on DOS
 # * NetHack.cnf on Amiga, Atari, OS/2, and VMS
 #
 # To change the configuration, comment out the unwanted lines, and
@@ -122,7 +126,7 @@
 # Objects will try to keep their inventory letters
 #OPTIONS=fixinv
 
-# Try and display on the entire screen rather than in a window.
+# Try to display on the entire screen rather than in a window.
 #OPTIONS=fullscreen
 
 # If more information is available for an object looked at with
@@ -176,9 +180,17 @@
 # Default is 'inverse'
 #OPTIONS=menu_headings:inverse
 
-# Show object symbols in menus in the item class lines where that object symbol
-# acts as an accelerator key to select items of that class.
-#OPTIONS=menu_objsyms
+# Control of displaying object symbols in menus for picking objects:
+# show symbols in individual menu entries only if there are no class separators
+#OPTIONS=menu_objsyms:4
+# show symbols on object class separator lines and also in individual entries
+#OPTIONS=menu_objsyms:3
+# show symbols in individual entries but not on class separators
+#OPTIONS=menu_objsyms:2
+# show object symbols on class separators but not in individual entries
+#OPTIONS=menu_objsyms:1
+# don't show symbols on class separators or in individual menu entries
+#OPTIONS=menu_objsyms:0
 
 # Do not clear the screen before drawing menus, and align menus to right
 #OPTIONS=menu_overlay
@@ -486,7 +498,7 @@
 #  Show all unholy water in red
 #MENUCOLOR=" unholy " = red
 #  Show all cursed worn items in orange and underlined
-#MENUCOLOR=" cursed .* (being worn)" = orange&underline
+#MENUCOLOR=" cursed .* \(being worn\)" = orange&underline
 
 
 # Use the IBM character set rather than just plain ascii characters
@@ -529,3 +541,12 @@
 # Use highlighting in the status lines when it changes?
 #OPTIONS=hilite_status:hitpoints/30%/bright-magenta/normal
 
+### Crash reports
+# CRASHREPORTURL must be set in syscf to enable these options.
+# These identify you in crash reports
+#OPTIONS=crash_name:Your Name
+#OPTIONS=crash_email:user@example.com
+# This limits the size of the URL generated for a crash report.  Only
+# use this if your browser can't handle very long URLs.  It should be as
+# large as possible.
+#OPTIONS=crash_maxurl:4000.

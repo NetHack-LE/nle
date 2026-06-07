@@ -1,109 +1,165 @@
-.TH DLB 6 "25 May 2015" NETHACK
-.de ND
-.ds Nd \\$3
-..
+.\" $NHDT-Branch: master $:$NHDT-Revision: 1.14 $ $NHDT-Date: 1735103831 2024/12/25 00:17:11 $
+.\"DO NOT REMOVE NH_DATESUB .TH DLB 6 "Date(%-d %B %Y)" Project(uc)
+.TH DLB 6 "25 December 2024" NETHACK
+.\"DO NOT REMOVE NH_DATESUB .ds Nd Date(%Y)
+.ds Nd 2024
 .de NB
 .ds Nb \\$2
 ..
 .de NR
 .ds Nr \\$2
 ..
-.ND $NHDT-Date: 1524689548 2018/04/25 20:52:28 $
-.NB $NHDT-Branch: NetHack-3.6.0 $
-.NR $NHDT-Revision: 1.7 $
+.NB $NHDT-Branch: keni-gitset $
+.NR $NHDT-Revision: 1.13 $
+.ie \n(.g .ds ^ \(ha
+.el       .ds ^ ^
+.\" groff and AT&T-descended troffs use different hyphenation patterns. 
+.\" Don't hyphenate the last word on a page or column, or
+.\" before/after last/first 2 characters of a word.
+.ie \n(.g .hy 12
+.el       .hy 14
 .ds Na Kenneth Lorber
 .SH NAME
 dlb \- NetHack data librarian
 .SH SYNOPSIS
 .B dlb
-{
-.B xct
-}
-[
-.B vfIC
-]
-arguments...
-[
-.B files...
-]
+.\" We'd use `RB` with 7 arguments, but Unix troff man(7) has a limit of
+.\" 6 arguments to its macros.
+{\c
+.BR c | t | x\c
+}\c
+.RB [ v ]\c
+.RB [ C
+.IR directory ]
+.RI [ file ]
+\&.\|.\|.
+.PP
+.B dlb
+{\c
+.BR c | t | x\c
+}\c
+.RB [ v ]\c
+.B I
+.I list-file
+.PP
+.B dlb
+{\c
+.BR c | t | x\c
+}\c
+.RB [ v ]\c
+.RB [ f
+.IR archive-file-name ]
+.RI [ file ]
+\&.\|.\|.
 .SH DESCRIPTION
-.PP
 .I Dlb
-is a file archiving tool in the spirit (and tradition) of tar for
-NetHack version 3.1 and higher.  It is used to maintain the
-archive files from which NetHack reads special level files and other
-read-only information.  Note that like tar the command and option
-specifiers are specified as a continuous string and are followed
-by any arguments required in the same order as the option specifiers.
+is a file archiving tool in the spirit (and tradition) of
+.IR tar (1)
+for
+.IR nethack (6)
+version 3.1 and higher.
+It is used to maintain the
+archive files from which the game reads special level files and other
+read-only information.
+Note that like
+.IR tar ,
+the letters specifying the operation and options
+are expressed as a continuous string.
+Unlike
+.IR tar ,
+.I dlb
+is configured with a default set of file names to process.
+.ig
 .PP
-^?ALLDOCS
+\*^?ALLDOCS
 This facility is optional and may be excluded during NetHack
 configuration.
-^:
-^?DLB
+\*^:
+\*^?DLB
 This facility is optional but is included in this NetHack
 configuration.
-^:
+\*^:
 This facility is optional and was excluded from this NetHack
 configuration.
-^.
-^.
-.SH COMMANDS
-The
-.B x
-command causes
-.I dlb
-to extract the contents of the archive into the current directory.
-.PP
-The
+\*^.
+\*^.
+..
+.SS Operations
 .B c
-command causes
+causes
 .I dlb
 to create a new archive from files in the current directory.
 .PP
-The
 .B t
-command lists the files in the archive.
-.SH OPTIONS AND ARGUMENTS
-.DT
-.ta \w'f archive\ \ \ 'u
-v	verbose output
-.br
-.sp 1
-f archive	specify the archive.  Default if f not specified is
-LIBFILE (usually the nhdat file in the playground).
-.br
-.sp 1
-I lfile	specify the file containing the list of files to
-put in to or extract from the archive if no files are listed
-on the command line.  Default for archive creation if no files
-are listed is LIBLISTFILE.
-.br
-.sp 1
-C dir	change directory.  Changes directory before trying to
-read any files (including the archive and the lfile).
-.br
+lists the files in the archive.
+.PP
+.B x
+causes
+.I dlb
+to extract the contents of the archive into the current directory.
+.SH OPTIONS
+.TP 13n \" "I list-file" + 2n
+.BI "C " dir
+Change directory to
+.I dir
+before trying to
+read any files.
+.TP
+.BI "f " archive
+Read from or write to
+.I archive
+instead of LIBFILE
+(usually the
+.I nhdat
+file in the playground).
+.TP
+.BI "I " list-file
+Read from
+.I list-file
+the names of files to emplace within or extract from the archive.
+The default for archive creation is LIBLISTFILE.
+.TP
+.B v
+Operate verbosely.
 .SH EXAMPLES
 Create the default archive from the default file list:
-.br
-	dlb c
-.sp 1
-List the contents of the archive 'foo':
-.br
-	dlb tf foo
-.SH AUTHOR
+.RS
+.EX
+dlb c
+.EE
+.RE
 .PP
+List the contents of the archive
+.IR foo :
+.RS
+.EX
+dlb tf foo
+.EE
+.RE
+.SH AUTHOR
 Kenneth Lorber
 .SH "SEE ALSO"
-.PP
-nethack(6), tar(1)
+.IR nethack (6),
+.IR tar (1)
 .SH BUGS
-.PP
-Not a good tar emulation; - does not mean stdin or stdout.
+.IP \(bu 2n
+Not a good
+.I tar
+emulation;
+.B \-
+does not mean stdin or stdout.
+.IP \(bu
 Should include an optional compression facility.
+.IP \(bu
 Not all read-only files for NetHack can be read out of an archive;
-examining the source is the only way to know which files can be. 
+examining the source is the only way to know which files can be.
 .SH COPYRIGHT
-This file is Copyright (C) \*(Na and was last modified \*(Nd (version
-\*(Nb:\*(Nr).
-NetHack may be freely redistributed.  See license for details.
+.\" All troffs and nroffs support `\(co` except Plan 9 nroff, but Plan 9
+.\" offers no test for special character availability, and its feature
+.\" set too closely resembles DWB 3.3 to test for it.  Use a string with
+.\" any nroff-mode formatter not claiming groff compatiblity.
+.ds co \(co
+.if !\n(.g .if n .ds co (C)\" in principle, should be just "c"
+This file is Copyright \*(co \*(Na, \*(Nd for version \*(Nb:\*(Nr.
+NetHack may be freely redistributed.
+See license for details.
