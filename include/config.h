@@ -1,7 +1,6 @@
-/* NetHack 3.6	config.h	$NHDT-Date: 1575245033 2019/12/02 00:03:53 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.126 $ */
+/* NetHack 5.0	config.h	$NHDT-Date: 1710344316 2024/03/13 15:38:36 $  $NHDT-Branch: keni-staticfn $:$NHDT-Revision: 1.188 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2016. */
-/* Copyright (c) Facebook, Inc,. and its affiliates. */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #ifndef CONFIG_H /* make sure the compiler does not see the typedefs twice */
@@ -25,7 +24,7 @@
 /* #define TOS */ /* define for Atari ST/TT */
 
 /* #define STUPID */ /* avoid some complicated expressions if
-                        your C compiler chokes on them */
+                      * your C compiler chokes on them */
 /* #define MINIMAL_TERM */
 #define ANSI_DEFAULT  /* NLE: Don't #define TERMLIB in tcap.h, use this. */
 /* if a terminal handles highlighting or tabs poorly,
@@ -38,19 +37,28 @@
 /* Hint: if you're not developing code, don't define
    ULTRIX_PROTO. */
 
-#include "config1.h" /* should auto-detect MSDOS, MAC, AMIGA, and WIN32 */
+#include "config1.h" /* should auto-detect MSDOS, MACOS9, AMIGA, and WIN32 */
+
+/*
+ * Consolidated version, patchlevel, development status.
+ */
+#ifdef SHORT_FILENAMES
+#include "patchlev.h"
+#else
+#include "patchlevel.h"
+#endif
+
 
 /* Windowing systems...
  * Define all of those you want supported in your binary.
  * Some combinations make no sense.  See the installation document.
  */
 #if !defined(NOTTYGRAPHICS)
-#define TTY_GRAPHICS /* good old tty based graphics */
+#define TTY_GRAPHICS /* good old tty-based graphics */
 #endif
 /* #define CURSES_GRAPHICS *//* Curses interface - Karl Garrison*/
 /* #define X11_GRAPHICS */   /* X11 interface */
 /* #define QT_GRAPHICS */    /* Qt interface */
-/* #define GNOME_GRAPHICS */ /* Gnome interface */
 /* #define MSWIN_GRAPHICS */ /* Windows NT, CE, Graphics */
 #define RL_GRAPHICS  /* Reinforcement learning 'window' port */
 
@@ -61,11 +69,11 @@
  * Define the default window system.  This should be one that is compiled
  * into your system (see defines above).  Known window systems are:
  *
- *      tty, X11, mac, amii, BeOS, Qt, Gem, Gnome, rl
+ *      tty, X11, mac, amii, BeOS, Qt, Gem, Gnome, shim, rl
  */
 
-/* MAC also means MAC windows */
-#ifdef MAC
+/* MACOS9 also means MAC windows */
+#ifdef MACOS9
 #ifndef AUX
 #define DEFAULT_WINDOW_SYS "mac"
 #endif
@@ -93,22 +101,27 @@
 
 #ifdef QT_GRAPHICS
 #ifndef DEFAULT_WC_TILED_MAP
-#define DEFAULT_WC_TILED_MAP /* Default to tiles if users doesn't say \
-                                wc_ascii_map */
+#define DEFAULT_WC_TILED_MAP /* Default to tiles if users doesn't request
+                              * wc_ascii_map */
 #endif
-#ifndef NOUSER_SOUNDS
-#define USER_SOUNDS /* Use sounds */
-#endif
+#ifndef USE_XPM
 #define USE_XPM           /* Use XPM format for images (required) */
+#endif
+#ifndef GRAPHIC_TOMBSTONE
 #define GRAPHIC_TOMBSTONE /* Use graphical tombstone (rip.ppm) */
+#endif
 #ifndef DEFAULT_WINDOW_SYS
 #define DEFAULT_WINDOW_SYS "Qt"
 #endif
 #endif
 
 #ifdef GNOME_GRAPHICS
+#ifndef USE_XPM
 #define USE_XPM           /* Use XPM format for images (required) */
+#endif
+#ifndef GRAPHIC_TOMBSTONE
 #define GRAPHIC_TOMBSTONE /* Use graphical tombstone (rip.ppm) */
+#endif
 #ifndef DEFAULT_WINDOW_SYS
 #define DEFAULT_WINDOW_SYS "Gnome"
 #endif
@@ -127,8 +140,10 @@
 #endif
 #endif
 
+#ifdef TTY_GRAPHICS
 #ifndef DEFAULT_WINDOW_SYS
 #define DEFAULT_WINDOW_SYS "tty"
+#endif
 #endif
 
 #ifdef CURSES_GRAPHICS
@@ -137,18 +152,28 @@
 #endif
 #endif
 
+#ifdef SHIM_GRAPHICS
+#ifndef DEFAULT_WINDOW_SYS
+#define DEFAULT_WINDOW_SYS "shim"
+#endif
+#endif
+
 #ifdef X11_GRAPHICS
 /*
- * There are two ways that X11 tiles may be defined.  (1) using a custom
- * format loaded by NetHack code, or (2) using the XPM format loaded by
- * the free XPM library.  The second option allows you to then use other
- * programs to generate tiles files.  For example, the PBMPlus tools
+ * There are two ways that X11 tiles may be defined:
+ * (1) using a custom format loaded by NetHack code.
+ * (2) using the XPM format loaded by the free XPM library.
+ * The second option allows you to then use other programs to
+ * generate tiles files.  For example, the PBMPlus tools
  * would allow:
- *  xpmtoppm <x11tiles.xpm | pnmscale 1.25 | ppmquant 90 >x11tiles_big.xpm
+ *  xpmtoppm <x11tiles.xpm | pnmscale 1.25 | ppmquant 90 | \
+ *      ppmtoxpm >x11tiles_big.xpm
  */
 /* # define USE_XPM */ /* Disable if you do not have the XPM library */
 #ifdef USE_XPM
+#ifndef GRAPHIC_TOMBSTONE
 #define GRAPHIC_TOMBSTONE /* Use graphical tombstone (rip.xpm) */
+#endif
 #endif
 #ifndef DEFAULT_WC_TILED_MAP
 #define DEFAULT_WC_TILED_MAP /* Default to tiles */
@@ -158,9 +183,9 @@
 /*
  * Section 2:   Some global parameters and filenames.
  *
- *              LOGFILE, XLOGFILE, NEWS and PANICLOG refer to files in
- *              the playground directory.  Commenting out LOGFILE, XLOGFILE,
- *              NEWS or PANICLOG removes that feature from the game.
+ *              LOGFILE, XLOGFILE, LIVELOGFILE, NEWS and PANICLOG refer to
+ *              files in the playground directory.  Commenting out LOGFILE,
+ *              XLOGFILE, NEWS or PANICLOG removes that feature from the game.
  *
  *              Building with debugging features enabled is now unconditional;
  *              the old WIZARD setting for that has been eliminated.
@@ -187,9 +212,16 @@
  *              PERS_IS_UID  (0 or 1 - person is name or (numeric) userid)
  *            Can force incubi/succubi behavior to be toned down to nymph-like:
  *              SEDUCE       (0 or 1 - runtime disable/enable SEDUCE option)
+ *            Can hide the entry for displaying command line usage from
+ *            the help menu if players don't have access to command lines:
+ *              HIDEUSAGE    (0 or 1 - runtime show/hide command line usage)
  *            The following options pertain to crash reporting:
  *              GREPPATH     (the path to the system grep(1) utility)
  *              GDBPATH      (the path to the system gdb(1) program)
+ *              CRASHREPORT  (use CRASHREPORTURL if defined in syscf; this
+ *                           define specifies the name of the helper program
+ *                           used to launch the browser and enables the
+ *                           feature))
  *            Regular nethack options can also be specified in order to
  *            provide system-wide default values local to your system:
  *              OPTIONS      (same as in users' .nethackrc or defaults.nh)
@@ -221,6 +253,61 @@
 #define GREPPATH "/bin/grep"
 #endif
 
+#ifndef NOCRASHREPORT
+# ifndef CRASHREPORT
+#  ifdef MACOS
+#   define CRASHREPORT "/usr/bin/open"
+#  endif
+#  ifdef __linux__
+#   define CRASHREPORT "/usr/bin/xdg-open"
+       /* Define this if the terminal is filled with useless error messages
+        * when the browser launches. */
+#   define CRASHREPORT_EXEC_NOSTDERR
+#  endif
+#  ifdef WIN32
+#   define CRASHREPORT /* builtin helper */
+#  endif
+# endif
+#else
+# ifdef CRASHREPORT
+#  undef CRASHREPORT
+# endif
+# if defined(MSDOS) || defined(NOPANICTRACE)
+#  undef PANICTRACE
+# endif
+#endif
+
+#ifdef CRASHREPORT
+# ifndef DUMPLOG_CORE
+#  define DUMPLOG_CORE     // required to get ^P info
+# endif
+# ifdef MACOS
+#  define PANICTRACE
+# endif
+# ifdef __linux__
+#  define PANICTRACE
+#  ifndef NOSTATICFN       // may be defined on command line
+#   define NOSTATICFN
+#  endif
+# endif
+// This test isn't quite right: CNG is only available from Windows 2000 on.
+// But we'll check that at runtime.
+# ifdef WIN32
+#  define PANICTRACE
+#  define NOSTATICFN
+# endif
+#endif
+
+#ifdef NONOSTATICFN
+# define staticfn static
+#else
+# ifdef NOSTATICFN
+#  define staticfn
+# else
+#  define staticfn static
+# endif
+#endif
+
 /* note: "larger" is in comparison with 'record', the high-scores file
    (whose name can be overridden via #define in global.h if desired) */
 #define LOGFILE  "logfile"  /* larger file for debugging purposes */
@@ -231,6 +318,21 @@
 /* alternative paniclog format, better suited for public servers with
    many players, as it saves the player name and the game start time */
 /* #define PANICLOG_FMT2 */
+
+/*
+ *      When building the program, whether the 'makedefs' utility
+ *      checks for non-ASCII or non-printable (control) characters
+ *      in various data files (data.base, rumors.tru, rumors.fal,
+ *      {oracles,epitaphs,engravings,bogusmons}.txt and warns about them.
+ *      They also get changed to '#' instead of possibly remaining
+ *      unprintable.
+ *
+ *      If you modify the data files to intentionally add accented
+ *      letters or something comparable, comment this out.  (Such things
+ *      won't necessarily work as intended within nethack but at least
+ *      makedefs wouldn't reject them.)
+ */
+#define MAKEDEFS_FILTER_NONASCII
 
 /*
  *      PERSMAX, POINTSMIN, ENTRYMAX, PERS_IS_UID:
@@ -249,12 +351,33 @@
 #define ENTRYMAX 100 /* must be >= 10 */
 #endif
 #ifndef PERS_IS_UID
-#if !defined(MICRO) && !defined(MAC) && !defined(WIN32)
+#if !defined(MICRO) && !defined(MACOS9) && !defined(WIN32)
 #define PERS_IS_UID 1 /* delete for PERSMAX per name; now per uid */
 #else
 #define PERS_IS_UID 0
 #endif
 #endif
+
+/*
+ *      NODUMPENUMS
+ *      If there are memory constraints and you don't want to store information
+ *      about the internal enum values for monsters and objects, this can be
+ *      uncommented to define NODUMPENUMS. Doing so will disable the
+ *          nethack --dumpenums
+ *      command line option.
+ *      Note:  the extra memory is also used when ENHANCED_SYMBOLS is
+ *      defined, so defining both ENHANCED_SYMBOLS and NODUMPENUMS will limit
+ *      the amount of memory and code reduction offered by the latter.
+ */
+/* #define NODUMPENUMS */
+
+/*
+ *      ENHANCED_SYMBOLS
+ *      Support the enhanced display of symbols by utilizing utf8.
+ *      Enabled by default, but it can be disabled by commenting it out.
+ */
+
+#define ENHANCED_SYMBOLS
 
 /*
  *      If COMPRESS is defined, it should contain the full path name of your
@@ -276,6 +399,7 @@
 
 #if defined(UNIX) && !defined(ZLIB_COMP) && !defined(COMPRESS)
 /* path and file name extension for compression program */
+/* NLE: Don't define COMPRESS or COMPRESS_EXTENSION */
 /* #define COMPRESS "/usr/bin/compress" */ /* Lempel-Ziv compression */
 /* #define COMPRESS_EXTENSION ".Z" */     /* compress's extension */
 /* An example of one alternative you might want to use: */
@@ -286,38 +410,6 @@
 #ifndef COMPRESS
 /* # define ZLIB_COMP */            /* ZLIB for compression */
 #endif
-
-/*
- *      Internal Compression Options
- *
- *      Internal compression options RLECOMP and ZEROCOMP alter the data
- *      that gets written to the save file by NetHack, in contrast
- *      to COMPRESS or ZLIB_COMP which compress the entire file after
- *      the NetHack data is written out.
- *
- *      Defining RLECOMP builds in support for internal run-length
- *      compression of level structures. If RLECOMP support is included
- *      it can be toggled on/off at runtime via the config file option
- *      rlecomp.
- *
- *      Defining ZEROCOMP builds in support for internal zero-comp
- *      compression of data. If ZEROCOMP support is included it can still
- *      be toggled on/off at runtime via the config file option zerocomp.
- *
- *      RLECOMP and ZEROCOMP support can be included even if
- *      COMPRESS or ZLIB_COMP support is included. One reason for doing
- *      so would be to provide savefile read compatibility with a savefile
- *      where those options were in effect. With RLECOMP and/or ZEROCOMP
- *      defined, NetHack can read an rlecomp or zerocomp savefile in, yet
- *      re-save without them.
- *
- *      Using any compression option will create smaller bones/level/save
- *      files at the cost of additional code and time.
- */
-
-/* # define INTERNAL_COMP */ /* defines both ZEROCOMP and RLECOMP */
-/* # define ZEROCOMP      */ /* Support ZEROCOMP compression */
-/* # define RLECOMP       */ /* Support RLECOMP compression  */
 
 /*
  *      Data librarian.  Defining DLB places most of the support files into
@@ -353,10 +445,12 @@
  *      died due to program or system crashes to be resumed from the point
  *      of the last level change, after running a utility program.
  */
+/* NLE: Don't define INSURANCE */
 /* #define INSURANCE allow crashed game recovery */
 
-#ifndef MAC
-/* #define CHDIR */ /* delete if no chdir() available */ /* Deleted for NLE */
+#if !defined(MACOS9) && !defined(SHIM_GRAPHICS)
+   /* NLE: deleted */
+   /* #define CHDIR */ /* delete if no chdir() available */
 #endif
 
 #ifdef CHDIR
@@ -384,6 +478,7 @@
  * #define MAX_NR_OF_PLAYERS 6
  */
 #endif /* CHDIR */
+
 
 /*
  * Section 3:   Definitions that may vary with system type.
@@ -443,32 +538,21 @@ typedef unsigned char uchar;
 /* #define STRNCMPI */ /* compiler/library has the strncmpi function */
 
 /*
- * There are various choices for the NetHack vision system.  There is a
- * choice of two algorithms with the same behavior.  Defining VISION_TABLES
- * creates huge (60K) tables at compile time, drastically increasing data
- * size, but runs slightly faster than the alternate algorithm.  (MSDOS in
- * particular cannot tolerate the increase in data size; other systems can
- * flip a coin weighted to local conditions.)
+ * Vision choices.
  *
- * If VISION_TABLES is not defined, things will be faster if you can use
- * MACRO_CPATH.  Some cpps, however, cannot deal with the size of the
- * functions that have been macroized.
+ * Things will be faster if you can use MACRO_CPATH.  Some cpps, however,
+ * cannot deal with the size of the functions that have been macroized.
  */
 
-/* #define VISION_TABLES */ /* use vision tables generated at compile time */
-#ifndef VISION_TABLES
 #ifndef NO_MACRO_CPATH
 #define MACRO_CPATH /* use clear_path macros instead of functions */
 #endif
-#endif
 
-#if !defined(MAC)
+#if !defined(MACOS9)
 #if !defined(NOCLIPPING)
 #define CLIPPING /* allow smaller screens -- ERS */
 #endif
 #endif
-
-#define DOAGAIN '\001' /* ^A, the "redo" key used in cmd.c and getline.c */
 
 /* CONFIG_ERROR_SECURE: If user makes NETHACKOPTIONS point to a file ...
  *  TRUE: Show the first error, nothing else.
@@ -486,8 +570,30 @@ typedef unsigned char uchar;
  * bugs left here.
  */
 
+/* SELECTSAVED: Enable the 'selectsaved' run-time option, allowing it
+ * to be set in user's config file or NETHACKOPTIONS.  When set, if
+ * player is about to be given the "who are you?" prompt, check for
+ * save files and if any are found, put up a menu of them for choosing
+ * one to restore (plus extra menu entries "new game" and "quit").
+ *
+ * Not useful if players are forced to use a specific character name
+ * such as their user name.  However in some cases, players can set
+ * their character name to one which is classified as generic in the
+ * sysconf file (such as "player" or "games")
+ *  nethack -u player
+ * to force the "who are you?" prompt in which case 'selectsaved' will
+ * be honored.
+ *
+ * Comment out if the wildcard file name lookup in files.c doesn't
+ * compile or doesn't work as intended.
+ */
+#define SELECTSAVED /* support for restoring via menu */
+
 /* TTY_TILES_ESCCODES: Enable output of special console escape codes
- * which act as hints for external programs such as EbonHack.
+ * which act as hints for external programs such as EbonHack or hterm.
+ *
+ * TTY_SOUND_ESCCODES: Enable output of special console escape codes
+ * which act as hints for theoretical external programs to play sound effect.
  *
  * Only for TTY_GRAPHICS.
  *
@@ -495,39 +601,45 @@ typedef unsigned char uchar;
  * one or more positive integer values, separated by semicolons.
  * For example ESC [ 1 ; 0 ; 120 z
  *
- * Possible codes are:
+ * Possible TTY_TILES_ESCCODES codes are:
  *  ESC [ 1 ; 0 ; n ; m z   Start a glyph (aka a tile) number n, with flags m
  *  ESC [ 1 ; 1 z           End a glyph.
  *  ESC [ 1 ; 2 ; n z       Select a window n to output to.
  *  ESC [ 1 ; 3 z           End of data. NetHack has finished sending data,
  *                          and is waiting for input.
+ * Possible TTY_SOUND_ESCCODES codes are:
+ *  ESC [ 1 ; 4 ; n ; m z   Play specified sound n, volume m
  *
  * Whenever NetHack outputs anything, it will first output the "select window"
  * code. Whenever NetHack outputs a tile, it will first output the "start
  * glyph" code, then the escape codes for color and the glyph character
  * itself, and then the "end glyph" code.
  *
- * To compile NetHack with this, add tile.c to WINSRC and tile.o to WINOBJ
- * in the hints file or Makefile.
- * Set boolean option vt_tiledata in your config file to turn this on.
- * Note that gnome-terminal at least doesn't work with this. */
+ * To compile NetHack with this, add tile.c to WINSRC and tile.o to WINOBJ in
+ * the hints file or Makefile.  Set boolean option vt_tiledata and/or
+ * vt_sounddata in your config file to turn either of these on.  Note that some
+ * terminals (e.g. old versions of gnome-terminal) don't work with this. */
 /* #define TTY_TILES_ESCCODES */
+/* #define TTY_SOUND_ESCCODES */
 
-/* NetHack will execute an external program whenever a new message-window
- * message is shown.  The program to execute is given in environment variable
- * NETHACK_MSGHANDLER.  It will get the message as the only parameter.
- * Only available with POSIX_TYPES or GNU C */
-/* #define MSGHANDLER */
+/* An experimental minimalist inventory list capability under tty if you have
+ * at least 28 additional rows beneath the status window on your terminal  */
+/* #define TTY_PERM_INVENT */
 
+/* enable status highlighting via STATUS_HILITE directives in run-time
+   config file and the 'statushilites' option */
 #define STATUS_HILITES         /* support hilites of status fields */
 
 /* #define WINCHAIN */              /* stacked window systems */
 
-/* #define DEBUG_MIGRATING_MONS */  /* add a wizard-mode command to help debug
-                                       migrating monsters */
+#if defined(DEBUG) && !defined(DEBUG_MIGRATING_MONS)
+#define DEBUG_MIGRATING_MONS  /* add a wizard-mode command to help debug
+                               * migrating monsters */
+#endif
 
 /* SCORE_ON_BOTL is neither experimental nor inadequately tested,
    but doesn't seem to fit in any other section... */
+/* NLE: Enable SCORE_ON_BOTL */
 #define SCORE_ON_BOTL         /* enable the 'showscore' option to
                                  show estimated score on status line */
 
@@ -537,7 +649,9 @@ typedef unsigned char uchar;
 
 /* EXTRA_SANITY_CHECKS adds extra impossible calls,
  * probably not useful for normal play */
-/* #define EXTRA_SANITY_CHECKS */
+#if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
+#define EXTRA_SANITY_CHECKS
+#endif
 
 /* BREADCRUMBS employs the use of predefined compiler macros
  * __FUNCTION__ and __LINE__ to store some caller breadcrumbs
@@ -556,13 +670,67 @@ typedef unsigned char uchar;
    whole thing, then type a new end for the text. */
 /* #define EDIT_GETLIN */
 
-/* #define DUMPLOG */  /* End-of-game dump logs */
-#ifdef DUMPLOG
+#ifndef NO_CHRONICLE
+/* CHRONICLE - enable #chronicle command, a log of major game events.
+   The logged messages will also appear in DUMPLOG. */
+#define CHRONICLE
+#ifdef CHRONICLE
+/* LIVELOG - log CHRONICLE events into LIVELOGFILE as they happen. */
+/* #define LIVELOG */
+#endif /* CHRONICLE */
+#else
+#undef LIVELOG*/#endif /* NO_CHRONICLE */
 
-#ifndef DUMPLOG_MSG_COUNT
-#define DUMPLOG_MSG_COUNT   50
+/* #define DUMPLOG */  /* End-of-game dump logs */
+
+#define USE_ISAAC64 /* Use cross-platform, bundled RNG */
+
+/* TEMPORARY - MAKE UNCONDITIONAL BEFORE RELEASE */
+/* undef this to check if sandbox breaks something */
+#define NHL_SANDBOX
+
+#ifdef NHL_SANDBOX
+#ifdef CHRONICLE
+    /* LIVELOG (and therefore CHRONICLE)  is needed for --loglua */
+#define LIVELOG
+#endif
 #endif
 
+/* experimential; if the platform/window-port supports it; when the game has
+ * started to wait for player input, and the wait lasts longer than
+ * IDLECHECKPOINT_WAIT_TIME seconds (defined in hack.h or *conf.h), the game
+ * will perform an update to the checkpoint file.
+ * Currently has support in:
+ *     WIN32CON
+ *     Qt
+ */
+
+/* #define IDLECHECKPOINT */
+
+/* End of Section 4 */
+
+#ifdef TTY_TILES_ESCCODES
+# ifndef TILES_IN_GLYPHMAP
+#  define TILES_IN_GLYPHMAP
+# endif
+#endif
+
+#include "cstd.h"
+#include "integer.h"
+#include "global.h" /* Define everything else according to choices above */
+
+/* Place the following after #include [platform]conf.h in global.h so that
+   overrides are possible in there, for things like unix-specific file
+   paths. */
+
+#ifdef LIVELOG
+#ifndef LIVELOGFILE
+#define LIVELOGFILE "livelog" /* in-game events recorded, live */
+#endif /* LIVELOGFILE */
+#endif /* LIVELOG */
+
+#ifdef DUMPLOG
+#define DUMPLOG_CORE
 #ifndef DUMPLOG_FILE
 #define DUMPLOG_FILE        "/tmp/nethack.%n.%d.log"
 /* DUMPLOG_FILE allows following placeholders:
@@ -577,20 +745,12 @@ typedef unsigned char uchar;
    %N first character of player name
    DUMPLOG_FILE is not used if SYSCF is defined
 */
+#endif /* DUMPLOG_FILE */
+#endif /* DUMPLOG */
+#ifdef DUMPLOG_CORE
+#ifndef DUMPLOG_MSG_COUNT
+#define DUMPLOG_MSG_COUNT   50
+#endif /* DUMPLOG_MSG_COUNT */
 #endif
-
-#endif
-
-#define USE_ISAAC64 /* Use cross-plattform, bundled RNG */
-
-/* End of Section 4 */
-
-#ifdef TTY_TILES_ESCCODES
-# ifndef USE_TILES
-#  define USE_TILES
-# endif
-#endif
-
-#include "global.h" /* Define everything else according to choices above */
 
 #endif /* CONFIG_H */

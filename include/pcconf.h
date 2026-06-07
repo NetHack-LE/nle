@@ -1,4 +1,4 @@
-/* NetHack 3.6	pcconf.h	$NHDT-Date: 1457207019 2016/03/05 19:43:39 $  $NHDT-Branch: chasonr $:$NHDT-Revision: 1.19 $ */
+/* NetHack 5.0	pcconf.h	$NHDT-Date: 1596498554 2020/08/03 23:49:14 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.28 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -18,12 +18,12 @@
  *     _MSC_VER is defined automatically by Microsoft C.
  *     __BORLANDC__ is defined automatically by Borland C.
  *     __SC__ is defined automatically by Symantec C.
- *	Note: 3.6.x was not verified with Symantec C.
+ *     Note: 3.6.x was not verified with Symantec C.
  */
 
 #define CONFIG_FILE "defaults.nh"
 #define GUIDEBOOK_FILE "Guidebook.txt"
- 
+
 /*
  *  The following options are somewhat configurable depending on
  *  your compiler.
@@ -35,24 +35,18 @@
 
 /*#define OVERLAY */ /* Manual overlay definition (MSC 6.0ax only) */
 
-#ifndef __GO32__
-#define MFLOPPY /* Support for floppy drives and ramdisks by dgk */
-#endif
-
+#ifndef CROSS_TO_AMIGA
 #define SHELL /* via exec of COMMAND.COM */
-
-#ifdef __BORLANDC__
-#define PCMUSIC /* Music option, enable very basic pc speaker music notes */
 #endif
 
 /*
  * Screen control options
  *
  * You may uncomment:
- *		       ANSI_DEFAULT
- *		  or   TERMLIB
- *		  or   ANSI_DEFAULT and TERMLIB
- *		  or   NO_TERMS
+ *    ANSI_DEFAULT
+ *    or   TERMLIB
+ *    or   ANSI_DEFAULT and TERMLIB
+ *    or   NO_TERMS
  */
 
 /* # define TERMLIB */ /* enable use of termcap file /etc/termcap */
@@ -67,7 +61,7 @@
 
 #ifdef NO_TERMS     /* if NO_TERMS select one screen package below */
 #define SCREEN_BIOS /* Use bios calls for all screen control */
-/* #define SCREEN_DJGPPFAST */ /* Use djgpp fast screen routines	*/
+/* #define SCREEN_DJGPPFAST */ /* Use djgpp fast screen routines */
 #endif
 
 /* # define PC9800 */ /* Allows NetHack to run on NEC PC-9800 machines */
@@ -81,8 +75,8 @@
  */
 #ifndef SUPPRESS_GRAPHICS
 #if (defined(SCREEN_BIOS) || defined(SCREEN_DJGPPFAST)) && !defined(PC9800)
-#ifdef USE_TILES
-#define SCREEN_VGA /* Include VGA	  graphics routines in the build */
+#ifdef TILES_IN_GLYPHMAP
+#define SCREEN_VGA /* Include VGA graphics routines in the build */
 #define SCREEN_VESA
 #endif
 #endif
@@ -96,11 +90,13 @@
 #define ANSI_DEFAULT
 #endif
 
+#ifndef CROSS_TO_AMIGA
 #define RANDOM /* have Berkeley random(3) */
+#endif
 
 #define MAIL /* Allows for fake mail daemon to deliver mail */
              /* in the MSDOS version.  (For AMIGA MAIL see  */
-             /* amiconf.h).	In the future this will be the */
+             /* amiconf.h).  In the future this will be the */
              /* hook for mail reader implementation.        */
 
 /* The following is needed for prototypes of certain functions */
@@ -109,34 +105,26 @@
 #include <process.h> /* Provides prototypes of exit(), spawn()      */
 #endif
 
+#ifdef CROSS_TO_AMIGA
+#include <spawn.h>
+#endif
+
 #if defined(_MSC_VER) && (_MSC_VER >= 7)
 #include <sys/types.h>
-#include <stdlib.h>
 #ifdef strcmpi
 #undef strcmpi
 #endif
-#include <string.h> /* Provides prototypes of strncmpi(), etc.     */
 #include <conio.h>
 #include <io.h>
 #include <direct.h>
 #define SIG_RET_TYPE void(__cdecl *)(int)
-#define M(c) ((char) (0x80 | (c)))
 #define vprintf printf
 #define vfprintf fprintf
 #define vsprintf sprintf
 #endif
 
-#if defined(__BORLANDC__) && defined(STRNCMPI)
-#include <string.h> /* Provides prototypes of strncmpi(), etc.     */
-#endif
-
-#if defined(__DJGPP__)
-#define _NAIVE_DOS_REGS
-#include <stdlib.h>
-#include <string.h> /* Provides prototypes of strncmpi(), etc.     */
 #ifndef M
 #define M(c) ((char) (0x80 | (c)))
-#endif
 #endif
 
 /*
@@ -156,9 +144,6 @@
 
 #define TIMED_DELAY /* enable the `timed_delay' run-time option */
 
-#ifdef PCMUSIC
-#define TIMED_DELAY /* need it anyway */
-#endif
 #define NOCWD_ASSUMPTIONS /* Allow paths to be specified for HACKDIR,      \
                              LEVELDIR, SAVEDIR, BONESDIR, DATADIR,         \
                              SCOREDIR, LOCKDIR, CONFIGDIR, and TROUBLEDIR. \
@@ -166,7 +151,9 @@
 
 #endif /* MSDOS configuration stuff */
 
+#ifndef PATHLEN
 #define PATHLEN 64  /* maximum pathlength */
+#endif
 #define FILENAME 80 /* maximum filename length (conservative) */
 #ifndef MICRO_H
 #include "micro.h" /* contains necessary externs for [os_name].c */
@@ -178,7 +165,7 @@
 
 #ifndef SYSTEM_H
 #if !defined(_MSC_VER)
-#include "system.h"
+/* #include "system.h" */
 #endif
 #endif
 
@@ -190,7 +177,6 @@
 #undef lock
 #include <pc.h> /* kbhit() */
 #define PC_LOCKING
-#define HOLD_LOCKFILE_OPEN
 #define SELF_RECOVER /* NetHack itself can recover games */
 #endif
 
@@ -217,26 +203,15 @@
 #define VROOMM /* Borland's VROOMM overlay system */
 #endif
 #if !defined(STKSIZ)
-#define STKSIZ 5 * 1024 /* Use a default of 5K stack for Borland C	*/
+#define STKSIZ 5 * 1024 /* Use a default of 5K stack for Borland C      */
                         /* This macro is used in any file that contains */
-                        /* a main() function.				*/
+                        /* a main() function.                           */
 #endif
 #define PC_LOCKING
 #endif
 
 #ifdef PC_LOCKING
 #define HLOCK "NHPERM"
-#endif
-
-#ifndef index
-#define index strchr
-#endif
-#ifndef rindex
-#define rindex strrchr
-#endif
-
-#ifndef AMIGA
-#include <time.h>
 #endif
 
 /* the high quality random number routines */
@@ -255,27 +230,10 @@
 #include <fcntl.h>
 
 #ifdef MSDOS
-#define TEXTCOLOR                /* */
 #define PORT_HELP "msdoshlp.txt" /* msdos port specific help file */
 #endif
 
 /* Sanity check, do not modify these blocks. */
-
-/* OVERLAY must be defined with MOVERLAY or VROOMM */
-#if (defined(MOVERLAY) || defined(VROOMM))
-#ifndef OVERLAY
-#define OVERLAY
-#endif
-#endif
-
-#if defined(FUNCTION_LEVEL_LINKING)
-#define OVERLAY
-#endif
-
-#if defined(OVERLAY) && !defined(MOVERLAY) && !defined(VROOMM) \
-    && !defined(FUNCTION_LEVEL_LINKING)
-#define USE_TRAMPOLI
-#endif
 
 #if defined(MSDOS) && defined(NO_TERMS)
 #ifdef TERMLIB
@@ -306,16 +264,14 @@
                            */
 #endif
 #else
-/* djgpp C compiler	*/
+/* djgpp C compiler */
 #if defined(SCREEN_BIOS)
 #undef SCREEN_BIOS
 #endif
 #endif
 #endif
 #define ASCIIGRAPH
-#ifdef TEXTCOLOR
 #define VIDEOSHADES
-#endif
 /* SCREEN_8514, SCREEN_VESA are only placeholders presently - sub VGA instead
  */
 #if defined(SCREEN_8514)

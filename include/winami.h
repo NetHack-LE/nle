@@ -1,4 +1,4 @@
-/* NetHack 3.6	winami.h	$NHDT-Date: 1432512780 2015/05/25 00:13:00 $  $NHDT-Branch: master $:$NHDT-Revision: 1.8 $ */
+/* NetHack 5.0	winami.h	$NHDT-Date: 1596498569 2020/08/03 23:49:29 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.9 $ */
 /* Copyright (c) Kenneth Lorber, Bethesda, Maryland, 1991. */
 /* Copyright (c) Gregg Wonderly, Naperville, Illinois, 1992, 1993. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -22,6 +22,7 @@ typedef struct amii_mi {
     char gselector;      /* Group selector */
     char canselect;      /* Can user select this entry. */
     char attr;           /* Attribute for the line. */
+    int color;           /* Color for the line (from menucolors). */
     char *str;           /* The text of the item. */
 } amii_menu_item;
 
@@ -37,13 +38,13 @@ struct amii_menu {
  * tty-style windows also, then things will need to change. */
 /* per-window data */
 struct amii_WinDesc {
-    xchar type; /* type of window */
+    xint16 type; /* type of window */
     struct amii_menu menu;
     boolean active; /* true if window is active */
     boolean wasup;  /* true if menu/text window was already open */
     short
         disprows; /* Rows displayed so far (used for paging in message win) */
-    xchar offx, offy;         /* offset from topleft of display */
+    coordxy offx, offy;         /* offset from topleft of display */
     short vwx, vwy, vcx, vcy; /* View cursor location */
     short rows, cols;         /* dimensions */
     short curx, cury;         /* current cursor position */

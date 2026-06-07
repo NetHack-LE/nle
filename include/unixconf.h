@@ -1,4 +1,4 @@
-/* NetHack 3.6	unixconf.h	$NHDT-Date: 1555361298 2019/04/15 20:48:18 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.42 $ */
+/* NetHack 5.0	unixconf.h	$NHDT-Date: 1711213886 2024/03/23 17:11:26 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.57 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Pasi Kallinen, 2018. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -55,11 +55,6 @@
                         * particular, it should NOT be defined for the UNIXPC
                         * unless you remove the use of the shared library in
                         * the Makefile */
-#define TEXTCOLOR      /* Use System V r3.2 terminfo color support
-                        * and/or ANSI color support on termcap systems
-                        * and/or X11 color.  Note:  if you get compiler
-                        * warnings about 'has_colors()' being implicitly
-                        * declared, uncomment NEED_HAS_COLORS_DECL below. */
 #define POSIX_JOB_CONTROL /* use System V / Solaris 2.x / POSIX job control
                            * (e.g., VSUSP) */
 #define POSIX_TYPES /* use POSIX types for system calls and termios */
@@ -70,26 +65,8 @@
                      * Linux, Solaris 2.x
                      */
 
-/* #define OPENWINBUG */  /* avoid a problem using OpenWindows 3.0 for
-                             X11 on SunOS 4.1.x, x>= 2.  Do not define
-                             for other X11 implementations. */
-/* #define PYRAMID_BUG */ /* avoid a bug on the Pyramid */
-/* #define BSD_43_BUG */  /* for real 4.3BSD cc's without schain botch fix */
-/* #define MICROPORT_BUG */     /* problems with large arrays in structs */
-/* #define MICROPORT_286_BUG */ /* changes needed in termcap.c to get it to
-                                   run with Microport Sys V/AT version 2.4.
-                                   By Jay Maynard */
-/* #define AIXPS_2BUG */ /* avoid a problem with little_to_big() optimization
-                            */
-
 /* #define RANDOM */ /* if neither random/srandom nor lrand48/srand48
                         is available from your system */
-
-/* see sys/unix/snd86unx.shr for more information on these */
-/* #define UNIX386MUSIC */ /* play real music through speaker on systems
-                              with music driver installed */
-/* #define VPIX_MUSIC */   /* play real music through speaker on systems
-                              with built-in VPIX support */
 
 /*
  * The next two defines are intended mainly for the Andrew File System,
@@ -111,13 +88,15 @@
 /*
  * Define DEF_PAGER as your default pager, e.g. "/bin/cat" or "/usr/ucb/more"
  * If defined, it can be overridden by the environment variable PAGER.
- * Hack will use its internal pager if DEF_PAGER is not defined.
- * (This might be preferable for security reasons.)
+ * NetHack will use its internal pager if DEF_PAGER is not defined _or_
+ * if DLB is defined since an external pager won't know how to access the
+ * contents of the dlb container file.
+ * (Note: leaving DEF_PAGER undefined is preferable for security reasons.)
  */
-/* #define DEF_PAGER ".../mydir/mypager" */
+/* #define DEF_PAGER "/usr/bin/less" */
 
 /*
- * Define PORT_HELP to be the name of the port-specfic help file.
+ * Define PORT_HELP to be the name of the port-specific help file.
  * This file is found in HACKDIR.
  * Normally, you shouldn't need to change this.
  * There is currently no port-specific help for Unix systems.
@@ -135,10 +114,11 @@
  */
 /* #define TIMED_DELAY */ /* usleep() */
 #endif
-#if defined(MACOSX) && !defined(TIMED_DELAY)
+#if defined(MACOS) && !defined(TIMED_DELAY)
 #define TIMED_DELAY
 #endif
 
+/* NLE: Define AVOID_WIN_IOCTL */
 #define AVOID_WIN_IOCTL /* ensure USE_WIN_IOCTL remains undefined */
 
 /*
@@ -291,8 +271,11 @@
 #endif
 #endif
 #endif
+
+#ifndef NOSUSPEND
 #if defined(BSD_JOB_CONTROL) || defined(POSIX_JOB_CONTROL) || defined(AUX)
-#define SUSPEND /* let ^Z suspend the game */
+#define SUSPEND /* let ^Z suspend the game (push to background) */
+#endif
 #endif
 
 /*
@@ -305,9 +288,17 @@
 
 #if defined(BSD) || defined(ULTRIX)
 #include <sys/time.h>
-#else
-#include <time.h>
 #endif
+
+/* these might be needed for include/system.h;
+   default comes from system's time.h */
+/* #define NEED_TIME_DECL 1 */
+/* #define NEED_LOCALTIME_DECL 1 */
+/* #define NEED_CTIME_DECL 1 */
+/* these might be needed for src/hacklib.c;
+   default is 'time_t *' */
+/* #define TIME_type long * */
+/* #define LOCALTIME_type long * */
 
 #define HLOCK "perm" /* an empty file used for locking purposes */
 
@@ -317,10 +308,7 @@
 #define SHELL /* do not delete the '!' command */
 #endif
 
-#include "system.h"
-
 #if defined(POSIX_TYPES) || defined(__GNUC__)
-#include <stdlib.h>
 #include <unistd.h>
 #endif
 
@@ -338,19 +326,21 @@
 #include <memory.h>
 #endif
 #else         /* therefore SYSV */
+#ifdef NOT_C99
 #ifndef index /* some systems seem to do this for you */
 #define index strchr
 #endif
 #ifndef rindex
 #define rindex strrchr
 #endif
-#endif
+#endif  /* NOT_C99 */
+#endif  /* SYSV */
 
 /* Use the high quality random number routines. */
 /* the high quality random number routines */
 #ifndef USE_ISAAC64
 # if defined(BSD) || defined(LINUX) || defined(ULTRIX) || defined(CYGWIN32) \
-    || defined(RANDOM) || defined(MACOSX)
+    || defined(RANDOM) || defined(MACOS)
 #  define Rand() random()
 # else
 #  define Rand() lrand48()
@@ -366,7 +356,7 @@
 #endif
 #endif
 
-/* Relevant for some systems which enable TEXTCOLOR:  some older versions
+/* Relevant for some systems:  some older versions
    of curses (the run-time library optionally used by nethack's tty
    interface in addition to its curses interface) supply 'has_colors()'
    but corresponding <curses.h> doesn't declare it.  has_colors() is used
@@ -407,7 +397,7 @@
 #endif /* LINUX */
 #endif /* GNOME_GRAPHICS */
 
-#ifdef MACOSX
+#if defined(MACOS) && !defined(LIBNH)
 # define RUNTIME_PASTEBUF_SUPPORT
 #endif
 
@@ -420,7 +410,7 @@
 #ifdef LINUX
 # define DEV_RANDOM "/dev/urandom"
 #else
-# if defined(BSD) || defined(MACOSX)
+# if defined(BSD) || defined(MACOS)
 #  define DEV_RANDOM "/dev/random"
 # endif
 #endif

@@ -1,5 +1,5 @@
-/* NetHack 3.6	quest.h	$NHDT-Date: 1432512779 2015/05/25 00:12:59 $  $NHDT-Branch: master $:$NHDT-Revision: 1.10 $ */
-/* Copyright (c) Mike Stephenson 1991.				  */
+/* NetHack 5.0	quest.h	$NHDT-Date: 1596498556 2020/08/03 23:49:16 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.11 $ */
+/* Copyright (c) Mike Stephenson 1991.                            */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #ifndef QUEST_H
@@ -11,9 +11,10 @@ struct q_score {              /* Quest "scorecard" */
     Bitfield(not_ready, 3);   /* rejected due to alignment, etc. */
     Bitfield(pissed_off, 1);  /* got the leader angry */
     Bitfield(got_quest, 1);   /* got the quest assignment */
+    Bitfield(killed_leader, 1); /* killed the quest leader */
 
     Bitfield(first_locate, 1); /* only set the first time */
-    Bitfield(met_intermed, 1); /* used if the locate is a person. */
+    Bitfield(met_intermed, 1); /* used if the locate is a person */
     Bitfield(got_final, 1);    /* got the final quest assignment */
 
     Bitfield(made_goal, 3);      /* # of times on goal level */
@@ -39,7 +40,6 @@ struct q_score {              /* Quest "scorecard" */
     unsigned leader_m_id;
 };
 
-#define MAX_QUEST_TRIES 7  /* exceed this and you "fail" */
 #define MIN_QUEST_ALIGN 20 /* at least this align.record to start */
 /* note: align 20 matches "pious" as reported by enlightenment (cmd.c) */
 #define MIN_QUEST_LEVEL 14 /* at least this u.ulevel to start */

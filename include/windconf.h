@@ -1,13 +1,11 @@
-/* NetHack 3.6	ntconf.h	$NHDT-Date: 1447424077 2015/11/13 14:14:37 $  $NHDT-Branch: master $:$NHDT-Revision: 1.48 $ */
+/* NetHack 5.0	windconf.h	$NHDT-Date: 1596498552 2020/08/03 23:49:12 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.89 $ */
 /* Copyright (c) NetHack PC Development Team 1993, 1994.  */
 /* NetHack may be freely redistributed.  See license for details. */
 
-#ifndef NTCONF_H
-#define NTCONF_H
+#ifndef WINDCONF_H
+#define WINDCONF_H
 
-/* #define SHELL */	/* nt use of pcsys routines caused a hang */
-
-#define TEXTCOLOR /* Color text */
+/* #define SHELL */    /* nt use of pcsys routines caused a hang */
 
 #define EXEPATH              /* Allow .exe location to be used as HACKDIR */
 #define TRADITIONAL_GLYPHMAP /* Store glyph mappings at level change time */
@@ -18,24 +16,28 @@
 #define PC_LOCKING /* Prevent overwrites of aborted or in-progress games */
 /* without first receiving confirmation. */
 
-#define HOLD_LOCKFILE_OPEN /* Keep an exclusive lock on the .0 file */
-
 #define SELF_RECOVER /* Allow the game itself to recover from an aborted \
                         game */
 
 #define SYSCF                /* Use a global configuration */
 #define SYSCF_FILE "sysconf" /* Use a file to hold the SYSCF configuration */
 
-#define DUMPLOG      /* Enable dumplog files */
-/*#define DUMPLOG_FILE "nethack-%n-%d.log"*/
-#define DUMPLOG_MSG_COUNT 50
-
-#define USER_SOUNDS
+#ifdef DUMPLOG
+#define DUMPLOG_FILE "%TEMP%/nethack-%n-%d.log"
+#endif
 
 /*#define CHANGE_COLOR*/ /* allow palette changes */
-#define SELECTSAVED /* Provide menu of saved games to choose from at start */
 
-/* #define QWERTZ_SUPPORT */ /* when swap_yz is True, numpad 7 is 'z' not 'y' */
+#define QWERTZ_SUPPORT  /* when swap_yz is True, numpad 7 is 'z' not 'y' */
+
+#define OPTIONS_AT_RUNTIME  /* build info done at runtime not text file */
+
+#define EARLY_CONFIGFILE_PASS
+#define TTY_PERM_INVENT
+
+#ifdef WIN32CON
+#define IDLECHECKPOINT
+#endif
 
 /*
  * -----------------------------------------------------------------
@@ -45,7 +47,9 @@
 /* #define SHORT_FILENAMES */ /* All NT filesystems support long names now
  */
 
+#ifdef DLB
 #define VERSION_IN_DLB_FILENAME     /* Append version digits to nhdat */
+#endif
 
 #ifdef MICRO
 #undef MICRO /* never define this! */
@@ -83,7 +87,7 @@
                      */
 
 #define CONFIG_FILE ".nethackrc"
-#define CONFIG_TEMPLATE ".nethackrc.template"
+#define CONFIG_TEMPLATE "nethackrc.template"
 #define SYSCF_TEMPLATE "sysconf.template"
 #define SYMBOLS_TEMPLATE "symbols.template"
 #define GUIDEBOOK_FILE "Guidebook.txt"
@@ -91,9 +95,9 @@
 /* Stuff to help the user with some common, yet significant errors */
 #define INTERJECT_PANIC 0
 #define INTERJECTION_TYPES (INTERJECT_PANIC + 1)
-extern void FDECL(interject_assistance,
-                  (int, int, genericptr_t, genericptr_t));
-extern void FDECL(interject, (int));
+extern void interject_assistance(int, int, genericptr_t, genericptr_t);
+extern void interject(int);
+extern char *windows_exepath(void);
 
 /*
  *===============================================
@@ -101,17 +105,22 @@ extern void FDECL(interject, (int));
  *===============================================
  */
 
-#ifdef __MINGW32__
+#ifdef __GNUC__
+#define MD_USE_TMPFILE_S
+#
 #ifdef strncasecmp
 #undef strncasecmp
 #endif
 #ifdef strcasecmp
 #undef strcasecmp
+/* https://sourceforge.net/p/mingw-w64/wiki2/gnu%20printf/ */
 #endif
-/* extern int NDECL(getlock); */
-#endif
- 
+/* extern int getlock(void); */
+#endif   /* __GNUC__ */
+
 #ifdef _MSC_VER
+#define MD_USE_TMPFILE_S
+#define HAS_STDINT
 #if (_MSC_VER > 1000)
 /* Visual C 8 warning elimination */
 #ifndef _CRT_SECURE_NO_DEPRECATE
@@ -142,6 +151,13 @@ extern void FDECL(interject, (int));
 #ifndef HAS_STDINT_H
 #define HAS_STDINT_H    /* force include of stdint.h in integer.h */
 #endif
+/* Turn on some additional warnings */
+#pragma warning(3:4389)
+
+/* supply ssize_t */
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
+
 #endif /* _MSC_VER */
 
 /* The following is needed for prototypes of certain functions */
@@ -154,18 +170,8 @@ extern void FDECL(interject, (int));
 #define strncmpi(a, b, c) strnicmp(a, b, c)
 #endif
 
-#ifdef _MSC_VER
-/* Visual Studio defines this in their own headers, which we don't use */
-#ifndef snprintf
-#define snprintf _snprintf
-#pragma warning( \
-    disable : 4996) /* deprecation warning suggesting snprintf_s */
-#endif
-#endif
 
 #include <sys/types.h>
-#include <stdlib.h>
-#include <stdio.h>
 #ifdef __BORLANDC__
 #undef randomize
 #undef random
@@ -184,12 +190,6 @@ extern void FDECL(interject, (int));
 #endif
 
 #define NO_SIGNAL
-#define index strchr
-#define rindex strrchr
-
-/* Time stuff */
-#include <time.h>
-
 #define USE_STDARG
 
 /* Use the high quality random number routines. */
@@ -212,31 +212,28 @@ extern void FDECL(interject, (int));
 
 #ifndef M
 #define M(c) ((char) (0x80 | (c)))
-/* #define M(c)		((c) - 128) */
+/* #define M(c) ((c) - 128) */
 #endif
 
 #ifndef C
 #define C(c) (0x1f & (c))
 #endif
 
-#if defined(DLB)
+#if defined(DLB) || defined(_MSC_VER)
 #define FILENAME_CMP stricmp /* case insensitive */
 #endif
 
 /* this was part of the MICRO stuff in the past */
 extern const char *alllevels, *allbones;
-extern char hackdir[];
 #define ABORT C('a')
 #define getuid() 1
 #define getlogin() ((char *) 0)
-extern void NDECL(win32_abort);
-extern void FDECL(nttty_preference_update, (const char *));
-extern void NDECL(toggle_mouse_support);
-extern void FDECL(map_subkeyvalue, (char *));
-#if defined(WIN32CON)
+extern void win32_abort(void);
+extern void consoletty_preference_update(const char *);
+extern void toggle_mouse_support(void);
+extern void map_subkeyvalue(char *);
 extern void set_altkeyhandling(const char *);
-#endif
-extern void NDECL(raw_clear_screen);
+extern void raw_clear_screen(void);
 
 #include <fcntl.h>
 #ifndef __BORLANDC__
@@ -257,9 +254,6 @@ open(const char _FAR *__path, int __access, ... /*unsigned mode*/);
 long _RTLENTRY _EXPFUNC lseek(int __handle, long __offset, int __fromwhere);
 int _RTLENTRY _EXPFUNC read(int __handle, void _FAR *__buf, unsigned __len);
 #endif
-#ifndef CURSES_GRAPHICS
-#include <conio.h>      /* conflicting definitions with curses.h */
-#endif
 #undef kbhit /* Use our special NT kbhit */
 #define kbhit (*nt_kbhit)
 
@@ -271,27 +265,33 @@ int _RTLENTRY _EXPFUNC read(int __handle, void _FAR *__buf, unsigned __len);
 #define ALLOCA_HACK /* used in util/panic.c */
 #endif
 
-extern int FDECL(set_win32_option, (const char *, const char *));
+extern int set_win32_option(const char *, const char *);
 #define LEFTBUTTON FROM_LEFT_1ST_BUTTON_PRESSED
 #define RIGHTBUTTON RIGHTMOST_BUTTON_PRESSED
 #define MIDBUTTON FROM_LEFT_2ND_BUTTON_PRESSED
 #define MOUSEMASK (LEFTBUTTON | RIGHTBUTTON | MIDBUTTON)
 #ifdef CHANGE_COLOR
-extern int FDECL(alternative_palette, (char *));
+extern int alternative_palette(char *);
 #endif
 
-#ifdef NDEBUG
-#define nhassert(expression) ((void)0)
-#else
-extern void FDECL(nhassert_failed, (const char * exp, const char * file,
-                                    int line));
+#define nethack_enter(argc, argv) nethack_enter_windows()
+extern boolean file_exists(const char *);
+extern boolean file_newer(const char *, const char *);
+#ifndef SYSTEM_H
+/* #include "system.h" */
+#endif
 
+#if defined(WIN_CE)
+#define QSORTCALLBACK __cdecl
+#endif
+
+/* Override the default version of nhassert.  The default version is unable
+ * to generate a string form of the expression due to the need to be
+ * compatible with compilers which do not support macro stringization (i.e.
+ * #x to turn x into its string form).
+ */
+extern void nt_assert_failed(const char *, const char *, int);
 #define nhassert(expression) (void)((!!(expression)) || \
-        (nhassert_failed(#expression, __FILE__, __LINE__), 0))
-#endif
+        (nt_assert_failed(#expression, __FILE__, __LINE__), 0))
 
-#define nethack_enter(argc, argv) nethack_enter_winnt()
-extern void FDECL(nethack_exit, (int)) NORETURN;
-extern boolean FDECL(file_exists, (const char *));
-extern boolean FDECL(file_newer, (const char *, const char *));
-#endif /* NTCONF_H */
+#endif /* WINDCONF_H */

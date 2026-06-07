@@ -1,4 +1,4 @@
-/* NetHack 3.6	dlb.h	$NHDT-Date: 1432512780 2015/05/25 00:13:00 $  $NHDT-Branch: master $:$NHDT-Revision: 1.10 $ */
+/* NetHack 5.0	dlb.h	$NHDT-Date: 1596498534 2020/08/03 23:48:54 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.12 $ */
 /* Copyright (c) Kenneth Lorber, Bethesda, Maryland, 1993. */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -9,7 +9,7 @@
 #ifdef DLB
 
 /* implementations */
-#ifdef MAC
+#if defined(MACOS9) && !defined(MACOS9_CROSS)
 #define DLBRSRC /* use Mac resources */
 #else
 #define DLBLIB /* use a set of external files */
@@ -44,7 +44,7 @@ typedef struct dlb_library {
 #define DLBFILE dlbfilename
 #define DLBBASENAME "nhdat"
 extern char dlbfilename[MAX_DLB_FILENAME];
-extern char *FDECL(build_dlb_filename, (const char *));
+extern char *build_dlb_filename(const char *);
 #endif
 #endif
 #ifndef FILENAME_CMP
@@ -75,16 +75,16 @@ typedef struct dlb_handle {
 #define DLB_P dlb *
 #endif
 
-boolean NDECL(dlb_init);
-void NDECL(dlb_cleanup);
+boolean dlb_init(void);
+void dlb_cleanup(void);
 
-dlb *FDECL(dlb_fopen, (const char *, const char *));
-int FDECL(dlb_fclose, (DLB_P));
-int FDECL(dlb_fread, (char *, int, int, DLB_P));
-int FDECL(dlb_fseek, (DLB_P, long, int));
-char *FDECL(dlb_fgets, (char *, int, DLB_P));
-int FDECL(dlb_fgetc, (DLB_P));
-long FDECL(dlb_ftell, (DLB_P));
+dlb *dlb_fopen(const char *, const char *);
+int dlb_fclose(DLB_P);
+int dlb_fread(char *, int, int, DLB_P);
+int dlb_fseek(DLB_P, long, int);
+char *dlb_fgets(char *, int, DLB_P);
+int dlb_fgetc(DLB_P);
+long dlb_ftell(DLB_P);
 
 /* Resource DLB entry points */
 #ifdef DLBRSRC

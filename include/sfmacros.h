@@ -1,0 +1,81 @@
+/* NetHack 5.0	sfmacros.h $NHDT-Date$  $NHDT-Branch$:$NHDT-Revision$ */
+/* Copyright (c) Michael Allison, 2025. */
+/* NetHack may be freely redistributed.  See license for details. */
+
+/* This file is included by sfbase.c, sfstruct.c */
+
+#if defined(SF_C) && defined(SF_A)
+
+SF_C(struct, arti_info)
+SF_C(struct, nhrect)
+SF_C(struct, branch)
+SF_C(struct, bubble)
+SF_C(struct, cemetery)
+SF_C(struct, context_info)
+SF_C(struct, nhcoord)
+SF_C(struct, damage)
+SF_C(struct, dest_area)
+SF_C(struct, dgn_topology)
+SF_C(struct, dungeon)
+SF_C(struct, d_level)
+SF_C(struct, ebones)
+SF_C(struct, edog)
+SF_C(struct, egd)
+SF_C(struct, emin)
+SF_C(struct, engr)
+SF_C(struct, epri)
+SF_C(struct, eshk)
+SF_C(struct, fe)
+SF_C(struct, flag)
+SF_C(struct, fruit)
+SF_C(struct, gamelog_line)
+SF_C(struct, kinfo)
+SF_C(struct, levelflags)
+SF_C(struct, ls_t)
+SF_C(struct, linfo)
+SF_C(struct, mapseen_feat)
+SF_C(struct, mapseen_flags)
+SF_C(struct, mapseen_rooms)
+SF_C(struct, mkroom)
+SF_C(struct, monst)
+SF_C(struct, mvitals)
+SF_C(struct, obj)
+SF_C(struct, objclass)
+SF_C(struct, q_score)
+SF_C(struct, rm)
+SF_C(struct, spell)
+SF_C(struct, stairway)
+SF_C(struct, s_level)
+SF_C(struct, trap)
+SF_C(struct, you)
+SF_C(union, any)
+
+SF_A(aligntyp)
+SF_A(boolean)
+SF_A(coordxy)
+//SF_A(genericptr)
+SF_A(int)
+SF_A(int16)
+SF_A(int32)
+SF_A(int64)
+SF_A(long)
+SF_A(schar)
+SF_A(short)
+SF_A(size_t)
+SF_A(time_t)
+SF_A(uchar)
+SF_A(uint16)
+SF_A(uint32)
+SF_A(uint64)
+SF_A(ulong)
+SF_A(unsigned)
+SF_A(ushort)
+SF_A(xint16)
+SF_A(xint8)
+
+#else
+
+#error Non-productive inclusion of sfmacros.h
+
+#endif  /* SF_C && SF_A */
+

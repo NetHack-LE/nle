@@ -1,5 +1,5 @@
-/* NetHack 3.6	prop.h	$NHDT-Date: 1570566360 2019/10/08 20:26:00 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.21 $ */
-/* Copyright (c) 1989 Mike Threepoint				  */
+/* NetHack 5.0	prop.h	$NHDT-Date: 1702274027 2023/12/11 05:53:47 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.24 $ */
+/* Copyright (c) 1989 Mike Threepoint                             */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #ifndef PROP_H
@@ -20,7 +20,10 @@ enum prop_types {
     POISON_RES        =  6,
     ACID_RES          =  7,
     STONE_RES         =  8,
-    /* note: for the first eight properties, MR_xxx == (1 << (xxx_RES - 1)) */
+    /* note: the first eight properties above are equivalent to MR_xxx bits
+     * MR_FIRE through MR_STONE, and can be directly converted to them: */
+#define res_to_mr(r) \
+    ((FIRE_RES <= (r) && (r) <= STONE_RES) ? (uchar) (1 << ((r) - 1)) : 0x00)
     DRAIN_RES         =  9,
     SICK_RES          = 10,
     INVULNERABLE      = 11,
@@ -52,41 +55,42 @@ enum prop_types {
     CLAIRVOYANT       = 35,
     INFRAVISION       = 36,
     DETECT_MONSTERS   = 37,
+    BLND_RES          = 38,
     /* Appearance and behavior */
-    ADORNED           = 38,
-    INVIS             = 39,
-    DISPLACED         = 40,
-    STEALTH           = 41,
-    AGGRAVATE_MONSTER = 42,
-    CONFLICT          = 43,
+    ADORNED           = 39,
+    INVIS             = 40,
+    DISPLACED         = 41,
+    STEALTH           = 42,
+    AGGRAVATE_MONSTER = 43,
+    CONFLICT          = 44,
     /* Transportation */
-    JUMPING           = 44,
-    TELEPORT          = 45,
-    TELEPORT_CONTROL  = 46,
-    LEVITATION        = 47,
-    FLYING            = 48,
-    WWALKING          = 49,
-    SWIMMING          = 50,
-    MAGICAL_BREATHING = 51,
-    PASSES_WALLS      = 52,
+    JUMPING           = 45,
+    TELEPORT          = 46,
+    TELEPORT_CONTROL  = 47,
+    LEVITATION        = 48,
+    FLYING            = 49,
+    WWALKING          = 50,
+    SWIMMING          = 51,
+    MAGICAL_BREATHING = 52,
+    PASSES_WALLS      = 53,
     /* Physical attributes */
-    SLOW_DIGESTION    = 53,
-    HALF_SPDAM        = 54,
-    HALF_PHDAM        = 55,
-    REGENERATION      = 56,
-    ENERGY_REGENERATION = 57,
-    PROTECTION        = 58,
-    PROT_FROM_SHAPE_CHANGERS = 59,
-    POLYMORPH         = 60,
-    POLYMORPH_CONTROL = 61,
-    UNCHANGING        = 62,
-    FAST              = 63,
-    REFLECTING        = 64,
-    FREE_ACTION       = 65,
-    FIXED_ABIL        = 66,
-    LIFESAVED         = 67
+    SLOW_DIGESTION    = 54,
+    HALF_SPDAM        = 55,
+    HALF_PHDAM        = 56,
+    REGENERATION      = 57,
+    ENERGY_REGENERATION = 58,
+    PROTECTION        = 59,
+    PROT_FROM_SHAPE_CHANGERS = 60,
+    POLYMORPH         = 61,
+    POLYMORPH_CONTROL = 62,
+    UNCHANGING        = 63,
+    FAST              = 64,
+    REFLECTING        = 65,
+    FREE_ACTION       = 66,
+    FIXED_ABIL        = 67,
+    LIFESAVED         = 68,
+    LAST_PROP = LIFESAVED
 };
-#define LAST_PROP (LIFESAVED)
 
 /*** Where the properties come from ***/
 /* Definitions were moved here from obj.h and you.h */
@@ -129,14 +133,14 @@ struct prop {
     long intrinsic;
 /* Timed properties */
 #define TIMEOUT 0x00ffffffL     /* Up to 16 million turns */
-                                /* Permanent properties */
-#define FROMEXPER 0x01000000L   /* Gain/lose with experience, for role */
-#define FROMRACE 0x02000000L    /* Gain/lose with experience, for race */
+/* Permanent properties */
+#define FROMEXPER   0x01000000L /* Gain/lose with experience, for role */
+#define FROMRACE    0x02000000L /* Gain/lose with experience, for race */
 #define FROMOUTSIDE 0x04000000L /* By corpses, prayer, thrones, etc. */
-#define INTRINSIC (FROMOUTSIDE | FROMRACE | FROMEXPER)
+#define INTRINSIC   (FROMOUTSIDE | FROMRACE | FROMEXPER)
 /* Control flags */
-#define FROMFORM 0x10000000L  /* Polyd; conferred by monster form */
-#define I_SPECIAL 0x20000000L /* Property is controllable */
+#define FROMFORM    0x10000000L /* Polyd; conferred by monster form */
+#define I_SPECIAL   0x20000000L /* Property is controllable */
 };
 
 /*** Definitions for backwards compatibility ***/

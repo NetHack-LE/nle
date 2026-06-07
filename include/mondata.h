@@ -1,42 +1,31 @@
-/* NetHack 3.6	mondata.h	$NHDT-Date: 1576626512 2019/12/17 23:48:32 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.39 $ */
-/* Copyright (c) 1989 Mike Threepoint				  */
+/* NetHack 5.0	mondata.h	$NHDT-Date: 1703845738 2023/12/29 10:28:58 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.63 $ */
+/* Copyright (c) 1989 Mike Threepoint                             */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #ifndef MONDATA_H
 #define MONDATA_H
 
+/* The macros in here take a permonst * as an argument */
+
+#define monsndx(ptr) ((ptr)->pmidx)
 #define verysmall(ptr) ((ptr)->msize < MZ_SMALL)
 #define bigmonst(ptr) ((ptr)->msize >= MZ_LARGE)
 
 #define pm_resistance(ptr, typ) (((ptr)->mresists & (typ)) != 0)
 
-#define resists_fire(mon) \
-    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_FIRE) != 0)
-#define resists_cold(mon) \
-    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_COLD) != 0)
-#define resists_sleep(mon) \
-    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_SLEEP) != 0)
-#define resists_disint(mon) \
-    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_DISINT) != 0)
-#define resists_elec(mon) \
-    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_ELEC) != 0)
-#define resists_poison(mon) \
-    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_POISON) != 0)
-#define resists_acid(mon) \
-    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_ACID) != 0)
-#define resists_ston(mon) \
-    ((((mon)->data->mresists | (mon)->mextrinsics) & MR_STONE) != 0)
+#define immune_poisongas(ptr) ((ptr) == &mons[PM_HEZROU]        \
+                               || (ptr) == &mons[PM_VROCK])
 
-#define is_lminion(mon) \
-    (is_minion((mon)->data) && mon_aligntyp(mon) == A_LAWFUL)
 #define is_flyer(ptr) (((ptr)->mflags1 & M1_FLY) != 0L)
 #define is_floater(ptr) ((ptr)->mlet == S_EYE || (ptr)->mlet == S_LIGHT)
 /* clinger: piercers, mimics, wumpus -- generally don't fall down holes */
 #define is_clinger(ptr) (((ptr)->mflags1 & M1_CLING) != 0L)
+#define grounded(ptr) (!is_flyer(ptr) && !is_floater(ptr) \
+                       && (!is_clinger(ptr) || !has_ceiling(&u.uz)))
 #define is_swimmer(ptr) (((ptr)->mflags1 & M1_SWIM) != 0L)
 #define breathless(ptr) (((ptr)->mflags1 & M1_BREATHLESS) != 0L)
-#define amphibious(ptr) \
-    (((ptr)->mflags1 & (M1_AMPHIBIOUS | M1_BREATHLESS)) != 0L)
+#define amphibious(ptr) (((ptr)->mflags1 & M1_AMPHIBIOUS) != 0L)
+#define cant_drown(ptr) (is_swimmer(ptr) || amphibious(ptr) || breathless(ptr))
 #define passes_walls(ptr) (((ptr)->mflags1 & M1_WALLWALK) != 0L)
 #define amorphous(ptr) (((ptr)->mflags1 & M1_AMORPHOUS) != 0L)
 #define noncorporeal(ptr) ((ptr)->mlet == S_GHOST)
@@ -79,6 +68,10 @@
 #define is_wooden(ptr) ((ptr) == &mons[PM_WOOD_GOLEM])
 #define thick_skinned(ptr) (((ptr)->mflags1 & M1_THICK_HIDE) != 0L)
 #define hug_throttles(ptr) ((ptr) == &mons[PM_ROPE_GOLEM])
+#define digests(ptr) \
+    (dmgtype_fromattack((ptr), AD_DGST, AT_ENGL) != 0) /* purple w*/
+#define enfolds(ptr) \
+    (dmgtype_fromattack((ptr), AD_WRAP, AT_ENGL) != 0) /* 't' */
 #define slimeproof(ptr) \
     ((ptr) == &mons[PM_GREEN_SLIME] || flaming(ptr) || noncorporeal(ptr))
 #define lays_eggs(ptr) (((ptr)->mflags1 & M1_OVIPAROUS) != 0L)
@@ -106,7 +99,7 @@
 #define is_gnome(ptr) (((ptr)->mflags2 & M2_GNOME) != 0L)
 #define is_orc(ptr) (((ptr)->mflags2 & M2_ORC) != 0L)
 #define is_human(ptr) (((ptr)->mflags2 & M2_HUMAN) != 0L)
-#define your_race(ptr) (((ptr)->mflags2 & urace.selfmask) != 0L)
+#define your_race(ptr) (((ptr)->mflags2 & gu.urace.selfmask) != 0L)
 #define is_bat(ptr)                                         \
     ((ptr) == &mons[PM_BAT] || (ptr) == &mons[PM_GIANT_BAT] \
      || (ptr) == &mons[PM_VAMPIRE_BAT])
@@ -122,13 +115,21 @@
 #define is_wanderer(ptr) (((ptr)->mflags2 & M2_WANDER) != 0L)
 #define always_hostile(ptr) (((ptr)->mflags2 & M2_HOSTILE) != 0L)
 #define always_peaceful(ptr) (((ptr)->mflags2 & M2_PEACEFUL) != 0L)
-#define race_hostile(ptr) (((ptr)->mflags2 & urace.hatemask) != 0L)
-#define race_peaceful(ptr) (((ptr)->mflags2 & urace.lovemask) != 0L)
+#define race_hostile(ptr) (((ptr)->mflags2 & gu.urace.hatemask) != 0L)
+#define race_peaceful(ptr) (((ptr)->mflags2 & gu.urace.lovemask) != 0L)
 #define extra_nasty(ptr) (((ptr)->mflags2 & M2_NASTY) != 0L)
 #define strongmonst(ptr) (((ptr)->mflags2 & M2_STRONG) != 0L)
 #define can_breathe(ptr) attacktype(ptr, AT_BREA)
 #define cantwield(ptr) (nohands(ptr) || verysmall(ptr))
-#define could_twoweap(ptr) ((ptr)->mattk[1].aatyp == AT_WEAP)
+/* Does this type of monster have multiple weapon attacks?  If so,
+   hero poly'd into this form can use two-weapon combat.  It used
+   to just check mattk[1] and assume mattk[0], which was suitable
+   for mons[] at the time but somewhat fragile.  This is more robust
+   without going to the extreme of checking all six slots. */
+#define could_twoweap(ptr) \
+    ((  ((ptr)->mattk[0].aatyp == AT_WEAP)              \
+      + ((ptr)->mattk[1].aatyp == AT_WEAP)              \
+      + ((ptr)->mattk[2].aatyp == AT_WEAP)  ) > 1)
 #define cantweararm(ptr) (breakarm(ptr) || sliparm(ptr))
 #define throws_rocks(ptr) (((ptr)->mflags2 & M2_ROCKTHROW) != 0L)
 #define type_is_pname(ptr) (((ptr)->mflags2 & M2_PNAME) != 0L)
@@ -160,6 +161,8 @@
 #define is_rider(ptr)                                      \
     ((ptr) == &mons[PM_DEATH] || (ptr) == &mons[PM_FAMINE] \
      || (ptr) == &mons[PM_PESTILENCE])
+/* note: placeholder monsters are used for corpses of zombies and mummies;
+   PM_DWARF and PM_GNOME are normal monsters, not placeholders */
 #define is_placeholder(ptr)                             \
     ((ptr) == &mons[PM_ORC] || (ptr) == &mons[PM_GIANT] \
      || (ptr) == &mons[PM_ELF] || (ptr) == &mons[PM_HUMAN])
@@ -170,15 +173,20 @@
    as unique even though they really aren't; that's ok here */
 #define unique_corpstat(ptr) (((ptr)->geno & G_UNIQ) != 0)
 
-/* this returns the light's range, or 0 if none; if we add more light emitting
+/* this returns the light's range, or 0 if none; if we add more light-emitting
    monsters, we'll likely have to add a new light range field to mons[] */
 #define emits_light(ptr)                                          \
     (((ptr)->mlet == S_LIGHT || (ptr) == &mons[PM_FLAMING_SPHERE] \
       || (ptr) == &mons[PM_SHOCKING_SPHERE]                       \
+      || (ptr) == &mons[PM_BABY_GOLD_DRAGON]                      \
       || (ptr) == &mons[PM_FIRE_VORTEX])                          \
          ? 1                                                      \
-         : ((ptr) == &mons[PM_FIRE_ELEMENTAL]) ? 1 : 0)
-/*	[note: the light ranges above were reduced to 1 for performance...] */
+         : ((ptr) == &mons[PM_FIRE_ELEMENTAL]                     \
+            || (ptr) == &mons[PM_GOLD_DRAGON]) ? 1 : 0)
+    /* [Note: the light ranges above were reduced to 1 for performance,
+     *  otherwise screen updating on the plane of fire slowed to a crawl.
+     *  Note too: that was with 1990s hardware and before fumarole smoke
+     *  blocking line of sight was added, so might no longer be necessary.] */
 #define likes_lava(ptr) \
     (ptr == &mons[PM_FIRE_ELEMENTAL] || ptr == &mons[PM_SALAMANDER])
 #define pm_invisible(ptr) \
@@ -191,6 +199,13 @@
 
 #define touch_petrifies(ptr) \
     ((ptr) == &mons[PM_COCKATRICE] || (ptr) == &mons[PM_CHICKATRICE])
+/* Medusa doesn't pass touch_petrifies() but does petrify if eaten */
+#define flesh_petrifies(pm) (touch_petrifies(pm) || (pm) == &mons[PM_MEDUSA])
+
+/* missiles made of rocks don't harm these: xorns and earth elementals
+   (but not ghosts and shades because that would impact all missile use
+   and also require an exception for blessed rocks/gems/boulders) */
+#define passes_rocks(ptr) (passes_walls(ptr) && !unsolid(ptr))
 
 #define is_mind_flayer(ptr) \
     ((ptr) == &mons[PM_MIND_FLAYER] || (ptr) == &mons[PM_MASTER_MIND_FLAYER])
@@ -204,9 +219,12 @@
 #define nonliving(ptr) \
     (is_undead(ptr) || (ptr) == &mons[PM_MANES] || weirdnonliving(ptr))
 
-/* no corpse (ie, blank scrolls) if killed by fire */
+/* no corpse (ie, blank scrolls) if killed by fire; special case instakill  */
 #define completelyburns(ptr) \
     ((ptr) == &mons[PM_PAPER_GOLEM] || (ptr) == &mons[PM_STRAW_GOLEM])
+#define completelyrots(ptr) \
+    ((ptr) == &mons[PM_WOOD_GOLEM] || (ptr) == &mons[PM_LEATHER_GOLEM])
+#define completelyrusts(ptr) ((ptr) == &mons[PM_IRON_GOLEM])
 
 /* Used for conduct with corpses, tins, and digestion attacks */
 /* G_NOCORPSE monsters might still be swallowed as a purple worm */
@@ -222,7 +240,13 @@
     (vegan(ptr)         \
      || ((ptr)->mlet == S_PUDDING && (ptr) != &mons[PM_BLACK_PUDDING]))
 
-/* monkeys are tameable via bananas but not pacifiable via food,
+#define corpse_eater(ptr)                    \
+    (ptr == &mons[PM_PURPLE_WORM]            \
+     || ptr == &mons[PM_BABY_PURPLE_WORM]    \
+     || ptr == &mons[PM_GHOUL]               \
+     || ptr == &mons[PM_PIRANHA])
+
+/* monkeys are tamable via bananas but not pacifiable via food,
    otherwise their theft attack could be nullified too easily;
    dogs and cats can be tamed by anything they like to eat and are
    pacified by any other food;
@@ -235,5 +259,11 @@
         && ((ptr)->mlet != S_UNICORN                                     \
             || objects[(obj)->otyp].oc_material == VEGGY                 \
             || ((obj)->otyp == CORPSE && (obj)->corpsenm == PM_LICHEN))))
+
+#ifdef PMNAME_MACROS
+#define pmname(ptr,g) ((((g) == MALE || (g) == FEMALE) && (ptr)->pmnames[g]) \
+                        ? (ptr)->pmnames[g] : (ptr)->pmnames[NEUTRAL])
+#endif
+#define monsym(ptr) (def_monsyms[(int) (ptr)->mlet].sym)
 
 #endif /* MONDATA_H */

@@ -1,4 +1,4 @@
-/* NetHack 3.6	vmsconf.h	$NHDT-Date: 1555361299 2019/04/15 20:48:19 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.30 $ */
+/* NetHack 5.0	vmsconf.h	$NHDT-Date: 1596498569 2020/08/03 23:49:29 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.33 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2011. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -17,7 +17,7 @@
  *   extra room for patching longer values into an existing executable.
  */
 #define Local_WIZARD "NHWIZARD\0\0\0\0"
-#define Local_HACKDIR "DISK$USERS:[GAMES.NETHACK.3_5_X.PLAY]\0\0\0\0\0\0\0\0"
+#define Local_HACKDIR "DISK$USERS:[GAMES.NETHACK.3_7_X.PLAY]\0\0\0\0\0\0\0\0"
 
 /*
  * This section cleans up the stuff done in config.h so that it
@@ -93,17 +93,6 @@ PANICTRACE_GDB=2  #at conclusion of panic, show a call traceback and then
 #define SELECTSAVED
 
 /*
- * You may define TEXTCOLOR if your system has any terminals that recognize
- * ANSI color sequences of the form ``<ESCAPE>[#;#m'', where the first # is
- * a number between 40 and 47 represented background color, and the second
- * # is a number between 30 and 37 representing the foreground color.
- * GIGI terminals and DECterm windows on color VAXstations support these
- * color escape sequences, as do some 3rd party terminals and many micro
- * computers.
- */
-/* #define TEXTCOLOR */
-
-/*
  * If you define USE_QIO_INPUT, then you'll get raw characters from the
  * keyboard, not unlike those of the unix version of Nethack.  This will
  * allow you to use the Escape key in normal gameplay, and the appropriate
@@ -162,20 +151,23 @@ PANICTRACE_GDB=2  #at conclusion of panic, show a call traceback and then
 
 /* config.h defines USE_ISAAC64; we'll use it on Alpha or IA64 but not VAX;
    it overrides RANDOM */
+#if !defined(VMSVSI)
 #if (defined(VAX) || defined(vax) || defined(__vax)) && defined(USE_ISAAC64)
 #undef ISAAC64
+#endif
 #endif
 
 #define FCMASK 0660 /* file creation mask */
 
 /*
- * 
- */
-#define NO_VSNPRINTF /* Avoid vsnprintf, use less-safe vsprintf instead. */
-
-/*
  * The remainder of the file should not need to be changed.
  */
+
+/* This used to be force-defined for VMS in topten.c, but with
+ * the global variable consolidation into g in 5.0, it has to be
+ * defined here so that decl.h includes the field in g.
+ */
+#define UPDATE_RECORD_IN_PLACE
 
 /* data librarian defs */
 #ifdef DLB
@@ -188,6 +180,7 @@ PANICTRACE_GDB=2  #at conclusion of panic, show a call traceback and then
 /* # define FILENAME_CMP strcmpi */ /* case insensitive */
 #endif
 
+#ifndef VMSVSI
 #if defined(VAXC) && !defined(ANCIENT_VAXC)
 #ifdef volatile
 #undef volatile
@@ -212,6 +205,19 @@ PANICTRACE_GDB=2  #at conclusion of panic, show a call traceback and then
 #define ALLOCA_HACK /* used in util/panic.c */
 #endif
 #endif
+#endif /* !VMSVSI */
+
+#ifdef VMSVSI
+#define NO_TERMCAP_HEADERS
+/* C99 */
+#include <types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <stat.h>
+#include <errno.h>
+#include <stsdef.h>
+#endif
 
 #ifdef _DECC_V4_SOURCE
 /* <types.h> excludes some necessary typedefs when _DECC_V4_SOURCE is defined
@@ -233,9 +239,13 @@ typedef __gid_t gid_t;
 #define __MODE_T
 typedef __mode_t mode_t;
 #endif
+#ifndef __OFF_T
+#define __OFF_T
+typedef int32_t off_t;
+#endif
 #endif /* _DECC_V4_SOURCE */
 
-#include <time.h>
+#ifndef VMSVSI
 #if 0 /* <file.h> is missing for old gcc versions; skip it to save time */
 #include <file.h>
 #else /* values needed from missing include file */
@@ -245,19 +255,19 @@ typedef __mode_t mode_t;
 #define O_CREAT 0x200
 #define O_TRUNC 0x400
 #endif
+#endif
 
 #define tgetch vms_getchar
 
+#ifndef VMSVSI
 #if defined(__DECC_VER) && (__DECC_VER >= 50000000)
  /* for cc/Standard=ANSI89, suppress notification that '$' in identifiers
     is an extension; sys/vms/*.c needs it regardless of strict ANSI mode */
 # pragma message disable DOLLARID
 #endif
+#endif
 
-#include "system.h"
-
-#define index strchr
-#define rindex strrchr
+/* #include "system.h" */
 
 /* Use the high quality random number routines. */
 #ifndef USE_ISAAC64
@@ -274,6 +284,7 @@ typedef __mode_t mode_t;
 # endif
 #endif
 
+#if !defined(VMSVSI)
 #ifndef __GNUC__
 #ifndef bcopy
 #define bcopy(s, d, n) memcpy((d), (s), (n)) /* vaxcrtl */
@@ -286,27 +297,31 @@ typedef __mode_t mode_t;
 #define link(f1, f2) vms_link(f1, f2)   /* vmsfiles.c */
 #define open(f, k, m) vms_open(f, k, m) /* vmsfiles.c */
 #define fopen(f, m) vms_fopen(f, m)     /* vmsfiles.c */
-/* #define unlink(f0) vms_unlink(f0)       /* vmsfiles.c */
+/* #define unlink(f0) vms_unlink(f0) */       /* vmsfiles.c */
 #ifdef VERYOLD_VMS
 #define unlink(f0) delete (f0) /* vaxcrtl */
 #else
 #define unlink(f0) remove(f0) /* vaxcrtl, decc$shr */
 #endif
+#endif /* VMSVSI */
+
 #define C$$TRANSLATE(n) c__translate(n) /* vmsfiles.c */
 
+#if !defined(VMSVSI)
 /* VMS global names are case insensitive... */
 #define An vms_an
 #define The vms_the
 #define Shk_Your vms_shk_your
+#endif /* VMSVSI */
 
 /* avoid global symbol in Alpha/VMS V1.5 STARLET library (link trouble) */
 #define ospeed vms_ospeed
 
 /* used in several files which don't #include "extern.h" */
-extern void FDECL(vms_exit, (int));
-extern int FDECL(vms_open, (const char *, int, unsigned));
-extern FILE *FDECL(vms_fopen, (const char *, const char *));
-char *FDECL(vms_basename, (const char *)); /* vmsfiles.c */
+extern void vms_exit(int);
+extern int vms_open(const char *, int, unsigned);
+extern FILE *vms_fopen(const char *, const char *);
+char *vms_basename(const char *, boolean); /* vmsfiles.c */
 
 #endif /* VMSCONF_H */
 #endif /* VMS */

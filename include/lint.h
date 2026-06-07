@@ -1,4 +1,4 @@
-/* NetHack 3.6	lint.h	$NHDT-Date: 1524689514 2018/04/25 20:51:54 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.5 $ */
+/* NetHack 5.0	lint.h	$NHDT-Date: 1655631029 2022/06/19 09:30:29 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.8 $ */
 /*      Copyright (c) 2016 by Robert Patrick Rankin               */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -15,19 +15,7 @@
    (also caller's responsibility to ensure it isn't actually modified!) */
 #define nhStr(str) ((char *) str)
 
-#if defined(GCC_WARN) && !defined(FORCE_ARG_USAGE)
-#define FORCE_ARG_USAGE
-#endif
-
-#ifdef FORCE_ARG_USAGE
-/* force an unused function argument to become used in an arbitrary
-   manner in order to suppress warning about unused function arguments;
-   viable for scalar and pointer arguments */
-#define nhUse(arg) nhUse_dummy += (unsigned) !(arg)
-extern unsigned nhUse_dummy;
-#else
-#define nhUse(arg) /*empty*/
-#endif
+#define nhUse(arg) ((void) (arg))
 
 /*
  * This stuff isn't related to lint suppression but lives here to
@@ -37,21 +25,28 @@ extern unsigned nhUse_dummy;
 #ifdef DEBUG
 #define showdebug(file) debugcore(file, TRUE)
 #define explicitdebug(file) debugcore(file, FALSE)
-#define ifdebug(stmt)                   \
-    do {                                \
-        if (showdebug(__FILE__)) {      \
-            stmt;                       \
-        }                               \
+    /* in case 'stmt' is pline() or something which calls pline(),
+       save and restore previous plnmsg code so that use of debugpline()
+       doesn't change message semantics */
+#define ifdebug(stmt) \
+    do {                                       \
+        if (showdebug(__FILE__)) {             \
+            int save_plnmsg = iflags.last_msg; \
+            stmt;                              \
+            iflags.last_msg = save_plnmsg;     \
+        }                                      \
     } while (0)
 #ifdef _MSC_VER
 /* if we have microsoft's C runtime we can use these instead */
 #include <crtdbg.h>
-#define crtdebug(stmt)                  \
-    do {                                \
-        if (showdebug(__FILE__)) {      \
-            stmt;                       \
-        }                               \
-        _RPT0(_CRT_WARN, "\n");         \
+#define crtdebug(stmt) \
+    do {                                       \
+        if (showdebug(__FILE__)) {             \
+            int save_plnmsg = iflags.last_msg; \
+            stmt;                              \
+            iflags.last_msg = save_plnmsg;     \
+        }                                      \
+        _RPT0(_CRT_WARN, "\n");                \
     } while (0)
 #define debugpline0(str) crtdebug(_RPT0(_CRT_WARN, str))
 #define debugpline1(fmt, arg) crtdebug(_RPT1(_CRT_WARN, fmt, arg))
