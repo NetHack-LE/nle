@@ -276,6 +276,8 @@ fopen_config_file(const char *filename, int src)
     }
     /* fall through to standard names */
 
+    return (FILE *) 0;  /* NLE: Stop here, don't read .nethackrc etc. */
+
 #if defined(MICRO) || defined(MACOS9) || defined(__BEOS__) || defined(WIN32)
     set_configfile_name(fqname(default_configfile, CONFIGPREFIX, 0));
     if ((fp = fopen(configfile, "r")) != (FILE *) 0) {
