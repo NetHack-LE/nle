@@ -1,4 +1,4 @@
-/* NetHack 3.6	extralev.c	$NHDT-Date: 1446975468 2015/11/08 09:37:48 $  $NHDT-Branch: master $:$NHDT-Revision: 1.12 $ */
+/* NetHack 5.0	extralev.c	$NHDT-Date: 1737345573 2025/01/19 19:59:33 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.28 $ */
 /*      Copyright 1988, 1989 by Ken Arromdee                      */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -8,30 +8,20 @@
 
 #include "hack.h"
 
-struct rogueroom {
-    xchar rlx, rly;
-    xchar dx, dy;
-    boolean real;
-    uchar doortable;
-    int nroom; /* Only meaningful for "real" rooms */
-};
-#define UP 1
-#define DOWN 2
-#define LEFT 4
-#define RIGHT 8
+#define XL_UP 1
+#define XL_DOWN 2
+#define XL_LEFT 4
+#define XL_RIGHT 8
 
-static NEARDATA struct rogueroom r[3][3];
-STATIC_DCL void FDECL(roguejoin, (int, int, int, int, int));
-STATIC_DCL void FDECL(roguecorr, (int, int, int));
-STATIC_DCL void FDECL(miniwalk, (int, int));
+staticfn void roguejoin(coordxy, coordxy, coordxy, coordxy, int);
+staticfn void roguecorr(coordxy, coordxy, int);
+staticfn void miniwalk(coordxy, coordxy);
 
-STATIC_OVL
-void
-roguejoin(x1, y1, x2, y2, horiz)
-int x1, y1, x2, y2;
-int horiz;
+staticfn void
+roguejoin(coordxy x1, coordxy y1, coordxy x2, coordxy y2, int horiz)
 {
-    register int x, y, middle;
+    coordxy x, y, middle;
+
     if (horiz) {
         middle = x1 + rn2(x2 - x1 + 1);
         for (x = min(x1, middle); x <= max(x1, middle); x++)
@@ -51,28 +41,26 @@ int horiz;
     }
 }
 
-STATIC_OVL
-void
-roguecorr(x, y, dir)
-int x, y, dir;
+staticfn void
+roguecorr(coordxy x, coordxy y, int dir)
 {
-    register int fromx, fromy, tox, toy;
+    coordxy fromx, fromy, tox, toy;
 
-    if (dir == DOWN) {
-        r[x][y].doortable &= ~DOWN;
-        if (!r[x][y].real) {
-            fromx = r[x][y].rlx;
-            fromy = r[x][y].rly;
+    if (dir == XL_DOWN) {
+        gr.r[x][y].doortable &= ~XL_DOWN;
+        if (!gr.r[x][y].real) {
+            fromx = gr.r[x][y].rlx;
+            fromy = gr.r[x][y].rly;
             fromx += 1 + 26 * x;
             fromy += 7 * y;
         } else {
-            fromx = r[x][y].rlx + rn2(r[x][y].dx);
-            fromy = r[x][y].rly + r[x][y].dy;
+            fromx = gr.r[x][y].rlx + rn2(gr.r[x][y].dx);
+            fromy = gr.r[x][y].rly + gr.r[x][y].dy;
             fromx += 1 + 26 * x;
             fromy += 7 * y;
             if (!IS_WALL(levl[fromx][fromy].typ))
                 impossible("down: no wall at %d,%d?", fromx, fromy);
-            dodoor(fromx, fromy, &rooms[r[x][y].nroom]);
+            dodoor(fromx, fromy, &svr.rooms[gr.r[x][y].nroom]);
             levl[fromx][fromy].doormask = D_NODOOR;
             fromy++;
         }
@@ -81,40 +69,40 @@ int x, y, dir;
             return;
         }
         y++;
-        r[x][y].doortable &= ~UP;
-        if (!r[x][y].real) {
-            tox = r[x][y].rlx;
-            toy = r[x][y].rly;
+        gr.r[x][y].doortable &= ~XL_UP;
+        if (!gr.r[x][y].real) {
+            tox = gr.r[x][y].rlx;
+            toy = gr.r[x][y].rly;
             tox += 1 + 26 * x;
             toy += 7 * y;
         } else {
-            tox = r[x][y].rlx + rn2(r[x][y].dx);
-            toy = r[x][y].rly - 1;
+            tox = gr.r[x][y].rlx + rn2(gr.r[x][y].dx);
+            toy = gr.r[x][y].rly - 1;
             tox += 1 + 26 * x;
             toy += 7 * y;
             if (!IS_WALL(levl[tox][toy].typ))
                 impossible("up: no wall at %d,%d?", tox, toy);
-            dodoor(tox, toy, &rooms[r[x][y].nroom]);
+            dodoor(tox, toy, &svr.rooms[gr.r[x][y].nroom]);
             levl[tox][toy].doormask = D_NODOOR;
             toy--;
         }
         roguejoin(fromx, fromy, tox, toy, FALSE);
         return;
-    } else if (dir == RIGHT) {
-        r[x][y].doortable &= ~RIGHT;
-        if (!r[x][y].real) {
-            fromx = r[x][y].rlx;
-            fromy = r[x][y].rly;
+    } else if (dir == XL_RIGHT) {
+        gr.r[x][y].doortable &= ~XL_RIGHT;
+        if (!gr.r[x][y].real) {
+            fromx = gr.r[x][y].rlx;
+            fromy = gr.r[x][y].rly;
             fromx += 1 + 26 * x;
             fromy += 7 * y;
         } else {
-            fromx = r[x][y].rlx + r[x][y].dx;
-            fromy = r[x][y].rly + rn2(r[x][y].dy);
+            fromx = gr.r[x][y].rlx + gr.r[x][y].dx;
+            fromy = gr.r[x][y].rly + rn2(gr.r[x][y].dy);
             fromx += 1 + 26 * x;
             fromy += 7 * y;
             if (!IS_WALL(levl[fromx][fromy].typ))
                 impossible("down: no wall at %d,%d?", fromx, fromy);
-            dodoor(fromx, fromy, &rooms[r[x][y].nroom]);
+            dodoor(fromx, fromy, &svr.rooms[gr.r[x][y].nroom]);
             levl[fromx][fromy].doormask = D_NODOOR;
             fromx++;
         }
@@ -123,20 +111,20 @@ int x, y, dir;
             return;
         }
         x++;
-        r[x][y].doortable &= ~LEFT;
-        if (!r[x][y].real) {
-            tox = r[x][y].rlx;
-            toy = r[x][y].rly;
+        gr.r[x][y].doortable &= ~XL_LEFT;
+        if (!gr.r[x][y].real) {
+            tox = gr.r[x][y].rlx;
+            toy = gr.r[x][y].rly;
             tox += 1 + 26 * x;
             toy += 7 * y;
         } else {
-            tox = r[x][y].rlx - 1;
-            toy = r[x][y].rly + rn2(r[x][y].dy);
+            tox = gr.r[x][y].rlx - 1;
+            toy = gr.r[x][y].rly + rn2(gr.r[x][y].dy);
             tox += 1 + 26 * x;
             toy += 7 * y;
             if (!IS_WALL(levl[tox][toy].typ))
                 impossible("left: no wall at %d,%d?", tox, toy);
-            dodoor(tox, toy, &rooms[r[x][y].nroom]);
+            dodoor(tox, toy, &svr.rooms[gr.r[x][y].nroom]);
             levl[tox][toy].doormask = D_NODOOR;
             tox--;
         }
@@ -147,28 +135,26 @@ int x, y, dir;
 }
 
 /* Modified walkfrom() from mkmaze.c */
-STATIC_OVL
-void
-miniwalk(x, y)
-int x, y;
+staticfn void
+miniwalk(coordxy x, coordxy y)
 {
-    register int q, dir;
+    int q, dir;
     int dirs[4];
 
     while (1) {
         q = 0;
-#define doorhere (r[x][y].doortable)
-        if (x > 0 && (!(doorhere & LEFT))
-            && (!r[x - 1][y].doortable || !rn2(10)))
+#define doorhere (gr.r[x][y].doortable)
+        if (x > 0 && (!(doorhere & XL_LEFT))
+            && (!gr.r[x - 1][y].doortable || !rn2(10)))
             dirs[q++] = 0;
-        if (x < 2 && (!(doorhere & RIGHT))
-            && (!r[x + 1][y].doortable || !rn2(10)))
+        if (x < 2 && (!(doorhere & XL_RIGHT))
+            && (!gr.r[x + 1][y].doortable || !rn2(10)))
             dirs[q++] = 1;
-        if (y > 0 && (!(doorhere & UP))
-            && (!r[x][y - 1].doortable || !rn2(10)))
+        if (y > 0 && (!(doorhere & XL_UP))
+            && (!gr.r[x][y - 1].doortable || !rn2(10)))
             dirs[q++] = 2;
-        if (y < 2 && (!(doorhere & DOWN))
-            && (!r[x][y + 1].doortable || !rn2(10)))
+        if (y < 2 && (!(doorhere & XL_DOWN))
+            && (!gr.r[x][y + 1].doortable || !rn2(10)))
             dirs[q++] = 3;
         /* Rogue levels aren't just 3 by 3 mazes; they have some extra
          * connections, thus that 1/10 chance
@@ -178,34 +164,35 @@ int x, y;
         dir = dirs[rn2(q)];
         switch (dir) { /* Move in direction */
         case 0:
-            doorhere |= LEFT;
+            doorhere |= XL_LEFT;
             x--;
-            doorhere |= RIGHT;
+            doorhere |= XL_RIGHT;
             break;
         case 1:
-            doorhere |= RIGHT;
+            doorhere |= XL_RIGHT;
             x++;
-            doorhere |= LEFT;
+            doorhere |= XL_LEFT;
             break;
         case 2:
-            doorhere |= UP;
+            doorhere |= XL_UP;
             y--;
-            doorhere |= DOWN;
+            doorhere |= XL_DOWN;
             break;
         case 3:
-            doorhere |= DOWN;
+            doorhere |= XL_DOWN;
             y++;
-            doorhere |= UP;
+            doorhere |= XL_UP;
             break;
         }
         miniwalk(x, y);
     }
+#undef doorhere
 }
 
 void
-makeroguerooms()
+makeroguerooms(void)
 {
-    register int x, y;
+    coordxy x, y;
     /* Rogue levels are structured 3 by 3, with each section containing
      * a room or an intersection.  The minimum width is 2 each way.
      * One difference between these and "real" Rogue levels: real Rogue
@@ -222,15 +209,15 @@ makeroguerooms()
      * Room height may be 2-4 (2-5 on last row), length 2-23 (not
      * counting walls).
      */
-#define here r[x][y]
+#define here gr.r[x][y]
 
-    nroom = 0;
+    svn.nroom = 0;
     for (y = 0; y < 3; y++)
         for (x = 0; x < 3; x++) {
             /* Note: we want to insure at least 1 room.  So, if the
              * first 8 are all dummies, force the last to be a room.
              */
-            if (!rn2(5) && (nroom || (x < 2 && y < 2))) {
+            if (!rn2(5) && (svn.nroom || (x < 2 && y < 2))) {
                 /* Arbitrary: dummy rooms may only go where real
                  * ones do.
                  */
@@ -245,19 +232,19 @@ makeroguerooms()
                 /* boundaries of room floor */
                 here.rlx = rnd(23 - here.dx + 1);
                 here.rly = rnd(((y == 2) ? 5 : 4) - here.dy + 1);
-                nroom++;
+                svn.nroom++;
             }
             here.doortable = 0;
         }
     miniwalk(rn2(3), rn2(3));
-    nroom = 0;
+    svn.nroom = 0;
     for (y = 0; y < 3; y++)
         for (x = 0; x < 3; x++) {
             if (here.real) { /* Make a room */
-                int lowx, lowy, hix, hiy;
+                coordxy lowx, lowy, hix, hiy;
 
-                r[x][y].nroom = nroom;
-                smeq[nroom] = nroom;
+                gr.r[x][y].nroom = svn.nroom;
+                gs.smeq[svn.nroom] = svn.nroom;
 
                 lowx = 1 + 26 * x + here.rlx;
                 lowy = 7 * y + here.rly;
@@ -275,20 +262,20 @@ makeroguerooms()
     /* Now, add connecting corridors. */
     for (y = 0; y < 3; y++)
         for (x = 0; x < 3; x++) {
-            if (here.doortable & DOWN)
-                roguecorr(x, y, DOWN);
-            if (here.doortable & RIGHT)
-                roguecorr(x, y, RIGHT);
-            if (here.doortable & LEFT)
+            if (here.doortable & XL_DOWN)
+                roguecorr(x, y, XL_DOWN);
+            if (here.doortable & XL_RIGHT)
+                roguecorr(x, y, XL_RIGHT);
+            if (here.doortable & XL_LEFT)
                 impossible("left end of %d, %d never connected?", x, y);
-            if (here.doortable & UP)
+            if (here.doortable & XL_UP)
                 impossible("up end of %d, %d never connected?", x, y);
         }
+#undef here
 }
 
 void
-corr(x, y)
-int x, y;
+corr(coordxy x, coordxy y)
 {
     if (rn2(50)) {
         levl[x][y].typ = CORR;
@@ -298,22 +285,23 @@ int x, y;
 }
 
 void
-makerogueghost()
+makerogueghost(void)
 {
-    register struct monst *ghost;
+    struct monst *ghost;
     struct obj *ghostobj;
     struct mkroom *croom;
-    int x, y;
+    coordxy x, y;
 
-    if (!nroom)
+    if (!svn.nroom)
         return; /* Should never happen */
-    croom = &rooms[rn2(nroom)];
+    croom = &svr.rooms[rn2(svn.nroom)];
     x = somex(croom);
     y = somey(croom);
     if (!(ghost = makemon(&mons[PM_GHOST], x, y, NO_MM_FLAGS)))
         return;
     ghost->msleeping = 1;
     ghost = christen_monst(ghost, roguename());
+    nhUse(ghost);
 
     if (rn2(4)) {
         ghostobj = mksobj_at(FOOD_RATION, x, y, FALSE, FALSE);

@@ -1,4 +1,4 @@
-/* NetHack 3.6	quest.c	$NHDT-Date: 1505170343 2017/09/11 22:52:23 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.21 $ */
+/* NetHack 5.0	quest.c	$NHDT-Date: 1774269965 2026/03/23 04:46:05 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.46 $ */
 /*      Copyright 1991, M. Stephenson             */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -7,38 +7,37 @@
 /*  quest dungeon branch routines. */
 
 #include "quest.h"
-#include "qtext.h"
 
 #define Not_firsttime (on_level(&u.uz0, &u.uz))
-#define Qstat(x) (quest_status.x)
+#define Qstat(x) (svq.quest_status.x)
 
-STATIC_DCL void NDECL(on_start);
-STATIC_DCL void NDECL(on_locate);
-STATIC_DCL void NDECL(on_goal);
-STATIC_DCL boolean NDECL(not_capable);
-STATIC_DCL int FDECL(is_pure, (BOOLEAN_P));
-STATIC_DCL void FDECL(expulsion, (BOOLEAN_P));
-STATIC_DCL void NDECL(chat_with_leader);
-STATIC_DCL void NDECL(chat_with_nemesis);
-STATIC_DCL void NDECL(chat_with_guardian);
-STATIC_DCL void FDECL(prisoner_speaks, (struct monst *));
+staticfn void on_start(void);
+staticfn void on_locate(void);
+staticfn void on_goal(void);
+staticfn boolean not_capable(void);
+staticfn int is_pure(boolean);
+staticfn void expulsion(boolean);
+staticfn void chat_with_leader(struct monst *);
+staticfn void chat_with_nemesis(void);
+staticfn void chat_with_guardian(void);
+staticfn void prisoner_speaks(struct monst *);
 
-STATIC_OVL void
-on_start()
+staticfn void
+on_start(void)
 {
     if (!Qstat(first_start)) {
-        qt_pager(QT_FIRSTTIME);
+        qt_pager("firsttime");
         Qstat(first_start) = TRUE;
     } else if ((u.uz0.dnum != u.uz.dnum) || (u.uz0.dlevel < u.uz.dlevel)) {
         if (Qstat(not_ready) <= 2)
-            qt_pager(QT_NEXTTIME);
+            qt_pager("nexttime");
         else
-            qt_pager(QT_OTHERTIME);
+            qt_pager("othertime");
     }
 }
 
-STATIC_OVL void
-on_locate()
+staticfn void
+on_locate(void)
 {
     /* the locate messages are phrased in a manner such that they only
        make sense when arriving on the level from above */
@@ -48,24 +47,24 @@ on_locate()
         return;
     } else if (!Qstat(first_locate)) {
         if (from_above)
-            qt_pager(QT_FIRSTLOCATE);
+            qt_pager("locate_first");
         /* if we've arrived from below this will be a lie, but there won't
            be any point in delivering the message upon a return visit from
            above later since the level has now been seen */
         Qstat(first_locate) = TRUE;
     } else {
         if (from_above)
-            qt_pager(QT_NEXTLOCATE);
+            qt_pager("locate_next");
     }
 }
 
-STATIC_OVL void
-on_goal()
+staticfn void
+on_goal(void)
 {
     if (Qstat(killed_nemesis)) {
         return;
     } else if (!Qstat(made_goal)) {
-        qt_pager(QT_FIRSTGOAL);
+        qt_pager("goal_first");
         Qstat(made_goal) = 1;
     } else {
         /*
@@ -81,14 +80,14 @@ on_goal()
                                    | (1 << OBJ_BURIED));
         struct obj *qarti = find_quest_artifact(whichobjchains);
 
-        qt_pager(qarti ? QT_NEXTGOAL : QT_ALTGOAL);
+        qt_pager(qarti ? "goal_next" : "goal_alt");
         if (Qstat(made_goal) < 7)
             Qstat(made_goal)++;
     }
 }
 
 void
-onquest()
+onquest(void)
 {
     if (u.uevent.qcompleted || Not_firsttime)
         return;
@@ -105,46 +104,53 @@ onquest()
 }
 
 void
-nemdead()
+nemdead(void)
 {
     if (!Qstat(killed_nemesis)) {
         Qstat(killed_nemesis) = TRUE;
-        qt_pager(QT_KILLEDNEM);
+        qt_pager("killed_nemesis");
     }
 }
 
 void
-artitouch(obj)
-struct obj *obj;
+leaddead(void)
+{
+    if (!Qstat(killed_leader)) {
+        Qstat(killed_leader) = TRUE;
+        /* TODO: qt_pager("killed_leader"); ? */
+    }
+}
+
+void
+artitouch(struct obj *obj)
 {
     if (!Qstat(touched_artifact)) {
         /* in case we haven't seen the item yet (ie, currently blinded),
            this quest message describes it by name so mark it as seen */
-        obj->dknown = 1;
+        observe_object(obj);
         /* only give this message once */
         Qstat(touched_artifact) = TRUE;
-        qt_pager(QT_GOTIT);
+        qt_pager("gotit");
         exercise(A_WIS, TRUE);
     }
 }
 
 /* external hook for do.c (level change check) */
 boolean
-ok_to_quest()
+ok_to_quest(void)
 {
-    return (boolean) ((Qstat(got_quest) || Qstat(got_thanks))
-                      && is_pure(FALSE) > 0);
+    return (boolean) (((Qstat(got_quest) || Qstat(got_thanks))
+                       && is_pure(FALSE) > 0) || Qstat(killed_leader));
 }
 
-STATIC_OVL boolean
-not_capable()
+staticfn boolean
+not_capable(void)
 {
     return (boolean) (u.ulevel < MIN_QUEST_LEVEL);
 }
 
-STATIC_OVL int
-is_pure(talk)
-boolean talk;
+staticfn int
+is_pure(boolean talk)
 {
     int purity;
     aligntyp original_alignment = u.ualignbase[A_ORIGINAL];
@@ -158,7 +164,7 @@ boolean talk;
         } else if (u.ualign.record < MIN_QUEST_ALIGN) {
             You("are currently %d and require %d.", u.ualign.record,
                 MIN_QUEST_ALIGN);
-            if (yn_function("adjust?", (char *) 0, 'y') == 'y')
+            if (yn_function("adjust?", (char *) 0, 'y', TRUE) == 'y')
                 u.ualign.record = MIN_QUEST_ALIGN;
         }
     }
@@ -176,20 +182,20 @@ boolean talk;
  * This assumes that the hero is currently _in_ the quest dungeon and that
  * there is a single branch to and from it.
  */
-STATIC_OVL void
-expulsion(seal)
-boolean seal;
+staticfn void
+expulsion(boolean seal)
 {
     branch *br;
     d_level *dest;
     struct trap *t;
-    int portal_flag;
+    int portal_flag = u.uevent.qexpelled ? UTOTYPE_NONE : UTOTYPE_PORTAL;
 
     br = dungeon_branch("The Quest");
     dest = (br->end1.dnum == u.uz.dnum) ? &br->end2 : &br->end1;
-    portal_flag = u.uevent.qexpelled ? 0 /* returned via artifact? */
-                                     : !seal ? 1 : -1;
-    schedule_goto(dest, FALSE, FALSE, portal_flag, (char *) 0, (char *) 0);
+    if (seal)
+        portal_flag |= UTOTYPE_RMPORTAL;
+    nomul(0); /* stop running */
+    schedule_goto(dest, portal_flag, (char *) 0, (char *) 0);
     if (seal) { /* remove the portal to the quest - sealing it off */
         int reexpelled = u.uevent.qexpelled;
 
@@ -199,7 +205,7 @@ boolean seal;
            portal will be deleted as part of arrival on that level.
            If monster movement is in progress, any who haven't moved
            yet will now miss out on a chance to wander through it... */
-        for (t = ftrap; t; t = t->ntrap)
+        for (t = gf.ftrap; t; t = t->ntrap)
             if (t->ttyp == MAGIC_PORTAL)
                 break;
         if (t)
@@ -213,24 +219,53 @@ boolean seal;
    artifact or you've just thrown it to/at him or her.  If quest
    completion text hasn't been given yet, give it now.  Otherwise
    give another message about the character keeping the artifact
-   and using the magic portal to return to the dungeon. */
+   and using the magic portal to return to the dungeon.  Also called
+   if hero throws or kicks an invocation item (probably the Bell)
+   at the leader. */
 void
-finish_quest(obj)
-struct obj *obj; /* quest artifact; possibly null if carrying Amulet */
+finish_quest(struct obj *obj) /* quest artifact or thrown unique item or faux
+                               * AoY; possibly null if carrying the Amulet */
 {
     struct obj *otmp;
 
-    if (u.uhave.amulet) { /* unlikely but not impossible */
-        qt_pager(QT_HASAMULET);
+    if (obj && !is_quest_artifact(obj)) {
+        /* tossed an invocation item (or [fake] AoY) at the quest leader */
+        if (Deaf)
+            return; /* optional (unlike quest completion) so skip if deaf */
+        /* do ID first so that the message identifying the item will refer to
+           it by name (and so justify the ID we already gave...) */
+        fully_identify_obj(obj);
+        /* update_inventory() is not necessary or helpful here because item
+           was thrown, so isn't currently in inventory anyway */
+        if (obj->otyp == AMULET_OF_YENDOR) {
+            qt_pager("hasamulet");
+        } else if (obj->otyp == FAKE_AMULET_OF_YENDOR) {
+            verbalize(
+      "Sorry to say, this is a mere imitation of the true Amulet of Yendor.");
+        } else {
+            verbalize("Ah, I see you've found %s.", the(xname(obj)));
+        }
+        return;
+    }
+
+    if (u.uhave.amulet) {
+        /* has the amulet in inventory -- most likely the player has already
+           completed the quest and stopped in on her way back up, but it's not
+           impossible to have gotten the amulet before formally presenting the
+           quest artifact to the leader. */
+        qt_pager("hasamulet");
         /* leader IDs the real amulet but ignores any fakes */
-        if ((otmp = carrying(AMULET_OF_YENDOR)) != 0)
+        if ((otmp = carrying(AMULET_OF_YENDOR)) != (struct obj *) 0) {
             fully_identify_obj(otmp);
+            update_inventory();
+        }
     } else {
-        qt_pager(!Qstat(got_thanks) ? QT_OFFEREDIT : QT_OFFEREDIT2);
+        /* normal quest completion; threw artifact or walked up carrying it */
+        qt_pager(!Qstat(got_thanks) ? "offeredit" : "offeredit2");
         /* should have obtained bell during quest;
            if not, suggest returning for it now */
         if ((otmp = carrying(BELL_OF_OPENING)) == 0)
-            com_pager(5);
+            com_pager("quest_complete_no_bell");
     }
     Qstat(got_thanks) = TRUE;
 
@@ -243,9 +278,12 @@ struct obj *obj; /* quest artifact; possibly null if carrying Amulet */
     }
 }
 
-STATIC_OVL void
-chat_with_leader()
+staticfn void
+chat_with_leader(struct monst *mtmp)
 {
+    if (!mtmp->mpeaceful || Qstat(pissed_off))
+        return;
+
     /*  Rule 0: Cheater checks. */
     if (u.uhave.questart && !Qstat(met_nemesis))
         Qstat(cheater) = TRUE;
@@ -260,13 +298,13 @@ chat_with_leader()
 
         /* Rule 2: You've gone back before going for the amulet. */
         else
-            qt_pager(QT_POSTHANKS);
+            qt_pager("posthanks");
 
     /* Rule 3: You've got the artifact and are back to return it. */
     } else if (u.uhave.questart) {
         struct obj *otmp;
 
-        for (otmp = invent; otmp; otmp = otmp->nobj)
+        for (otmp = gi.invent; otmp; otmp = otmp->nobj)
             if (is_quest_artifact(otmp))
                 break;
 
@@ -274,16 +312,18 @@ chat_with_leader()
 
     /* Rule 4: You haven't got the artifact yet. */
     } else if (Qstat(got_quest)) {
-        qt_pager(rn1(10, QT_ENCOURAGE));
+        qt_pager("encourage");
 
     /* Rule 5: You aren't yet acceptable - or are you? */
     } else {
+        int purity = 0;
+
         if (!Qstat(met_leader)) {
-            qt_pager(QT_FIRSTLEADER);
+            qt_pager("leader_first");
             Qstat(met_leader) = TRUE;
             Qstat(not_ready) = 0;
         } else
-            qt_pager(QT_NEXTLEADER);
+            qt_pager("leader_next");
 
         /* the quest leader might have passed through the portal into
            the regular dungeon; none of the remaining make sense there */
@@ -291,36 +331,53 @@ chat_with_leader()
             return;
 
         if (not_capable()) {
-            qt_pager(QT_BADLEVEL);
+            qt_pager("badlevel");
             exercise(A_WIS, TRUE);
             expulsion(FALSE);
-        } else if (is_pure(TRUE) < 0) {
-            com_pager(QT_BANISHED);
-            expulsion(TRUE);
-        } else if (is_pure(TRUE) == 0) {
-            qt_pager(QT_BADALIGN);
-            if (Qstat(not_ready) == MAX_QUEST_TRIES) {
-                qt_pager(QT_LASTLEADER);
-                expulsion(TRUE);
-            } else {
-                Qstat(not_ready)++;
-                exercise(A_WIS, TRUE);
+        } else if ((purity = is_pure(TRUE)) < 0) {
+            if (!Qstat(pissed_off)) {
+                com_pager("banished");
+                Qstat(pissed_off) = TRUE;
                 expulsion(FALSE);
+
+                /* being expelled is hardly an achievement but none of the
+                   other livelog classifications fit */
+                livelog_printf(LL_ACHIEVE,
+                               "%s has expelled you from the quest",
+                               noit_mon_nam(mtmp));
             }
+        } else if (purity == 0) {
+            qt_pager("badalign");
+            Qstat(not_ready) = 1;
+            exercise(A_WIS, TRUE);
+            expulsion(FALSE);
         } else { /* You are worthy! */
-            qt_pager(QT_ASSIGNQUEST);
+            qt_pager("assignquest");
             exercise(A_WIS, TRUE);
             Qstat(got_quest) = TRUE;
+
+            /* phrasing is a bit clumsy but allows #chronicle to provide a
+               clue to players who are reaching the quest for first time;
+               matters most for Home 1 that has stairs down which aren't
+               easily found */
+            livelog_printf(LL_ACHIEVE,
+                     "%s has granted access to proceed deeper into the quest",
+                           noit_mon_nam(mtmp));
         }
     }
 }
 
 void
-leader_speaks(mtmp)
-struct monst *mtmp;
+leader_speaks(struct monst *mtmp)
 {
     /* maybe you attacked leader? */
     if (!mtmp->mpeaceful) {
+        if (!Qstat(pissed_off)) {
+            /* again, don't end it permanently if the leader gets angry
+             * since you're going to have to kill him to go questing... :)
+             * ...but do only show this crap once. */
+            qt_pager("leader_last");
+        }
         Qstat(pissed_off) = TRUE;
         mtmp->mstrategy &= ~STRAT_WAITMASK; /* end the inaction */
     }
@@ -329,63 +386,76 @@ struct monst *mtmp;
     if (!on_level(&u.uz, &qstart_level))
         return;
 
-    if (Qstat(pissed_off)) {
-        qt_pager(QT_LASTLEADER);
-        expulsion(TRUE);
-    } else
-        chat_with_leader();
+    if (!Qstat(pissed_off))
+        chat_with_leader(mtmp);
 }
 
-STATIC_OVL void
-chat_with_nemesis()
+staticfn void
+chat_with_nemesis(void)
 {
     /*  The nemesis will do most of the talking, but... */
-    qt_pager(rn1(10, QT_DISCOURAGE));
+    qt_pager("discourage");
     if (!Qstat(met_nemesis))
         Qstat(met_nemesis++);
 }
 
 void
-nemesis_speaks()
+nemesis_speaks(void)
 {
     if (!Qstat(in_battle)) {
         if (u.uhave.questart)
-            qt_pager(QT_NEMWANTSIT);
+            qt_pager("nemesis_wantsit");
         else if (Qstat(made_goal) == 1 || !Qstat(met_nemesis))
-            qt_pager(QT_FIRSTNEMESIS);
+            qt_pager("nemesis_first");
         else if (Qstat(made_goal) < 4)
-            qt_pager(QT_NEXTNEMESIS);
+            qt_pager("nemesis_next");
         else if (Qstat(made_goal) < 7)
-            qt_pager(QT_OTHERNEMESIS);
+            qt_pager("nemesis_other");
         else if (!rn2(5))
-            qt_pager(rn1(10, QT_DISCOURAGE));
+            qt_pager("discourage");
         if (Qstat(made_goal) < 7)
             Qstat(made_goal)++;
         Qstat(met_nemesis) = TRUE;
     } else /* he will spit out random maledictions */
         if (!rn2(5))
-        qt_pager(rn1(10, QT_DISCOURAGE));
+        qt_pager("discourage");
 }
 
-STATIC_OVL void
-chat_with_guardian()
+/* create cloud of stinking gas around dying nemesis */
+void
+nemesis_stinks(coordxy mx, coordxy my)
+{
+    boolean save_mon_moving = svc.context.mon_moving;
+
+    /*
+     * Some nemeses (determined by caller) release a cloud of noxious
+     * gas when they die.  Don't make the hero be responsible for such
+     * a cloud even if hero has just killed nemesis.
+     */
+    svc.context.mon_moving = TRUE;
+    create_gas_cloud(mx, my, 5, 8);
+    svc.context.mon_moving = save_mon_moving;
+}
+
+staticfn void
+chat_with_guardian(void)
 {
     /*  These guys/gals really don't have much to say... */
     if (u.uhave.questart && Qstat(killed_nemesis))
-        qt_pager(rn1(5, QT_GUARDTALK2));
+        qt_pager("guardtalk_after");
     else
-        qt_pager(rn1(5, QT_GUARDTALK));
+        qt_pager("guardtalk_before");
 }
 
-STATIC_OVL void
-prisoner_speaks(mtmp)
-struct monst *mtmp;
+staticfn void
+prisoner_speaks(struct monst *mtmp)
 {
     if (mtmp->data == &mons[PM_PRISONER]
         && (mtmp->mstrategy & STRAT_WAITMASK)) {
         /* Awaken the prisoner */
         if (canseemon(mtmp))
             pline("%s speaks:", Monnam(mtmp));
+        SetVoice(mtmp, 0, 80, 0);
         verbalize("I'm finally free!");
         mtmp->mstrategy &= ~STRAT_WAITMASK;
         mtmp->mpeaceful = 1;
@@ -400,11 +470,13 @@ struct monst *mtmp;
 }
 
 void
-quest_chat(mtmp)
-register struct monst *mtmp;
+quest_chat(struct monst *mtmp)
 {
     if (mtmp->m_id == Qstat(leader_m_id)) {
-        chat_with_leader();
+        chat_with_leader(mtmp);
+        /* leader might have become pissed during the chat */
+        if (Qstat(pissed_off))
+            setmangry(mtmp, FALSE);
         return;
     }
     switch (mtmp->data->msound) {
@@ -420,8 +492,7 @@ register struct monst *mtmp;
 }
 
 void
-quest_talk(mtmp)
-struct monst *mtmp;
+quest_talk(struct monst *mtmp)
 {
     if (mtmp->m_id == Qstat(leader_m_id)) {
         leader_speaks(mtmp);
@@ -440,12 +511,13 @@ struct monst *mtmp;
 }
 
 void
-quest_stat_check(mtmp)
-struct monst *mtmp;
+quest_stat_check(struct monst *mtmp)
 {
     if (mtmp->data->msound == MS_NEMESIS)
-        Qstat(in_battle) = (mtmp->mcanmove && !mtmp->msleeping
-                            && monnear(mtmp, u.ux, u.uy));
+        Qstat(in_battle) = (!helpless(mtmp) && monnear(mtmp, u.ux, u.uy));
 }
+
+#undef Not_firsttime
+#undef Qstat
 
 /*quest.c*/

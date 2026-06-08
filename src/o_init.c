@@ -1,23 +1,26 @@
-/* NetHack 3.6	o_init.c	$NHDT-Date: 1674864731 2023/01/28 00:12:11 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.27 $ */
+/* NetHack 5.0	o_init.c	$NHDT-Date: 1771216675 2026/02/15 20:37:55 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.101 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2011. */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "hack.h"
-#include "lev.h" /* save & restore info */
 
-STATIC_DCL void FDECL(setgemprobs, (d_level *));
-STATIC_DCL void FDECL(shuffle, (int, int, BOOLEAN_P));
-STATIC_DCL void NDECL(shuffle_all);
-STATIC_DCL boolean FDECL(interesting_to_discover, (int));
-STATIC_DCL void FDECL(disco_append_typename, (char *, int));
-STATIC_DCL char *FDECL(oclass_to_name, (CHAR_P, char *));
+#ifndef SFCTOOL
+staticfn void setgemprobs(d_level *);
+staticfn void randomize_gem_colors(void);
+staticfn void shuffle(int, int, boolean);
+staticfn void shuffle_all(void);
+staticfn int QSORTCALLBACK discovered_cmp(const genericptr, const genericptr);
+staticfn char *sortloot_descr(int, char *);
+staticfn char *disco_typename(int);
+staticfn void disco_append_typename(char *, int);
+staticfn void disco_fmt_uniq(int, char *outbuf) NONNULLARG2;
+staticfn void disco_output_sorted(winid, char **, int, boolean);
+staticfn char *oclass_to_name(char, char *);
 
-static NEARDATA short disco[NUM_OBJECTS] = DUMMY;
-
-#ifdef USE_TILES
-STATIC_DCL void NDECL(shuffle_tiles);
-extern short glyph2tile[]; /* from tile.c */
+#ifdef TILES_IN_GLYPHMAP
+extern glyph_map glyphmap[MAX_GLYPH];
+staticfn void shuffle_tiles(void);
 
 /* Shuffle tile assignments to match descriptions, so a red potion isn't
  * displayed with a blue tile and so on.
@@ -28,51 +31,86 @@ extern short glyph2tile[]; /* from tile.c */
  * is restored.  So might as well do that the first time instead of writing
  * another routine.
  */
-STATIC_OVL void
-shuffle_tiles()
+staticfn void
+shuffle_tiles(void)
 {
     int i;
-    short tmp_tilemap[NUM_OBJECTS];
+    short tmp_tilemap[2][NUM_OBJECTS];
 
-    for (i = 0; i < NUM_OBJECTS; i++)
-        tmp_tilemap[i] = glyph2tile[objects[i].oc_descr_idx + GLYPH_OBJ_OFF];
-
-    for (i = 0; i < NUM_OBJECTS; i++)
-        glyph2tile[i + GLYPH_OBJ_OFF] = tmp_tilemap[i];
+    for (i = 0; i < NUM_OBJECTS; i++) {
+        tmp_tilemap[0][i] = glyphmap[objects[i].oc_descr_idx
+                                     + GLYPH_OBJ_OFF].tileidx;
+        tmp_tilemap[1][i] = glyphmap[objects[i].oc_descr_idx
+                                     + GLYPH_OBJ_PILETOP_OFF].tileidx;
+    }
+    for (i = 0; i < NUM_OBJECTS; i++) {
+        glyphmap[i + GLYPH_OBJ_OFF].tileidx = tmp_tilemap[0][i];
+        glyphmap[i + GLYPH_OBJ_PILETOP_OFF].tileidx = tmp_tilemap[1][i];
+    }
 }
-#endif /* USE_TILES */
+#endif /* TILES_IN_GLYPHMAP */
 
-STATIC_OVL void
-setgemprobs(dlev)
-d_level *dlev;
+staticfn void
+setgemprobs(d_level *dlev)
 {
-    int j, first, lev;
+    int j, first, lev, sum = 0;
 
     if (dlev)
         lev = (ledger_no(dlev) > maxledgerno()) ? maxledgerno()
                                                 : ledger_no(dlev);
     else
         lev = 0;
-    first = bases[GEM_CLASS];
+    first = svb.bases[GEM_CLASS];
 
     for (j = 0; j < 9 - lev / 3; j++)
         objects[first + j].oc_prob = 0;
     first += j;
-    if (first > LAST_GEM || objects[first].oc_class != GEM_CLASS
+    if (first > LAST_REAL_GEM || objects[first].oc_class != GEM_CLASS
         || OBJ_NAME(objects[first]) == (char *) 0) {
         raw_printf("Not enough gems? - first=%d j=%d LAST_GEM=%d", first, j,
-                   LAST_GEM);
+                   LAST_REAL_GEM);
         wait_synch();
     }
-    for (j = first; j <= LAST_GEM; j++)
-        objects[j].oc_prob = (171 + j - first) / (LAST_GEM + 1 - first);
+    for (j = first; j <= LAST_REAL_GEM; j++)
+        objects[j].oc_prob = (171 + j - first) / (LAST_REAL_GEM + 1 - first);
+
+    /* recompute GEM_CLASS total oc_prob - including rocks/stones */
+    for (j = svb.bases[GEM_CLASS]; j < svb.bases[GEM_CLASS + 1]; j++)
+        sum += objects[j].oc_prob;
+    go.oclass_prob_totals[GEM_CLASS] = sum;
+}
+
+/* some gems can have different colors */
+staticfn void
+randomize_gem_colors(void)
+{
+#define COPY_OBJ_DESCR(o_dst, o_src) \
+    o_dst.oc_descr_idx = o_src.oc_descr_idx, o_dst.oc_color = o_src.oc_color
+    if (rn2(2)) { /* change turquoise from green to blue? */
+        COPY_OBJ_DESCR(objects[TURQUOISE], objects[SAPPHIRE]);
+    }
+    if (rn2(2)) { /* change aquamarine from green to blue? */
+        COPY_OBJ_DESCR(objects[AQUAMARINE], objects[SAPPHIRE]);
+    }
+    switch (rn2(4)) { /* change fluorite from violet? */
+    case 0:
+        break;
+    case 1: /* blue */
+        COPY_OBJ_DESCR(objects[FLUORITE], objects[SAPPHIRE]);
+        break;
+    case 2: /* white */
+        COPY_OBJ_DESCR(objects[FLUORITE], objects[DIAMOND]);
+        break;
+    case 3: /* green */
+        COPY_OBJ_DESCR(objects[FLUORITE], objects[EMERALD]);
+        break;
+    }
+#undef COPY_OBJ_DESCR
 }
 
 /* shuffle descriptions on objects o_low to o_high */
-STATIC_OVL void
-shuffle(o_low, o_high, domaterial)
-int o_low, o_high;
-boolean domaterial;
+staticfn void
+shuffle(int o_low, int o_high, boolean domaterial)
 {
     int i, j, num_to_shuffle;
     short sw;
@@ -110,84 +148,127 @@ boolean domaterial;
 }
 
 void
-init_objects()
+init_objects(void)
 {
-    register int i, first, last, sum;
-    register char oclass;
-#ifdef TEXTCOLOR
-#define COPY_OBJ_DESCR(o_dst, o_src) \
-    o_dst.oc_descr_idx = o_src.oc_descr_idx, o_dst.oc_color = o_src.oc_color
-#else
-#define COPY_OBJ_DESCR(o_dst, o_src) o_dst.oc_descr_idx = o_src.oc_descr_idx
-#endif
+    int i, first, last, prevoclass;
+    char oclass;
 
-    /* bug fix to prevent "initialization error" abort on Intel Xenix.
-     * reported by mikew@semike
-     */
-    for (i = 0; i < MAXOCLASSES; i++)
-        bases[i] = 0;
+    for (i = 0; i <= MAXOCLASSES; i++) {
+        svb.bases[i] = 0;
+        if (i > 0 && i < MAXOCLASSES && objects[i].oc_class != i)
+            panic(
+              "init_objects: class for generic object #%d doesn't match (%d)",
+                  i, objects[i].oc_class);
+    }
     /* initialize object descriptions */
     for (i = 0; i < NUM_OBJECTS; i++)
         objects[i].oc_name_idx = objects[i].oc_descr_idx = i;
     /* init base; if probs given check that they add up to 1000,
        otherwise compute probs */
-    first = 0;
+    first = MAXOCLASSES;
+    prevoclass = -1;
     while (first < NUM_OBJECTS) {
         oclass = objects[first].oc_class;
+        /*
+         * objects[] sanity check:  must be in ascending oc_class order to
+         * be able to use bases[class+1]-1 for the end of a class's range.
+         * Also catches a non-contiguous class because reverting to any
+         * earlier class would involve switching back to a lower class
+         * number after having moved on to one or more other classes.
+         */
+        if ((int) oclass < prevoclass)
+            panic("objects[%d] class #%d not in order!", first, oclass);
+
         last = first + 1;
         while (last < NUM_OBJECTS && objects[last].oc_class == oclass)
             last++;
-        bases[(int) oclass] = first;
+        svb.bases[(int) oclass] = first;
 
         if (oclass == GEM_CLASS) {
             setgemprobs((d_level *) 0);
-
-            if (rn2(2)) { /* change turquoise from green to blue? */
-                COPY_OBJ_DESCR(objects[TURQUOISE], objects[SAPPHIRE]);
-            }
-            if (rn2(2)) { /* change aquamarine from green to blue? */
-                COPY_OBJ_DESCR(objects[AQUAMARINE], objects[SAPPHIRE]);
-            }
-            switch (rn2(4)) { /* change fluorite from violet? */
-            case 0:
-                break;
-            case 1: /* blue */
-                COPY_OBJ_DESCR(objects[FLUORITE], objects[SAPPHIRE]);
-                break;
-            case 2: /* white */
-                COPY_OBJ_DESCR(objects[FLUORITE], objects[DIAMOND]);
-                break;
-            case 3: /* green */
-                COPY_OBJ_DESCR(objects[FLUORITE], objects[EMERALD]);
-                break;
-            }
+            randomize_gem_colors();
         }
-    check:
-        sum = 0;
-        for (i = first; i < last; i++)
-            sum += objects[i].oc_prob;
-        if (sum == 0) {
-            for (i = first; i < last; i++)
-                objects[i].oc_prob = (1000 + i - first) / (last - first);
-            goto check;
-        }
-        if (sum != 1000)
-            error("init-prob error for class %d (%d%%)", oclass, sum);
         first = last;
+        prevoclass = (int) oclass;
     }
+    /* extra entry allows deriving the range of a class via
+       bases[class] through bases[class+1]-1 for all classes
+       (except for ILLOBJ_CLASS which is separated from WEAPON_CLASS
+       by generic objects); second extra entry is to prevent an
+       unexplained crash in doclassdisco(), where the code ended up
+       attempting to process non-existent class MAXOCLASSES; the
+       [MAXOCLASSES+1] element gives that non-class 0 objects
+       when traversing objects[] from bases[X] through bases[X+1]-1 */
+    svb.bases[MAXOCLASSES] = svb.bases[MAXOCLASSES + 1] = NUM_OBJECTS;
+    /* hypothetically someone might remove all objects of some class,
+       or be adding a new class and not populated it yet, leaving gaps
+       in bases[]; guarantee that there are no such gaps */
+    for (last = MAXOCLASSES - 1; last >= 0; --last)
+        if (!svb.bases[last])
+            svb.bases[last] = svb.bases[last + 1];
+
+    /* check objects[].oc_name_known */
+    for (i = MAXOCLASSES; i < NUM_OBJECTS; ++i) {
+        int nmkn = objects[i].oc_name_known != 0;
+
+        if (!OBJ_DESCR(objects[i]) ^ nmkn) {
+            if (iflags.sanity_check) {
+                impossible(
+                    "obj #%d (%s) name is %s despite%s alternate description",
+                           i, OBJ_NAME(objects[i]),
+                           nmkn ? "pre-known" : "not known",
+                           nmkn ? "" : " no");
+            }
+            /* repair the mistake and keep going */
+            objects[i].oc_name_known = nmkn ? 0 : 1;
+        }
+    }
+    /* compute oclass_prob_totals */
+    init_oclass_probs();
+
     /* shuffle descriptions */
     shuffle_all();
-#ifdef USE_TILES
+#ifdef TILES_IN_GLYPHMAP
     shuffle_tiles();
 #endif
     objects[WAN_NOTHING].oc_dir = rn2(2) ? NODIR : IMMEDIATE;
 }
 
+/* Compute the total probability of each object class.
+ * Assumes svb.bases[] has already been set. */
+void
+init_oclass_probs(void)
+{
+    int i;
+    short sum;
+    int oclass;
+    for (oclass = 0; oclass < MAXOCLASSES; ++oclass) {
+        sum = 0;
+        /* note: for ILLOBJ_CLASS, bases[oclass+1]-1 isn't the last item
+           in the class; but all the generic items have probability 0 so
+           adding them to 'sum' has no impact */
+        for (i = svb.bases[oclass]; i < svb.bases[oclass + 1]; ++i) {
+            sum += objects[i].oc_prob;
+        }
+        if (sum <= 0 && oclass != ILLOBJ_CLASS
+            && svb.bases[oclass] != svb.bases[oclass + 1]) {
+            impossible("%s (%d) probability total for oclass %d",
+                       !sum ? "zero" : "negative", sum, oclass);
+            /* gracefully fail by setting all members of this class to 1 */
+            for (i = svb.bases[oclass]; i < svb.bases[oclass + 1]; ++i) {
+                objects[i].oc_prob = 1;
+                sum++;
+            }
+        }
+        go.oclass_prob_totals[oclass] = sum;
+    }
+}
+
 /* retrieve the range of objects that otyp shares descriptions with */
 void
-obj_shuffle_range(otyp, lo_p, hi_p)
-int otyp;         /* input: representative item */
-int *lo_p, *hi_p; /* output: range that item belongs among */
+obj_shuffle_range(
+    int otyp,         /* input: representative item */
+    int *lo_p, int *hi_p) /* output: range that item belongs among */
 {
     int i, ocls = objects[otyp].oc_class;
 
@@ -207,14 +288,14 @@ int *lo_p, *hi_p; /* output: range that item belongs among */
         break;
     case POTION_CLASS:
         /* potion of water has the only fixed description */
-        *lo_p = bases[POTION_CLASS];
+        *lo_p = svb.bases[POTION_CLASS];
         *hi_p = POT_WATER - 1;
         break;
     case AMULET_CLASS:
     case SCROLL_CLASS:
     case SPBOOK_CLASS:
         /* exclude non-magic types and also unique ones */
-        *lo_p = bases[ocls];
+        *lo_p = svb.bases[ocls];
         for (i = *lo_p; objects[i].oc_class == ocls; i++)
             if (objects[i].oc_unique || !objects[i].oc_magic)
                 break;
@@ -224,10 +305,8 @@ int *lo_p, *hi_p; /* output: range that item belongs among */
     case WAND_CLASS:
     case VENOM_CLASS:
         /* entire class */
-        *lo_p = bases[ocls];
-        for (i = *lo_p; objects[i].oc_class == ocls; i++)
-            continue;
-        *hi_p = i - 1;
+        *lo_p = svb.bases[ocls];
+        *hi_p = svb.bases[ocls + 1] - 1;
         break;
     }
 
@@ -239,8 +318,8 @@ int *lo_p, *hi_p; /* output: range that item belongs among */
 }
 
 /* randomize object descriptions */
-STATIC_OVL void
-shuffle_all()
+staticfn void
+shuffle_all(void)
 {
     /* entire classes; obj_shuffle_range() handles their exceptions */
     static char shuffle_classes[] = {
@@ -255,7 +334,8 @@ shuffle_all()
 
     /* do whole classes (amulets, &c) */
     for (idx = 0; idx < SIZE(shuffle_classes); idx++) {
-        obj_shuffle_range(bases[(int) shuffle_classes[idx]], &first, &last);
+        obj_shuffle_range(svb.bases[(int) shuffle_classes[idx]],
+                          &first, &last);
         shuffle(first, last, TRUE);
     }
     /* do type ranges (helms, &c) */
@@ -266,246 +346,535 @@ shuffle_all()
     return;
 }
 
-/* find the object index for snow boots; used [once] by slippery ice code */
-int
-find_skates()
+/* Return TRUE if the provided string matches the unidentified description of
+ * the provided object. */
+boolean
+objdescr_is(struct obj *obj, const char *descr)
 {
-    register int i;
-    register const char *s;
+    const char *objdescr;
 
-    for (i = SPEED_BOOTS; i <= LEVITATION_BOOTS; i++)
-        if ((s = OBJ_DESCR(objects[i])) != 0 && !strcmp(s, "snow boots"))
-            return i;
+    if (!obj) {
+        impossible("objdescr_is: null obj");
+        return FALSE;
+    }
 
-    impossible("snow boots not found?");
-    return -1; /* not 0, or caller would try again each move */
+    objdescr = OBJ_DESCR(objects[obj->otyp]);
+    if (!objdescr)
+        return FALSE; /* no obj description, no match */
+    return !strcmp(objdescr, descr);
 }
 
 /* level dependent initialization */
 void
-oinit()
+oinit(void)
 {
     setgemprobs(&u.uz);
 }
 
 void
-savenames(fd, mode)
-int fd, mode;
+savenames(NHFILE *nhfp)
 {
-    register int i;
+    int i;
     unsigned int len;
 
-    if (perform_bwrite(mode)) {
-        bwrite(fd, (genericptr_t) bases, sizeof bases);
-        bwrite(fd, (genericptr_t) disco, sizeof disco);
-        bwrite(fd, (genericptr_t) objects,
-               sizeof(struct objclass) * NUM_OBJECTS);
+    if (update_file(nhfp)) {
+        for (i = 0; i < (MAXOCLASSES + 2); ++i) {
+            Sfo_int(nhfp, &svb.bases[i], "names-bases");
+        }
+        for (i = 0; i < NUM_OBJECTS; ++i) {
+            Sfo_short(nhfp, &svd.disco[i], "names-disco");
+        }
+        for (i = 0; i < NUM_OBJECTS; ++i) {
+            Sfo_objclass(nhfp, &objects[i], "names-objclass");
+        }
     }
     /* as long as we use only one version of Hack we
        need not save oc_name and oc_descr, but we must save
        oc_uname for all objects */
     for (i = 0; i < NUM_OBJECTS; i++)
         if (objects[i].oc_uname) {
-            if (perform_bwrite(mode)) {
-                len = strlen(objects[i].oc_uname) + 1;
-                bwrite(fd, (genericptr_t) &len, sizeof len);
-                bwrite(fd, (genericptr_t) objects[i].oc_uname, len);
+            if (update_file(nhfp)) {
+                len = Strlen(objects[i].oc_uname) + 1;
+                Sfo_unsigned(nhfp, &len, "names-len");
+                Sfo_char(nhfp, objects[i].oc_uname, "names-oc_uname",
+                             (int) len);
             }
-            if (release_data(mode)) {
+            if (release_data(nhfp)) {
                 free((genericptr_t) objects[i].oc_uname);
                 objects[i].oc_uname = 0;
             }
         }
 }
+#endif /* !SFCTOOL */
 
 void
-restnames(fd)
-register int fd;
+restnames(NHFILE *nhfp)
 {
-    register int i;
-    unsigned int len;
+    int i;
+    unsigned int len = 0;
 
-    mread(fd, (genericptr_t) bases, sizeof bases);
-    mread(fd, (genericptr_t) disco, sizeof disco);
-    mread(fd, (genericptr_t) objects, sizeof(struct objclass) * NUM_OBJECTS);
-    for (i = 0; i < NUM_OBJECTS; i++)
+    for (i = 0; i < (MAXOCLASSES + 2); ++i) {
+        Sfi_int(nhfp, &svb.bases[i], "names-bases");
+    }
+    for (i = 0; i < NUM_OBJECTS; ++i) {
+        Sfi_short(nhfp, &svd.disco[i], "names-disco");
+    }
+    for (i = 0; i < NUM_OBJECTS; ++i) {
+        Sfi_objclass(nhfp, &objects[i], "names-objclass");
+    }
+    for (i = 0; i < NUM_OBJECTS; i++) {
         if (objects[i].oc_uname) {
-            mread(fd, (genericptr_t) &len, sizeof len);
+            Sfi_unsigned(nhfp, &len, "names-len");
             objects[i].oc_uname = (char *) alloc(len);
-            mread(fd, (genericptr_t) objects[i].oc_uname, len);
+            Sfi_char(nhfp, objects[i].oc_uname, "names-oc_uname", (int) len);
         }
-#ifdef USE_TILES
+    }
+#ifndef SFCTOOL
+#ifdef TILES_IN_GLYPHMAP
     shuffle_tiles();
+#endif
 #endif
 }
 
+#ifndef SFCTOOL
+/* make the object dknown and mark it as encountered */
 void
-discover_object(oindx, mark_as_known, credit_hero)
-register int oindx;
-boolean mark_as_known;
-boolean credit_hero;
+observe_object(struct obj *obj)
 {
-    if (!objects[oindx].oc_name_known) {
-        register int dindx, acls = objects[oindx].oc_class;
+    int oindx = obj->otyp;
+
+    /* skip for generic objects and for STRANGE_OBJECT */
+    if (oindx >= FIRST_OBJECT && !Hallucination) {
+        obj->dknown = 1;
+        discover_object(oindx, FALSE, TRUE, FALSE);
+    }
+}
+
+void
+discover_object(
+    int oindx,                   /* type of object */
+    boolean mark_as_known,       /* discover the type */
+    boolean mark_as_encountered, /* mark the type as having been seen/felt */
+    boolean credit_hero)         /* exercise wisdom */
+{
+    if (oindx < FIRST_OBJECT) /* don't discover generic objects */
+        return;
+
+    if ((!objects[oindx].oc_name_known && mark_as_known)
+        || (!objects[oindx].oc_encountered && mark_as_encountered)
+        || (Role_if(PM_SAMURAI)
+            && Japanese_item_name(oindx, (const char *) 0))) {
+        int dindx, acls = objects[oindx].oc_class;
 
         /* Loop thru disco[] 'til we find the target (which may have been
            uname'd) or the next open slot; one or the other will be found
-           before we reach the next class...
-         */
-        for (dindx = bases[acls]; disco[dindx] != 0; dindx++)
-            if (disco[dindx] == oindx)
+           before we reach the next class... */
+        for (dindx = svb.bases[acls]; svd.disco[dindx] != 0; dindx++)
+            if (svd.disco[dindx] == oindx)
                 break;
-        disco[dindx] = oindx;
+        svd.disco[dindx] = oindx;
 
-        if (mark_as_known) {
+        if (mark_as_encountered)
+            objects[oindx].oc_encountered = 1;
+
+        if (!objects[oindx].oc_name_known && mark_as_known) {
             objects[oindx].oc_name_known = 1;
             if (credit_hero)
                 exercise(A_WIS, TRUE);
-        }
-        /* moves==1L => initial inventory, gameover => final disclosure */
-        if (moves > 1L && !program_state.gameover) {
-            if (objects[oindx].oc_class == GEM_CLASS)
-                gem_learned(oindx); /* could affect price of unpaid gems */
-            update_inventory();
+
+            /* !in_moveloop => initial inventory,
+               gameover => final disclosure */
+            if (program_state.in_moveloop && !program_state.gameover) {
+                if (objects[oindx].oc_class == GEM_CLASS)
+                    gem_learned(oindx); /* could affect price of unpaid gems */
+                update_inventory();
+            }
         }
     }
 }
 
 /* if a class name has been cleared, we may need to purge it from disco[] */
 void
-undiscover_object(oindx)
-register int oindx;
+undiscover_object(int oindx)
 {
-    if (!objects[oindx].oc_name_known) {
-        register int dindx, acls = objects[oindx].oc_class;
-        register boolean found = FALSE;
+    if (!objects[oindx].oc_name_known && !objects[oindx].oc_encountered) {
+        int dindx, acls = objects[oindx].oc_class;
+        boolean found = FALSE;
 
         /* find the object; shift those behind it forward one slot */
-        for (dindx = bases[acls]; dindx < NUM_OBJECTS && disco[dindx] != 0
-                                  && objects[dindx].oc_class == acls;
+        for (dindx = svb.bases[acls];
+             dindx < NUM_OBJECTS && svd.disco[dindx] != 0
+                 && objects[dindx].oc_class == acls;
              dindx++)
             if (found)
-                disco[dindx - 1] = disco[dindx];
-            else if (disco[dindx] == oindx)
+                svd.disco[dindx - 1] = svd.disco[dindx];
+            else if (svd.disco[dindx] == oindx)
                 found = TRUE;
 
         /* clear last slot */
         if (found)
-            disco[dindx - 1] = 0;
+            svd.disco[dindx - 1] = 0;
         else
             impossible("named object not in disco");
 
         if (objects[oindx].oc_class == GEM_CLASS)
             gem_learned(oindx); /* ok, it's actually been unlearned */
-        update_inventory();
     }
 }
 
-STATIC_OVL boolean
-interesting_to_discover(i)
-register int i;
+boolean
+interesting_to_discover(int i)
 {
-    /* Pre-discovered objects are now printed with a '*' */
+    /* most players who don't speak Japanese manage to figure out what
+       gunyoki, osaku, and so forth mean, but treat them as pre-discovered
+       to be disclosed by '\' */
+    if (Role_if(PM_SAMURAI) && Japanese_item_name(i, (const char *) 0))
+        return TRUE;
+
+    /* Objects that were discovered without encountering them are now printed
+       with a '*' */
     return (boolean) (objects[i].oc_uname != (char *) 0
-                      || (objects[i].oc_name_known
+                      || ((objects[i].oc_name_known
+                           || objects[i].oc_encountered)
                           && OBJ_DESCR(objects[i]) != (char *) 0));
 }
 
 /* items that should stand out once they're known */
-static short uniq_objs[] = {
-    AMULET_OF_YENDOR, SPE_BOOK_OF_THE_DEAD, CANDELABRUM_OF_INVOCATION,
+static const short uniq_objs[] = {
+    AMULET_OF_YENDOR,
+    /* same order as major oracularity; alphabetical when fully IDed */
     BELL_OF_OPENING,
+    SPE_BOOK_OF_THE_DEAD,
+    CANDELABRUM_OF_INVOCATION,
 };
 
-/* append typename(dis) to buf[], possibly truncating in the process */
-STATIC_OVL void
-disco_append_typename(buf, dis)
-char *buf;
-int dis;
+/* discoveries qsort comparison function */
+staticfn int QSORTCALLBACK
+discovered_cmp(const genericptr v1, const genericptr v2)
 {
-    unsigned len = (unsigned) strlen(buf);
-    char *p, *typnm = obj_typename(dis);
+    const char *s1 = *(const char **) v1;
+    const char *s2 = *(const char **) v2;
+    /* each element starts with "* " or "  " but we don't sort by those */
+    int res = strcmpi(s1 + 2, s2 + 2);
 
-    if (len + (unsigned) strlen(typnm) < BUFSZ) {
+    if (res == 0) {
+        ; /* no tie-breaker needed */
+    }
+    return res;
+}
+
+staticfn char *
+sortloot_descr(int otyp, char *outbuf)
+{
+    Loot sl_cookie;
+    struct obj o;
+
+    o = cg.zeroobj;
+    o.otyp = otyp;
+    o.oclass = objects[otyp].oc_class;
+    o.dknown = 1; /* not observe_object, this isn't a real object */
+    o.known = (objects[otyp].oc_name_known || !objects[otyp].oc_uses_known)
+              ? 1 : 0;
+    o.corpsenm = NON_PM; /* suppress statue and figurine details */
+    /* but suppressing fruit details leads to "bad fruit #0" */
+    if (otyp == SLIME_MOLD)
+        o.spe = svc.context.current_fruit;
+
+    (void) memset((genericptr_t) &sl_cookie, 0, sizeof sl_cookie);
+    sl_cookie.obj = (struct obj *) 0;
+    sl_cookie.str = (char *) 0;
+
+    loot_classify(&sl_cookie, &o);
+    Sprintf(outbuf, "%02d%02d%1d ",
+            sl_cookie.orderclass, sl_cookie.subclass, sl_cookie.disco);
+    return outbuf;
+}
+#endif /* !SFCTOOL */
+
+#define DISCO_BYCLASS      0 /* by discovery order within each class */
+#define DISCO_SORTLOOT     1 /* by discovery order within each subclass */
+#define DISCO_ALPHABYCLASS 2 /* alphabetized within each class */
+#define DISCO_ALPHABETIZED 3 /* alphabetized across all classes */
+/* also used in options.c (optfn_sortdiscoveries) */
+static const char disco_order_let[] = "osca";
+static const char *const disco_orders_descr[] = {
+    "by order of discovery within each class",
+    "sortloot order (by class with some sub-class groupings)",
+    "alphabetical within each class",
+    "alphabetical across all classes",
+    (char *) 0
+};
+
+#ifndef SFCTOOL
+
+int
+choose_disco_sort(
+    int mode) /* 0 => 'O' cmd, 1 => full discoveries; 2 => class disco */
+{
+    winid tmpwin;
+    menu_item *selected;
+    anything any;
+    int i, n, choice;
+    int clr = NO_COLOR;
+
+    tmpwin = create_nhwindow(NHW_MENU);
+    start_menu(tmpwin, MENU_BEHAVE_STANDARD);
+    any = cg.zeroany; /* zero out all bits */
+    for (i = 0; disco_orders_descr[i]; ++i) {
+        any.a_int = disco_order_let[i];
+        add_menu(tmpwin, &nul_glyphinfo, &any, (char) any.a_int,
+                 0, ATR_NONE, clr,
+                 disco_orders_descr[i],
+                 (disco_order_let[i] == flags.discosort)
+                    ? MENU_ITEMFLAGS_SELECTED
+                    : MENU_ITEMFLAGS_NONE);
+    }
+    if (mode == 2) {
+        /* called via 'm `' where full alphabetize doesn't make sense
+           (only showing one class so can't span all classes) but the
+           chosen sort will stick and also apply to '\' usage */
+        add_menu_str(tmpwin, "");
+        add_menu_str(tmpwin,
+                     "Note: full alphabetical and alphabetical within class");
+        add_menu_str(tmpwin,
+                     "      are equivalent for single class discovery, but");
+        add_menu_str(tmpwin,
+                    "      will matter for future use of total discoveries.");
+    }
+    end_menu(tmpwin, "Ordering of discoveries");
+
+    n = select_menu(tmpwin, PICK_ONE, &selected);
+    destroy_nhwindow(tmpwin);
+    if (n > 0) {
+        choice = selected[0].item.a_int;
+        /* skip preselected entry if we have more than one item chosen */
+        if (n > 1 && choice == (int) flags.discosort)
+            choice = selected[1].item.a_int;
+        free((genericptr_t) selected);
+        flags.discosort = choice;
+    }
+    return n;
+}
+
+/* augment obj_typename() with explanation of Japanese item names */
+staticfn char *
+disco_typename(int otyp)
+{
+    char *result = obj_typename(otyp);
+
+    if (Role_if(PM_SAMURAI) && Japanese_item_name(otyp, (const char *) 0)) {
+        char buf[BUFSZ];
+        const char *actualn = (((otyp != MAGIC_HARP && otyp != WOODEN_HARP)
+                                || objects[otyp].oc_name_known)
+                               ? OBJ_NAME(objects[otyp])
+                               /* undiscovered harp (since wooden harp is
+                                  non-magic so pre-discovered, only applies
+                                  to magic harp and will only be seen if
+                                  magic harp has been 'called' something) */
+                               : "harp");
+
+        if (!actualn) { /* won't happen; used to pacify static analyzer */
+            ;
+        } else if (strstri(result, " called")) {
+            Sprintf(buf, " [%s] called", actualn);
+            (void) strsubst(result, " called", buf);
+        } else if (strstri(result, " (")) {
+            Sprintf(buf, " [%s] (", actualn);
+            (void) strsubst(result, " (", buf);
+        } else {
+            Sprintf(eos(result), " [%s]", actualn);
+        }
+    }
+    return result;
+}
+
+/* append typename(dis) to buf[], possibly truncating in the process;
+   also append price quote information if it fits */
+staticfn void
+disco_append_typename(char *buf, int dis)
+{
+    size_t len = strlen(buf);
+    char *p, *typnm = disco_typename(dis);
+    size_t typnm_len = strlen(typnm);
+    char *eos;
+
+    if (len + typnm_len < BUFSZ) {
         /* ordinary */
         Strcat(buf, typnm);
-    } else if ((p = rindex(typnm, '(')) != 0
-               && p > typnm && p[-1] == ' ' && index(p, ')') != 0) {
+        eos = buf + len + typnm_len;
+    } else if ((p = strrchr(typnm, '(')) != 0
+               && p > typnm && p[-1] == ' ' && strchr(p, ')') != 0) {
         /* typename() returned "really long user-applied name (actual type)"
            and we want to truncate from "really long user-applied name" while
            keeping " (actual type)" intact */
         --p; /* back up to space in front of open paren */
         (void) strncat(buf, typnm, BUFSZ - 1 - (len + (unsigned) strlen(p)));
         Strcat(buf, p);
+        eos = buf + strlen(buf);
     } else {
         /* unexpected; just truncate from end of typename */
         (void) strncat(buf, typnm, BUFSZ - 1 - len);
+        eos = buf + strlen(buf);
+    }
+
+    append_price_quote(buf, &eos, dis);
+}
+
+/* minor fixup for Book of the Dead needed in more than one place */
+staticfn void
+disco_fmt_uniq(int uidx, char *outbuf)
+{
+    Sprintf(outbuf, "  %s", objects[uidx].oc_name_known
+                              ? OBJ_NAME(objects[uidx])
+                              : OBJ_DESCR(objects[uidx]));
+    /* in the spellbooks section of main discoveries list, encountered
+       but not fully discovered Book of the Dead is shown as
+       "spellbook (papyrus)" like other encountered but not discovered books;
+       in the unique/relics section we want "papyrus spellbook" instead */
+    if (!objects[uidx].oc_name_known
+        && objects[uidx].oc_class == SPBOOK_CLASS)
+        Strcat(outbuf, " spellbook");
+}
+
+/* sort and output sorted_lines to window and free the lines */
+staticfn void
+disco_output_sorted(
+    winid tmpwin,
+    char **sorted_lines, int sorted_ct,
+    boolean lootsort)
+{
+    char *p;
+    int j;
+
+    qsort(sorted_lines, sorted_ct, sizeof (char *), discovered_cmp);
+    for (j = 0; j < sorted_ct; ++j) {
+        p = sorted_lines[j];
+        assert(p != NULL); /* pacify static analyzer */
+        if (lootsort) {
+            p[6] = p[0]; /* '*' or ' ' */
+            p += 6;
+        }
+        putstr(tmpwin, 0, p);
+        free(sorted_lines[j]), sorted_lines[j] = 0;
     }
 }
 
-/* the '\' command - show discovered object types */
+/* the #known command - show discovered object types */
 int
-dodiscovered() /* free after Robert Viduya */
+dodiscovered(void) /* free after Robert Viduya */
 {
-    register int i, dis;
-    int ct = 0;
-    char *s, oclass, prev_class, classes[MAXOCLASSES], buf[BUFSZ];
     winid tmpwin;
+    char *s, oclass, prev_class,
+         classes[MAXOCLASSES], buf[BUFSZ],
+         *sorted_lines[NUM_OBJECTS]; /* overkill */
+    const char *p;
+    int i, dis, ct, uniq_ct, arti_ct, sorted_ct, uidx;
+    long sortindx;  // should be ptrdiff_t, but we don't require that exists
+    boolean alphabetized, alphabyclass, lootsort;
 
-    tmpwin = create_nhwindow(NHW_MENU);
-    putstr(tmpwin, 0, "Discoveries");
+    if (!flags.discosort || !(p = strchr(disco_order_let, flags.discosort)))
+        flags.discosort = 'o';
+
+    if (iflags.menu_requested) {
+        if (choose_disco_sort(1) < 0)
+            return ECMD_OK;
+    }
+    alphabyclass = (flags.discosort == 'c');
+    alphabetized = (flags.discosort == 'a' || alphabyclass);
+    lootsort = (flags.discosort == 's');
+    sortindx = strchr(disco_order_let, flags.discosort) - disco_order_let;
+
+    tmpwin = create_nhwindow(NHW_TEXT);
+    Sprintf(buf, "Discoveries, %s", disco_orders_descr[sortindx]);
+    putstr(tmpwin, 0, buf);
     putstr(tmpwin, 0, "");
 
-    /* gather "unique objects" into a pseudo-class; note that they'll
-       also be displayed individually within their regular class */
-    for (i = dis = 0; i < SIZE(uniq_objs); i++)
-        if (objects[uniq_objs[i]].oc_name_known) {
+    /*
+     * FIXME?
+     *  relics and artifacts don't obey player's sort order even though
+     *  the header line states that they're shown in such-and-such order.
+     */
+
+    /* gather "unique objects", also called "relics", into a pseudo-class;
+       they'll also be displayed individually within their regular class */
+    uniq_ct = 0;
+    for (i = dis = 0; i < SIZE(uniq_objs); i++) {
+        uidx = uniq_objs[i];
+        if (objects[uidx].oc_name_known
+            || (objects[uidx].oc_encountered && uidx != AMULET_OF_YENDOR)) {
             if (!dis++)
-                putstr(tmpwin, iflags.menu_headings, "Unique items");
-            Sprintf(buf, "  %s", OBJ_NAME(objects[uniq_objs[i]]));
+                putstr(tmpwin, iflags.menu_headings.attr,
+                       "Unique items or Relics");
+            ++uniq_ct;
+            disco_fmt_uniq(uidx, buf);
             putstr(tmpwin, 0, buf);
-            ++ct;
         }
+    }
     /* display any known artifacts as another pseudo-class */
-    ct += disp_artifact_discoveries(tmpwin);
+    arti_ct = disp_artifact_discoveries(tmpwin);
 
     /* several classes are omitted from packorder; one is of interest here */
     Strcpy(classes, flags.inv_order);
-    if (!index(classes, VENOM_CLASS))
+    if (!strchr(classes, VENOM_CLASS))
         (void) strkitten(classes, VENOM_CLASS); /* append char to string */
 
+    ct = uniq_ct + arti_ct;
+    sorted_ct = 0;
     for (s = classes; *s; s++) {
         oclass = *s;
         prev_class = oclass + 1; /* forced different from oclass */
-        for (i = bases[(int) oclass];
+        for (i = svb.bases[(int) oclass];
              i < NUM_OBJECTS && objects[i].oc_class == oclass; i++) {
-            if ((dis = disco[i]) != 0 && interesting_to_discover(dis)) {
+            if ((dis = svd.disco[i]) != 0 && interesting_to_discover(dis)) {
                 ct++;
                 if (oclass != prev_class) {
-                    putstr(tmpwin, iflags.menu_headings,
-                           let_to_name(oclass, FALSE, FALSE));
-                    prev_class = oclass;
+                    if ((alphabyclass || lootsort) && sorted_ct) {
+                        /* output previous class */
+                        disco_output_sorted(tmpwin, sorted_lines, sorted_ct,
+                                            lootsort);
+                        sorted_ct = 0;
+                    }
+                    if (!alphabetized || alphabyclass) {
+                        /* header for new class */
+                        putstr(tmpwin, iflags.menu_headings.attr,
+                               let_to_name(oclass, FALSE, FALSE));
+                        prev_class = oclass;
+                    }
                 }
-                Strcpy(buf, objects[dis].oc_pre_discovered ? "* " : "  ");
+                Strcpy(buf, objects[dis].oc_encountered ? "  " : "* ");
+                if (lootsort)
+                    (void) sortloot_descr(dis, &buf[2]);
                 disco_append_typename(buf, dis);
-                putstr(tmpwin, 0, buf);
+
+                if (!alphabetized && !lootsort)
+                    putstr(tmpwin, 0, buf);
+                else
+                    sorted_lines[sorted_ct++] = dupstr(buf);
             }
         }
     }
     if (ct == 0) {
         You("haven't discovered anything yet...");
-    } else
+    } else {
+        if (sorted_ct) {
+            /* if we're alphabetizing by class, we've already shown the
+               relevant header above; if we're alphabetizing across all
+               classes, we normally don't need a header; but it we showed
+               any unique items or any artifacts then we do need one */
+            if ((uniq_ct || arti_ct) && alphabetized && !alphabyclass)
+                putstr(tmpwin, iflags.menu_headings.attr, "Discovered items");
+            disco_output_sorted(tmpwin, sorted_lines, sorted_ct, lootsort);
+        }
         display_nhwindow(tmpwin, TRUE);
+    }
     destroy_nhwindow(tmpwin);
 
-    return 0;
+    return ECMD_OK;
 }
 
 /* lower case let_to_name() output, which differs from def_oc_syms[].name */
-STATIC_OVL char *
-oclass_to_name(oclass, buf)
-char oclass;
-char *buf;
+staticfn char *
+oclass_to_name(char oclass, char *buf)
 {
     char *s;
 
@@ -515,74 +884,105 @@ char *buf;
     return buf;
 }
 
-/* the '`' command - show discovered object types for one class */
+/* the #knownclass command - show discovered object types for one class;
+   in addition to actual object classes, supports pseudo-class 'a' for
+   discovered artifacts and 'u' (or 'r', for "relics") for unique items */
 int
-doclassdisco()
+doclassdisco(void)
 {
     static NEARDATA const char
         prompt[] = "View discoveries for which sort of objects?",
         havent_discovered_any[] = "haven't discovered any %s yet.",
-        unique_items[] = "unique items",
+        unique_items[] = "unique items or relics",
         artifact_items[] = "artifacts";
-    char *s, c, oclass, menulet, allclasses[MAXOCLASSES],
-        discosyms[2 + MAXOCLASSES + 1], buf[BUFSZ];
-    int i, ct, dis, xtras;
-    boolean traditional;
     winid tmpwin = WIN_ERR;
-    anything any;
     menu_item *pick_list = 0;
+    anything any;
+    char *s, c, oclass, menulet, allclasses[MAXOCLASSES],
+         discosyms[3 + MAXOCLASSES + 1], buf[BUFSZ],
+         *sorted_lines[NUM_OBJECTS]; /* overkill */
+    const char *p;
+    int i, ct, dis, xtras, sorted_ct, uidx;
+    boolean traditional, alphabetized, lootsort;
+    int clr = NO_COLOR;
+
+    if (!flags.discosort || !(p = strchr(disco_order_let, flags.discosort)))
+        flags.discosort = 'o';
+
+    if (iflags.menu_requested) {
+        if (choose_disco_sort(2) < 0)
+            return ECMD_OK;
+    }
+    alphabetized = (flags.discosort == 'a' || flags.discosort == 'c');
+    lootsort = (flags.discosort == 's');
 
     discosyms[0] = '\0';
     traditional = (flags.menu_style == MENU_TRADITIONAL
                    || flags.menu_style == MENU_COMBINATION);
     if (!traditional) {
         tmpwin = create_nhwindow(NHW_MENU);
-        start_menu(tmpwin);
+        start_menu(tmpwin, MENU_BEHAVE_STANDARD);
     }
-    any = zeroany;
+    any = cg.zeroany;
     menulet = 'a';
 
-    /* check whether we've discovered any unique objects */
-    for (i = 0; i < SIZE(uniq_objs); i++)
-        if (objects[uniq_objs[i]].oc_name_known) {
+    /*
+     * FIXME?
+     *  relics and artifacts don't obey player's sort order even though
+     *  the header line states that they're shown in such-and-such order.
+     */
+
+    /* check whether we've discovered any unique objects (primarily the
+       invocation items; the Guidebook calls unique items "relics" but the
+       Amulet of Yendor is unique too so we haven't made a blanket change
+       from 'u' to 'r') */
+    for (i = 0; i < SIZE(uniq_objs); i++) {
+        uidx = uniq_objs[i];
+        if (objects[uidx].oc_name_known
+            || (objects[uidx].oc_encountered && uidx != AMULET_OF_YENDOR)) {
             Strcat(discosyms, "u");
             if (!traditional) {
                 any.a_int = 'u';
-                add_menu(tmpwin, NO_GLYPH, &any, menulet++, 0, ATR_NONE,
-                         unique_items, MENU_UNSELECTED);
+                /* FIXME: having 'r' as an accelerator to provide an unseen
+                   synonym works but doesn't make much sense since the main
+                   selector is 'a' (implicit lootabc) rather than 'u' */
+                add_menu(tmpwin, &nul_glyphinfo, &any, menulet++, 'r',
+                         ATR_NONE, clr, unique_items, MENU_ITEMFLAGS_NONE);
             }
             break;
         }
+    }
 
     /* check whether we've discovered any artifacts */
     if (disp_artifact_discoveries(WIN_ERR) > 0) {
         Strcat(discosyms, "a");
         if (!traditional) {
             any.a_int = 'a';
-            add_menu(tmpwin, NO_GLYPH, &any, menulet++, 0, ATR_NONE,
-                     artifact_items, MENU_UNSELECTED);
+            add_menu(tmpwin, &nul_glyphinfo, &any, menulet++, 0,
+                     ATR_NONE, clr, artifact_items, MENU_ITEMFLAGS_NONE);
         }
     }
 
     /* collect classes with discoveries, in packorder ordering; several
        classes are omitted from packorder and one is of interest here */
     Strcpy(allclasses, flags.inv_order);
-    if (!index(allclasses, VENOM_CLASS))
+    if (!strchr(allclasses, VENOM_CLASS))
         (void) strkitten(allclasses, VENOM_CLASS); /* append char to string */
     /* construct discosyms[] */
     for (s = allclasses; *s; ++s) {
         oclass = *s;
         c = def_oc_syms[(int) oclass].sym;
-        for (i = bases[(int) oclass];
+        for (i = svb.bases[(int) oclass];
              i < NUM_OBJECTS && objects[i].oc_class == oclass; ++i)
-            if ((dis = disco[i]) != 0 && interesting_to_discover(dis)) {
-                if (!index(discosyms, c)) {
-                    Sprintf(eos(discosyms), "%c", c);
+            if ((dis = svd.disco[i]) != 0 && interesting_to_discover(dis)) {
+                if (!strchr(discosyms, c)) {
+                    (void) strkitten(discosyms, c);
                     if (!traditional) {
                         any.a_int = c;
-                        add_menu(tmpwin, NO_GLYPH, &any, menulet++, c,
-                                 ATR_NONE, oclass_to_name(oclass, buf),
-                                 MENU_UNSELECTED);
+                        add_menu(tmpwin, &nul_glyphinfo, &any,
+                                 menulet++, c, ATR_NONE, clr,
+                                 oclass_to_name(oclass, buf),
+                                 MENU_ITEMFLAGS_NONE);
                     }
                 }
             }
@@ -593,26 +993,28 @@ doclassdisco()
         You(havent_discovered_any, "items");
         if (tmpwin != WIN_ERR)
             destroy_nhwindow(tmpwin);
-        return 0;
+        return ECMD_OK;
     }
 
     /* have player choose a class */
     c = '\0'; /* class not chosen yet */
     if (traditional) {
+        char allclasses_plustwo[sizeof allclasses + 3];
+
         /* we'll prompt even if there's only one viable class; we add all
            nonviable classes as unseen acceptable choices so player can ask
            for discoveries of any class whether it has discoveries or not */
-        for (s = allclasses, xtras = 0; *s; ++s) {
-            c = def_oc_syms[(int) *s].sym;
-            if (!index(discosyms, c)) {
+        Sprintf(allclasses_plustwo, "%s%c%c%c", allclasses, 'a', 'u', 'r');
+        for (s = allclasses_plustwo, xtras = 0; *s; ++s) {
+            c = strchr("aur", *s) ? *s : def_oc_syms[(int) *s].sym;
+            if (!strchr(discosyms, c)) {
                 if (!xtras++)
                     (void) strkitten(discosyms, '\033');
                 (void) strkitten(discosyms, c);
             }
         }
         /* get the class (via its symbol character) */
-        c = yn_function(prompt, discosyms, '\0');
-        savech(c);
+        c = yn_function(prompt, discosyms, '\0', TRUE);
         if (!c)
             clear_nhwindow(WIN_MESSAGE);
     } else {
@@ -634,27 +1036,41 @@ doclassdisco()
         destroy_nhwindow(tmpwin);
     }
     if (!c)
-        return 0; /* player declined to make a selection */
+        return ECMD_OK; /* player declined to make a selection */
 
     /*
      * show discoveries for object class c
      */
-    tmpwin = create_nhwindow(NHW_MENU);
+    tmpwin = create_nhwindow(NHW_TEXT);
     ct = 0;
     switch (c) {
     case 'u':
-        putstr(tmpwin, iflags.menu_headings,
+    case 'r':
+        putstr(tmpwin, iflags.menu_headings.attr,
                upstart(strcpy(buf, unique_items)));
-        for (i = 0; i < SIZE(uniq_objs); i++)
-            if (objects[uniq_objs[i]].oc_name_known) {
-                Sprintf(buf, "  %s", OBJ_NAME(objects[uniq_objs[i]]));
-                putstr(tmpwin, 0, buf);
+        for (i = 0; i < SIZE(uniq_objs); i++) {
+            uidx = uniq_objs[i];
+            if (objects[uidx].oc_name_known
+                || (objects[uidx].oc_encountered
+                    && uidx != AMULET_OF_YENDOR)) {
                 ++ct;
+                disco_fmt_uniq(uidx, buf);
+                putstr(tmpwin, 0, buf);
             }
+        }
         if (!ct)
             You(havent_discovered_any, unique_items);
         break;
     case 'a':
+        /* note: this will work all the time for menustyle traditional
+           but requires at least one artifact discovery for other styles
+           [could fix that by forcing the 'a' choice into the pick-class
+           menu when running in wizard mode] */
+        if (wizard && y_n("Dump information about all artifacts?") == 'y') {
+            dump_artifact_info(tmpwin);
+            ct = NROFARTIFACTS; /* non-zero vs zero is what matters below */
+            break;
+        }
         /* disp_artifact_discoveries() includes a header */
         ct = disp_artifact_discoveries(tmpwin);
         if (!ct)
@@ -662,41 +1078,70 @@ doclassdisco()
         break;
     default:
         oclass = def_char_to_objclass(c);
-        Sprintf(buf, "Discovered %s", let_to_name(oclass, FALSE, FALSE));
-        putstr(tmpwin, iflags.menu_headings, buf);
-        for (i = bases[(int) oclass];
-             i < NUM_OBJECTS && objects[i].oc_class == oclass; ++i) {
-            if ((dis = disco[i]) != 0 && interesting_to_discover(dis)) {
-                Strcpy(buf, objects[dis].oc_pre_discovered ? "* " : "  ");
-                disco_append_typename(buf, dis);
-                putstr(tmpwin, 0, buf);
+        /* this should never happen but has been observed via the fuzzer */
+        if (oclass == MAXOCLASSES)
+            impossible("doclassdisco: invalid object class '%s'", visctrl(c));
+        Sprintf(buf, "Discovered %s in %s", let_to_name(oclass, FALSE, FALSE),
+                (flags.discosort == 'o') ? "order of discovery"
+                : (flags.discosort == 's') ? "'sortloot' order"
+                  : "alphabetical order");
+        putstr(tmpwin, 0, buf); /* skip iflags.menu_headings */
+        sorted_ct = 0;
+        for (i = svb.bases[(int) oclass]; i <= svb.bases[oclass + 1] - 1;
+             ++i) {
+            if ((dis = svd.disco[i]) != 0 && interesting_to_discover(dis)) {
                 ++ct;
+                Strcpy(buf, objects[dis].oc_encountered ? "  " : "* ");
+                if (lootsort)
+                    (void) sortloot_descr(dis, &buf[2]);
+                disco_append_typename(buf, dis);
+
+                if (!alphabetized && !lootsort)
+                    putstr(tmpwin, 0, buf);
+                else
+                    sorted_lines[sorted_ct++] = dupstr(buf);
             }
         }
-        if (!ct)
+        if (!ct) {
             You(havent_discovered_any, oclass_to_name(oclass, buf));
+        } else if (sorted_ct) {
+            qsort(sorted_lines, sorted_ct, sizeof (char *), discovered_cmp);
+            for (i = 0; i < sorted_ct; ++i) {
+                char *sl;
+
+                sl = sorted_lines[i];
+                if (lootsort) {
+                    sl[6] = sl[0]; /* '*' or ' ' */
+                    sl += 6;
+                }
+                putstr(tmpwin, 0, sl);
+                free(sorted_lines[i]), sorted_lines[i] = 0;
+            }
+        }
         break;
     }
     if (ct)
         display_nhwindow(tmpwin, TRUE);
     destroy_nhwindow(tmpwin);
-    return 0;
+    return ECMD_OK;
 }
 
 /* put up nameable subset of discoveries list as a menu */
 void
-rename_disco()
+rename_disco(void)
 {
-    register int i, dis;
+    int i, dis;
     int ct = 0, mn = 0, sl;
     char *s, oclass, prev_class;
     winid tmpwin;
     anything any;
     menu_item *selected = 0;
+    int clr = NO_COLOR;
+    char buf[BUFSZ];
 
-    any = zeroany;
+    any = cg.zeroany;
     tmpwin = create_nhwindow(NHW_MENU);
-    start_menu(tmpwin);
+    start_menu(tmpwin, MENU_BEHAVE_STANDARD);
 
     /*
      * Skip the "unique objects" section (each will appear within its
@@ -709,9 +1154,9 @@ rename_disco()
     for (s = flags.inv_order; *s; s++) {
         oclass = *s;
         prev_class = oclass + 1; /* forced different from oclass */
-        for (i = bases[(int) oclass];
+        for (i = svb.bases[(int) oclass];
              i < NUM_OBJECTS && objects[i].oc_class == oclass; i++) {
-            dis = disco[i];
+            dis = svd.disco[i];
             if (!dis || !interesting_to_discover(dis))
                 continue;
             ct++;
@@ -721,14 +1166,15 @@ rename_disco()
 
             if (oclass != prev_class) {
                 any.a_int = 0;
-                add_menu(tmpwin, NO_GLYPH, &any, 0, 0, iflags.menu_headings,
-                         let_to_name(oclass, FALSE, FALSE),
-                         MENU_UNSELECTED);
+                add_menu_heading(tmpwin,
+                                 let_to_name(oclass, FALSE, FALSE));
                 prev_class = oclass;
             }
             any.a_int = dis;
-            add_menu(tmpwin, NO_GLYPH, &any, 0, 0, ATR_NONE,
-                     obj_typename(dis), MENU_UNSELECTED);
+            *buf = '\0';
+            disco_append_typename(buf, dis);
+            add_menu(tmpwin, &nul_glyphinfo, &any, 0, 0,
+                     ATR_NONE, clr, buf, MENU_ITEMFLAGS_NONE);
         }
     }
     if (ct == 0) {
@@ -746,17 +1192,30 @@ rename_disco()
         if (dis != STRANGE_OBJECT) {
             struct obj odummy;
 
-            odummy = zeroobj;
+            odummy = cg.zeroobj;
             odummy.otyp = dis;
             odummy.oclass = objects[dis].oc_class;
             odummy.quan = 1L;
             odummy.known = !objects[dis].oc_uses_known;
-            odummy.dknown = 1;
+            odummy.dknown = 1; /* not observe_object: it isn't real */
             docall(&odummy);
         }
     }
     destroy_nhwindow(tmpwin);
     return;
 }
+#endif /* !SFCTOOL */
 
+void
+get_sortdisco(char *opts, boolean cnf)
+{
+    const char *p = strchr(disco_order_let, flags.discosort);
+
+    if (!p)
+        flags.discosort = 'o', p = disco_order_let;
+    if (cnf)
+        Sprintf(opts, "%c", flags.discosort);
+    else
+        Strcpy(opts, disco_orders_descr[p - disco_order_let]);
+}
 /*o_init.c*/

@@ -1,24 +1,23 @@
-/* NetHack 3.6	write.c	$NHDT-Date: 1573346194 2019/11/10 00:36:34 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.20 $ */
+/* NetHack 5.0	write.c	$NHDT-Date: 1702023275 2023/12/08 08:14:35 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.41 $ */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "hack.h"
 
-STATIC_DCL int FDECL(cost, (struct obj *));
-STATIC_DCL boolean FDECL(label_known, (int, struct obj *));
-STATIC_DCL char *FDECL(new_book_description, (int, char *));
+staticfn int cost(struct obj *) NONNULLARG1;
+staticfn int write_ok(struct obj *) NO_NNARGS;
+staticfn char *new_book_description(int, char *) NONNULL NONNULLPTRS;
 
 /*
- * returns basecost of a scroll or a spellbook
+ * returns base cost of a scroll or a spellbook
  */
-STATIC_OVL int
-cost(otmp)
-register struct obj *otmp;
+staticfn int
+cost(struct obj *otmp)
 {
     if (otmp->oclass == SPBOOK_CLASS)
         return (10 * objects[otmp->otyp].oc_level);
 
     switch (otmp->otyp) {
-#ifdef MAIL
+#ifdef MAIL_STRUCTURES
     case SCR_MAIL:
         return 2;
 #endif
@@ -57,98 +56,78 @@ register struct obj *otmp;
     return 1000;
 }
 
-/* decide whether the hero knowns a particular scroll's label;
-   unfortunately, we can't track things that haven't been added to
-   the discoveries list and aren't present in current inventory,
-   so some scrolls with ought to yield True will end up False */
-STATIC_OVL boolean
-label_known(scrolltype, objlist)
-int scrolltype;
-struct obj *objlist;
+/* getobj callback for object to write on */
+staticfn int
+write_ok(struct obj *obj)
 {
-    struct obj *otmp;
+    if (!obj || (obj->oclass != SCROLL_CLASS && obj->oclass != SPBOOK_CLASS))
+        return GETOBJ_EXCLUDE;
 
-    /* only scrolls */
-    if (objects[scrolltype].oc_class != SCROLL_CLASS)
-        return FALSE;
-    /* type known implies full discovery; otherwise,
-       user-assigned name implies partial discovery */
-    if (objects[scrolltype].oc_name_known || objects[scrolltype].oc_uname)
-        return TRUE;
-    /* check inventory, including carried containers with known contents */
-    for (otmp = objlist; otmp; otmp = otmp->nobj) {
-        if (otmp->otyp == scrolltype && otmp->dknown)
-            return TRUE;
-        if (Has_contents(otmp) && otmp->cknown
-            && label_known(scrolltype, otmp->cobj))
-            return TRUE;
-    }
-    /* not found */
-    return FALSE;
+    if (obj->otyp == SCR_BLANK_PAPER || obj->otyp == SPE_BLANK_PAPER)
+        return GETOBJ_SUGGEST;
+
+    return GETOBJ_DOWNPLAY;
 }
-
-static NEARDATA const char write_on[] = { SCROLL_CLASS, SPBOOK_CLASS, 0 };
 
 /* write -- applying a magic marker */
 int
-dowrite(pen)
-register struct obj *pen;
+dowrite(struct obj *pen)
 {
-    register struct obj *paper;
+    struct obj *paper;
     char namebuf[BUFSZ] = DUMMY, *nm, *bp;
-    register struct obj *new_obj;
+    struct obj *new_obj;
     int basecost, actualcost;
     int curseval;
     char qbuf[QBUFSZ];
-    int first, last, i, deferred, deferralchance;
+    int first, last, i, deferred, deferralchance, real;
     boolean by_descr = FALSE;
     const char *typeword;
+    int spell_knowledge;
 
-    if (nohands(youmonst.data)) {
+    if (nohands(gy.youmonst.data)) {
         You("need hands to be able to write!");
-        return 0;
+        return ECMD_OK;
     } else if (Glib) {
         pline("%s from your %s.", Tobjnam(pen, "slip"),
               fingers_or_gloves(FALSE));
         dropx(pen);
-        return 1;
+        return ECMD_TIME;
     }
 
     /* get paper to write on */
-    paper = getobj(write_on, "write on");
+    paper = getobj("write on", write_ok, GETOBJ_NOFLAGS);
     if (!paper)
-        return 0;
+        return ECMD_CANCEL;
     /* can't write on a novel (unless/until it's been converted into a blank
        spellbook), but we want messages saying so to avoid "spellbook" */
-    typeword = (paper->otyp == SPE_NOVEL)
-                  ? "book"
-                  : (paper->oclass == SPBOOK_CLASS)
-                     ? "spellbook"
-                     : "scroll";
+    typeword = (paper->otyp == SPE_NOVEL) ? "book"
+               : (paper->oclass == SPBOOK_CLASS) ? "spellbook"
+                 : "scroll";
     if (Blind) {
         if (!paper->dknown) {
-            You("don't know if that %s is blank or not.", typeword);
-            return 0;
+            You("don't know whether that %s is blank or not.", typeword);
+            return ECMD_OK;
         } else if (paper->oclass == SPBOOK_CLASS) {
             /* can't write a magic book while blind */
             pline("%s can't create braille text.",
                   upstart(ysimple_name(pen)));
-            return 0;
+            return ECMD_OK;
         }
     }
-    paper->dknown = 1;
+    observe_object(paper);
     if (paper->otyp != SCR_BLANK_PAPER && paper->otyp != SPE_BLANK_PAPER) {
         pline("That %s is not blank!", typeword);
         exercise(A_WIS, FALSE);
-        return 1;
+        return ECMD_TIME;
     }
+    makeknown(SCR_BLANK_PAPER);
 
     /* what to write */
     Sprintf(qbuf, "What type of %s do you want to write?", typeword);
     getlin(qbuf, namebuf);
     (void) mungspaces(namebuf); /* remove any excess whitespace */
     if (namebuf[0] == '\033' || !namebuf[0])
-        return 1;
+        return ECMD_TIME;
     nm = namebuf;
     if (!strncmpi(nm, "scroll ", 7))
         nm += 7;
@@ -158,30 +137,49 @@ register struct obj *pen;
         nm += 3;
 
     if ((bp = strstri(nm, " armour")) != 0) {
-        (void) strncpy(bp, " armor ", 7); /* won't add '\0' */
+        memcpy(bp, " armor ", 7);
         (void) mungspaces(bp + 1);        /* remove the extra space */
     }
 
-    deferred = 0;       /* not any scroll or book */
-    deferralchance = 0; /* incremented for each oc_uname match */
-    first = bases[(int) paper->oclass];
-    last = bases[(int) paper->oclass + 1] - 1;
+    deferred = real = 0; /* not any scroll or book */
+    deferralchance = 0;  /* incremented for each oc_uname match */
+    first = svb.bases[(int) paper->oclass];
+    last = svb.bases[(int) paper->oclass + 1] - 1;
+    /* first loop: look for match with name/description */
     for (i = first; i <= last; i++) {
         /* extra shufflable descr not representing a real object */
         if (!OBJ_NAME(objects[i]))
             continue;
 
-        if (!strcmpi(OBJ_NAME(objects[i]), nm))
-            goto found;
+        if (!strcmpi(OBJ_NAME(objects[i]), nm)) {
+            if (objects[i].oc_name_known
+                /* spellbooks can only be written by_name, so no need to
+                   hold out for a 'better' by_descr match */
+                || paper->oclass == SPBOOK_CLASS) {
+                goto found;
+            } else {
+                /* save item in case there are no better by_descr matches */
+                real = deferred = i;
+                break;
+            }
+        }
+
         if (!strcmpi(OBJ_DESCR(objects[i]), nm)) {
             by_descr = TRUE;
             goto found;
         }
-        /* user-assigned name might match real name of a later
-           entry, so we don't simply use first match with it;
-           also, player might assign same name multiple times
-           and if so, we choose one of those matches randomly */
+    }
+    /* second loop: look for match with user-assigned name */
+    /* we will get here if 'nm' isn't a real scroll name/descr, or is the name
+     * of a real scroll that hasn't been formally IDed. */
+    for (i = first; i <= last; i++) {
+        /* player might assign same name multiple times and if so,
+           we choose one of those matches randomly */
         if (objects[i].oc_uname && !strcmpi(objects[i].oc_uname, nm)
+            /* prefer attempting to write the real scroll type if
+               the typename clobbers a real scroll and is known to
+               be incorrect */
+            && !(real && objects[i].oc_name_known)
             /*
              * First match: chance incremented to 1,
              *   !rn2(1) is 1, we remember i;
@@ -192,38 +190,61 @@ register struct obj *pen;
              *   and 2/3 chance to keep previous 50:50
              *   choice; so on for higher match counts.
              */
-            && !rn2(++deferralchance))
+            && !rn2(++deferralchance)) {
             deferred = i;
+            /* writing by user-assigned name is same as by description:
+               fails for books, works for scrolls (having an assigned
+               type name guarantees presence on discoveries list) */
+            by_descr = TRUE;
+        }
     }
-    /* writing by user-assigned name is same as by description:
-       fails for books, works for scrolls (having an assigned
-       type name guarantees presence on discoveries list) */
+
     if (deferred) {
         i = deferred;
-        by_descr = TRUE;
         goto found;
     }
 
     There("is no such %s!", typeword);
-    return 1;
-found:
+    return ECMD_TIME;
+ found:
 
     if (i == SCR_BLANK_PAPER || i == SPE_BLANK_PAPER) {
         You_cant("write that!");
         pline("It's obscene!");
-        return 1;
+        return ECMD_TIME;
+    } else if (i == SPE_NOVEL) {
+        boolean fanfic = !rn2(3), tearup = !rn2(3);
+
+        if (!fanfic) {
+            You("%s to write the Great Yendorian Novel, but %s inspiration.",
+                !tearup ? "prepare" : "try",
+                !Hallucination ? "lack" : "have too much");
+        } else {
+            You("%sproduce really %s fan-fiction.",
+                !tearup ? "start to " : "",
+                !Hallucination ? "lame" : "awesome");
+        }
+        if (!tearup) {
+            You("give up on the idea.");
+        } else {
+            You("tear it up.");
+            useup(paper);
+        }
+        return ECMD_TIME;
     } else if (i == SPE_BOOK_OF_THE_DEAD) {
         pline("No mere dungeon adventurer could write that.");
-        return 1;
+        return ECMD_TIME;
     } else if (by_descr && paper->oclass == SPBOOK_CLASS
                && !objects[i].oc_name_known) {
         /* can't write unknown spellbooks by description */
         pline("Unfortunately you don't have enough information to go on.");
-        return 1;
+        return ECMD_TIME;
     }
 
     /* KMH, conduct */
-    u.uconduct.literate++;
+    if (!u.uconduct.literate++)
+        livelog_printf(LL_CONDUCT,
+                       "became literate by writing %s", an(typeword));
 
     new_obj = mksobj(i, FALSE, FALSE);
     new_obj->bknown = (paper->bknown && pen->bknown);
@@ -236,7 +257,7 @@ found:
     if (pen->spe < basecost / 2) {
         Your("marker is too dry to write that!");
         obfree(new_obj, (struct obj *) 0);
-        return 1;
+        return ECMD_TIME;
     }
 
     /* we're really going to write now, so calculate cost
@@ -257,15 +278,19 @@ found:
             useup(paper);
         }
         obfree(new_obj, (struct obj *) 0);
-        return 1;
+        return ECMD_TIME;
     }
     pen->spe -= actualcost;
 
     /*
      * Writing by name requires that the hero knows the scroll or
      * book type.  One has previously been read (and its effect
-     * was evident) or been ID'd via scroll/spell/throne and it
-     * will be on the discoveries list.
+     * was evident) or been ID'd via scroll/spell/throne (or skill
+     * for Wizards) and it will be on the discoveries list.
+     * Unknown spellbooks can also be written by name if the hero
+     * has fresh knowledge of the spell, or if the spell is almost
+     * forgotten and the hero is Lucky (with a greater chance than
+     * if the spell is unknown or forgotten).
      * (Previous versions allowed scrolls and books to be written
      * by type name if they were on the discoveries list via being
      * given a user-assigned name, even though doing the latter
@@ -273,23 +298,27 @@ found:
      *
      * Writing by description requires that the hero knows the
      * description (a scroll's label, that is, since books by_descr
-     * are rejected above).  BUG:  We can only do this for known
-     * scrolls and for the case where the player has assigned a
-     * name to put it onto the discoveries list; we lack a way to
-     * track other scrolls which have been seen closely enough to
-     * read the label without then being ID'd or named.  The only
-     * exception is for currently carried inventory, where we can
-     * check for one [with its dknown bit set] of the same type.
+     * are rejected above).  This is done by checking to see if a
+     * scroll with the same description has been encountered.
      *
      * Normal requirements can be overridden if hero is Lucky.
      */
 
+    if (paper->oclass == SPBOOK_CLASS) {
+        spell_knowledge = known_spell(new_obj->otyp);
+    } else {
+        spell_knowledge = spe_Unknown;
+    }
     /* if known, then either by-name or by-descr works */
     if (!objects[new_obj->otyp].oc_name_known
         /* else if named, then only by-descr works */
-        && !(by_descr && label_known(new_obj->otyp, invent))
-        /* and Luck might override after both checks have failed */
-        && rnl(Role_if(PM_WIZARD) ? 5 : 15)) {
+        && !(by_descr && objects[new_obj->otyp].oc_encountered)
+        /* else fresh knowledge of the spell works */
+        && spell_knowledge != spe_Fresh
+        /* and Luck might override after previous checks have failed */
+        && rnl(((Role_if(PM_WIZARD) && paper->oclass != SPBOOK_CLASS)
+                || spell_knowledge == spe_GoingStale)
+               ? 5 : 15)) {
         You("%s to write that.", by_descr ? "fail" : "don't know how");
         /* scrolls disappear, spellbooks don't */
         if (paper->oclass == SPBOOK_CLASS) {
@@ -301,12 +330,12 @@ found:
                 Strcpy(namebuf, OBJ_DESCR(objects[new_obj->otyp]));
                 wipeout_text(namebuf, (6 + MAXULEV - u.ulevel) / 6, 0);
             } else
-                Sprintf(namebuf, "%s was here!", plname);
+                Sprintf(namebuf, "%s was here!", svp.plname);
             You("write \"%s\" and the scroll disappears.", namebuf);
             useup(paper);
         }
         obfree(new_obj, (struct obj *) 0);
-        return 1;
+        return ECMD_TIME;
     }
     /* can write scrolls when blind, but requires luck too;
        attempts to write books when blind are caught above */
@@ -319,10 +348,10 @@ found:
         You("fail to write the scroll correctly and it disappears.");
         useup(paper);
         obfree(new_obj, (struct obj *) 0);
-        return 1;
+        return ECMD_TIME;
     }
 
-    /* useup old scroll / spellbook */
+    /* use up old scroll / spellbook */
     useup(paper);
 
     /* success */
@@ -333,7 +362,7 @@ found:
     }
     new_obj->blessed = (curseval > 0);
     new_obj->cursed = (curseval < 0);
-#ifdef MAIL
+#ifdef MAIL_STRUCTURES
     if (new_obj->otyp == SCR_MAIL)
         /* 0: delivered in-game via external event (or randomly for fake mail);
            1: from bones or wishing; 2: written with marker */
@@ -342,14 +371,17 @@ found:
     /* unlike alchemy, for example, a successful result yields the
        specifically chosen item so hero recognizes it even if blind;
        the exception is for being lucky writing an undiscovered scroll,
-       where the label associated with the type-name isn't known yet */
-    new_obj->dknown = label_known(new_obj->otyp, invent) ? 1 : 0;
+       where the label associated with the type-name isn't known yet;
+       but if writing by description, the description is always known */
+    new_obj->dknown = FALSE;
+    if (objects[new_obj->otyp].oc_name_known || by_descr)
+        observe_object(new_obj);
 
     new_obj = hold_another_object(new_obj, "Oops!  %s out of your grasp!",
                                   The(aobjnam(new_obj, "slip")),
                                   (const char *) 0);
     nhUse(new_obj); /* try to avoid complaint about dead assignment */
-    return 1;
+    return ECMD_TIME;
 }
 
 /* most book descriptions refer to cover appearance, so we can issue a
@@ -359,10 +391,8 @@ found:
    looks funny, so we want to insert "into " prior to such descriptions;
    even that's rather iffy, indicating that such descriptions probably
    ought to be eliminated (especially "cloth"!) */
-STATIC_OVL char *
-new_book_description(booktype, outbuf)
-int booktype;
-char *outbuf;
+staticfn char *
+new_book_description(int booktype, char *outbuf)
 {
     /* subset of description strings from objects.c; if it grows
        much, we may need to add a new flag field to objects[] instead */
