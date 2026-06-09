@@ -679,7 +679,8 @@ typedef unsigned char uchar;
 /* #define LIVELOG */
 #endif /* CHRONICLE */
 #else
-#undef LIVELOG*/#endif /* NO_CHRONICLE */
+#undef LIVELOG
+#endif /* NO_CHRONICLE */
 
 /* #define DUMPLOG */  /* End-of-game dump logs */
 
