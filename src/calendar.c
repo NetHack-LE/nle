@@ -45,6 +45,23 @@ getlt(void)
     return localtime((LOCALTIME_type) &date);
 }
 
+/*
+ * NLE: Return a deterministic struct tm when fix_moon_phase is enabled
+ * and seeds have been set. Otherwise fall back to real system time.
+ * The actual RNG work is done by nle_fill_fixed_tm() in nlernd.c.
+ */
+STATIC_OVL struct tm *
+nle_getlt_maybe_fixed()
+{
+    static struct tm fixed_tm;
+
+    if (!settings.fix_moon_phase || !settings.time_seed_is_set)
+        return getlt();
+
+    nle_fill_fixed_tm(&fixed_tm, settings.time_seed);
+    return &fixed_tm;
+}
+
 int
 getyear(void)
 {
@@ -190,7 +207,8 @@ TODO: set_debugpline1, debugpline1 -> function pointer
 int
 phase_of_the_moon(void) /* 0-7, with 0: new, 4: full */
 {
-    struct tm *lt = getlt();
+    /* NLE: added for deterministic moon phase behaviour */
+    struct tm *lt = nle_getlt_maybe_fixed();
     int epact, diy, goldn;
 
     diy = lt->tm_yday;
@@ -205,7 +223,8 @@ phase_of_the_moon(void) /* 0-7, with 0: new, 4: full */
 boolean
 friday_13th(void)
 {
-    struct tm *lt = getlt();
+    /* NLE: added for deterministic friday the 13th behaviour*/
+    struct tm *lt = nle_getlt_maybe_fixed();
 
     /* tm_wday (day of week; 0==Sunday) == 5 => Friday */
     return (boolean) (lt->tm_wday == 5 && lt->tm_mday == 13);
@@ -214,7 +233,8 @@ friday_13th(void)
 int
 night(void)
 {
-    int hour = getlt()->tm_hour;
+    /* NLE: added for deterministic night behaviour */
+    int hour = nle_getlt_maybe_fixed()->tm_hour;
 
     return (hour < 6 || hour > 21);
 }
@@ -222,7 +242,8 @@ night(void)
 int
 midnight(void)
 {
-    return (getlt()->tm_hour == 0);
+    /* NLE: added for deterministic midnight behaviour */
+    return (nle_getlt_maybe_fixed()->tm_hour == 0);
 }
 
 /* calendar.c */
