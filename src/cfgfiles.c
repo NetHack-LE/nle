@@ -1891,6 +1891,9 @@ vconfig_error_add(const char *str, va_list the_args)
     config_erradd(buf);
 }
 
+/* Added for NLE. */
+extern char * nle_getenv(const char *);
+
 #ifndef SFCTOOL
 void
 rcfile(void)
@@ -1902,7 +1905,8 @@ rcfile(void)
     /* getenv() instead of nhgetenv(): let total length of options be long;
        parseoptions() will check each individually */
     envname = "NETHACKOPTIONS";
-    opts = getenv(envname);
+    /* NLE: Use nle specific function */
+    opts = nle_getenv(envname);
     if (!opts) {
         /* fall back to original name; discouraged */
         envname = "HACKOPTIONS";
