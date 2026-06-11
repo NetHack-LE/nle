@@ -1,0 +1,91 @@
+Copyright (c) NetHack Development Team 1990-2024
+NetHack may be freely redistributed.  See license for details.
+==============================================================
+  Instructions for compiling NetHack 5.0 on a Windows system
+      (only tested on Windows 10/11 or later)
+==============================================================
+Last revision: $NHDT-Date: 1594155895 2020/07/07 21:04:55 $
+
+See file dat\History for credits and history of NetHack for Windows.
+
+/-----------------------------------------------------------------------\
+| Download a prebuilt package of NetHack for Windows from NetHack.org   |
+\----------------------------------------------------------- -----------/
+
+  FIXME:
+
+
+/-----------------------------------------------------------------------\
+| Build and package NetHack for Windows yourself                        |
+\----------------------------------------------------------- -----------/
+
+We provide documentation for the follow three different approaches
+and tool suites that may be used to compile and package
+NetHack for Windows:
+
+    1. With the Visual Studio Integrated Development Environment (IDE).
+       The steps are documented in sys/windows/build-vs.txt.
+
+    2. At the Windows command line, using Visual Studio's nmake.exe.
+       The steps are documented in sys/windows/build-nmake.txt.
+
+    3. At the bash shell using MSYS2.
+       The steps are documented in sys/windows/build-msys2.txt.
+
+/--------------------------------------------------------------\
+|   Executing NetHack from zip file                            |
+\--------------------------------------------------------------/
+
+Executing NetHack on your machine
+
+    Unzip the files to a folder on your machine, from
+    Windows explorer right-click | Extract all...
+    or by using tar:
+        Windows command prompt:
+           tar -xf nethack-370-win-x64.zip
+
+        MSYS2 bash shell:
+           /c/Windows/System32/tar -xf nethack-370-win-x64.zip
+
+    Run NetHack.exe or NetHackW.exe from the folder where you unzipped.
+
+    Your personal config file, if it doesn't exist, will be created
+    from a template file the first time you fire up NetHack.
+
+    If you want to edit your actual personal config file you can
+    reference the file as follows:
+
+        From Windows cmd command prompt:
+        %USERPROFILE%\nethack\.nethackrc
+
+        From Windows powershell:
+        $env:USERPROFILE\nethack\.nethackrc
+
+        From MSYS2 bash shell:
+        $USERPROFILE/nethack/.nethackrc
+
+
+    If you want to see where NetHack expects to find the other files it
+    utilizes, you can issue the following command:
+        nethack --showpaths
+
+
+Play NetHack.
+
+/--------------------------------------------------------------\
+|          If you experience a problem                         |
+\--------------------------------------------------------------/
+
+    If you discover a bug and wish to report it, or if you have comments
+    or suggestions we recommend using our "Contact Us" web page at:
+        https://www.nethack.org/common/contact.html
+
+    If you don't have access to the web, or you want to send us a patch
+    to the NetHack source code feel free to drop us a line c/o:
+        DevTeam (at) nethack.org
+
+    The development team also monitors the NetHack issues page on GitHub:
+        https://github.com/NetHack/NetHack/issues
+
+
+ Happy NetHacking!

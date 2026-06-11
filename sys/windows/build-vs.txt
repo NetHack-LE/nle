@@ -1,0 +1,104 @@
+Building NetHack using the Visual Studio IDE
+
+Prerequisite Requirements:
+
+  o Visual Studio Community
+        A copy of a version of Microsoft Visual Studio Community needs to
+        be installed on your machine. Visual Studio Community can be either
+        the version for Windows 11 x64 for use on machines with
+        Intel/AMD64 processors, or the version for Windows 11 ARM64 for
+        use on machines with ARM64 processors (Snapdragon).
+
+        You can opt to build for a target x64, or for a target ARM64
+        on either the x64 version of Visual Studio, or on the ARM64
+        version. Versions of Visual Studio, since Visual Studio 26,
+        are able to compile for the native host platform and
+        cross-compile to the other target platform.
+
+        If you want to selectively cross-compile for both x64 and ARM64
+        target types, ensure that the necessary Individual Components for
+        both types of target builds are selected (checked-off) in the
+        Visual Studio Installer Individual Components dialog:
+
+        Under Compilers, build tools, and runtimes:
+            o MSVC Build Tools for ARM64/ARM64EC (Latest)
+            o MSVC Build Tools for x64/x86 (Latest)
+
+        You can use the Visual Studio Installer "Modify" button
+        to add missing Individual Components after installation,
+        if needed.
+
+        See:
+        https://visualstudio.microsoft.com/vs/community/
+  o Lua
+        NetHack 5.0 for Windows requires 3rd party Lua source that is not part
+        of the NetHack distribution or repository.
+
+        A windows cmd command procedure for fetching prerequisite sources
+        is available, and can be run as follows from the top of the
+        NetHack source tree to obtain lua:
+            sys\windows\fetch.cmd lua
+  o pdcursesmod (Only required if curses interface support is desired)
+        If you want to include curses interface support in NetHack 5.0 for
+        3rd part pdcursesmod source code is required and is not part of the
+        NetHack distribution or repository.
+
+        A windows cmd command procedure for fetching prerequisite
+        sources is available, and can be run as follows from the top of
+        the NetHack source tree to obtain pdcursesmod:
+            sys\windows\fetch.cmd pdcursesmod
+
+This processes produces a zip file containing two executable
+versions:
+
+    a. A TTY and curses version of NetHack in nethack.exe
+    b. A Windows and curses graphical version in nethackw.exe.
+
+
+/---------------------------------------------\
+|    Directories for a Windows NetHack build  |
+\---------------------------------------------/
+
+               (NetHack-top)
+                     |
+  +-----+------+-----+-------+-----------+-----------+-----~-----+------+
+  |     |      |     |       |           |           |           |      |
+ dat   doc  include lib     src         sys         win    submodules  util
+                     |                   |           |           |
+               +----------+          +------+      +----+     +----+
+               |          |          |      |      |    |     |    |
+               |          |          |      |      |    |     |    |
+           lua-5.4.8  pdcursesmod  share windows  tty  win32 lua pdcursesmod
+                                                  |
+                                                  vs
+                                                  |
+    +----------+-------+--------+--------+-----------+-------+-----+------+
+    |          |       |        |        |           |       |     |      |
+ makedefs NetHack NetHackW PDCurses PDCursesGui tile2bmp tilemap tiles uudecode
+
+
+/-----------------------------------------------------------\
+| Building And Running Using Visual Studio Community        |
+\-----------------------------------------------------------/
+
+When using a version of Visual Studio Community, load the provided solution
+file within the IDE, build the solution.
+
+The Visual Studio NetHack solution file can be found here:
+    sys\windows\vs\NetHack.sln
+
+The steps are:
+    1. Launch the IDE.
+    2. Open the appropriate solution file in sys\windows\vs\NetHack.sln.
+    3. Select the build platform and configuration that you wish
+       to target (x64 or ARM64, and Release or Debug).
+       (Note: If you want to target an ARM64 build from an x64 machine,
+              or target an x64 build from an ARM64 machine, you need to
+              first complete the build for the native machine type target.
+              That's necessary to ensure that host-native versions of
+              uudecode.exe, makedefs.exe, tilemap.exe, tile2bmp.exe and
+              dlb.exe tools are available for execution during the build
+              steps that rely on those tools.)
+    4. From the build menu, select build solution.
+    5. Type F5 to start debugging.
+

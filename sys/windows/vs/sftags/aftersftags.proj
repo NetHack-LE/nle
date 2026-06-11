@@ -1,0 +1,48 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\dirs.props"/>
+  <Import Project="$(vsDir)files.props"/>
+  <Target Name="Build" Outputs="$(IncDir)sfdata.c;$(SrcDir)sfdata.c">
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -f sf.tags $(IncDir)align.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)artifact.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(SRC)artifact.c" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)artilist.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)attrib.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(SRC)bones.c" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)context.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)coord.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)decl.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(SRC)decl.c" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)dungeon.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)engrave.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(SRC)engrave.c" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)flag.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)func_tab.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)global.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)hack.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)mextra.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)mkroom.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)monst.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)defsym.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)obj.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)objclass.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)prop.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)quest.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)rect.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)region.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)rm.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)skills.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)spell.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)stairs.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)sys.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)timeout.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)trap.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)you.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)onames.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="..\lib\ctags\ctags --language-force=c --sort=no -D&quot;Bitfield(x,n)=unsigned x : n&quot; --excmd=pattern -a -f sf.tags $(IncDir)wintype.h" WorkingDirectory="$(UtilDir)"/>
+	  <Exec Command="$(ToolsDir)sftags.exe" WorkingDirectory="$(UtilDir)"/>
+  </Target>
+  <Target Name="Clean">
+	<Delete Files="$(UtilDir)sf.tags"/>
+  </Target>
+</Project>
+

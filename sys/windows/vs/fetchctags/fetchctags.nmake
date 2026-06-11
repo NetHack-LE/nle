@@ -1,0 +1,49 @@
+# NetHack 5.0 fetchctags.nmake
+#==============================================================================
+#
+#  The version of the game this Makefile was designed for
+NETHACK_VERSION="5.0.0"
+
+# A brief version for use in macros
+NHV=$(NETHACK_VERSION:.=)
+NHV=$(NHV:"=)
+
+#  The location of the ctags that we want
+CTAGS_VERSION=6.1.0
+CURLCTAGSSRC=https://github.com/universal-ctags/ctags-win32/releases/download/v$(CTAGS_VERSION)/ctags-v$(CTAGS_VERSION)-x64.zip
+CURLCTAGSDST=ctags-v$(CTAGS_VERSION)-x64.zip 
+
+#
+#  relative directories from root of NetHack tree.
+#
+
+ROOTDIR=..\..\..\..       # root of NetHack tree relative to project file
+LIBDIR=$(ROOTDIR)\lib
+CTAGSDIR=$(LIBDIR)\ctags
+
+default: fetchall
+
+fetchall: fetch-ctags
+
+fetch-ctags: $(CTAGSDIR)
+	cd $(LIBDIR)
+	curl --insecure -L -R -O $(CURLCTAGSSRC)
+#	cd ctags
+	tar zxf $(CURLCTAGSDST) -C ctags
+	cd ..\sys\windows\vs\fetchctags
+	@echo ctags.exe has been fetched into $(LIBDIR)\ctags
+
+$(CTAGSDIR): $(LIBDIR)
+	@if not exist $(CTAGSDIR)\*.* echo creating directory $(CTAGSDIR:\=/)
+	@if not exist $(CTAGSDIR)\*.* mkdir $(CTAGSDIR)
+
+$(LIBDIR):
+	@if not exist $(LIBDIR)\*.* echo creating directory $(LIBDIR:\=/)
+	@if not exist $(LIBDIR)\*.* mkdir $(LIBDIR)
+
+rebuild:
+	@if exist $(CTAGSDIR)\ctags.exe echo nothing to do for $(CTAGSDIR)\ctags.exe
+
+clean:
+	if exist  $(CURLCTAGSDST) del $(CURLCTAGSDST)
+
