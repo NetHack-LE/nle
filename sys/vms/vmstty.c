@@ -1,4 +1,4 @@
-/* NetHack 3.6	vmstty.c	$NHDT-Date: 1449801743 2015/12/11 02:42:23 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.17 $ */
+/* NetHack 5.0	vmstty.c	$NHDT-Date: 1596498309 2020/08/03 23:45:09 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.21 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2011. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -8,6 +8,13 @@
 #include "hack.h"
 #include "wintty.h"
 #include "tcap.h"
+
+#ifdef VMSVSI
+#include <lib$routines.h>
+#include <smg$routines.h>
+#include <starlet.h>
+#include <elfdef.h>
+#endif
 
 #include <descrip.h>
 #include <iodef.h>
@@ -32,16 +39,21 @@
 #include <errno.h>
 #include <signal.h>
 
+
+#ifndef VMSVSI
 unsigned long lib$disable_ctrl(), lib$enable_ctrl();
 unsigned long sys$assign(), sys$dassgn(), sys$qiow();
+#endif
 #ifndef USE_QIO_INPUT
+#ifndef VMSVSI
 unsigned long smg$create_virtual_keyboard(), smg$delete_virtual_keyboard(),
     smg$read_keystroke(), smg$cancel_input();
-#else
-static short FDECL(parse_function_key, (int));
 #endif
-static void NDECL(setctty);
-static void NDECL(resettty);
+#else
+static short parse_function_key(int);
+#endif
+static void setctty(void);
+static void resettty(void);
 
 #define vms_ok(sts) ((sts) &1)
 #define META(c) ((c) | 0x80) /* 8th bit */
@@ -104,11 +116,11 @@ static unsigned long tt_char_restore = 0, tt_char_active = 0,
 static unsigned long ctrl_mask = 0;
 
 #ifdef DEBUG
-extern int NDECL(nh_vms_getchar);
+extern int nh_vms_getchar(void);
 
 /* rename the real vms_getchar and interpose this one in front of it */
 int
-vms_getchar()
+vms_getchar(void)
 {
     static int althack = 0, altprefix;
     char *nhalthack;
@@ -135,7 +147,7 @@ vms_getchar()
 #endif /*DEBUG*/
 
 int
-vms_getchar()
+vms_getchar(void)
 {
     short key;
 #ifdef USE_QIO_INPUT
@@ -171,16 +183,16 @@ vms_getchar()
         } else if (kb_buf == ESC || kb_buf == CSI || kb_buf == SS3) {
             switch (parse_function_key((int) kb_buf)) {
             case SMG$K_TRM_UP:
-                key = Cmd.move_N;
+                key = gc.Cmd.dirchars[2];
                 break;
             case SMG$K_TRM_DOWN:
-                key = Cmd.move_S;
+                key = gc.Cmd.dirchars[6];
                 break;
             case SMG$K_TRM_LEFT:
-                key = Cmd.move_W;
+                key = gc.Cmd.dirchars[0];
                 break;
             case SMG$K_TRM_RIGHT:
-                key = Cmd.move_E;
+                key = gc.Cmd.dirchars[4];
                 break;
             default:
                 key = ESC;
@@ -201,16 +213,16 @@ vms_getchar()
         smg$read_keystroke(&kb, &key);
         switch (key) {
         case SMG$K_TRM_UP:
-            key = Cmd.move_N;
+            key = gc.Cmd.move_N;
             break;
         case SMG$K_TRM_DOWN:
-            key = Cmd.move_S;
+            key = gc.Cmd.move_S;
             break;
         case SMG$K_TRM_LEFT:
-            key = Cmd.move_W;
+            key = gc.Cmd.move_W;
             break;
         case SMG$K_TRM_RIGHT:
-            key = Cmd.move_E;
+            key = gc.Cmd.move_E;
             break;
         case '\r':
             key = '\n';
@@ -281,8 +293,7 @@ static const char *arrow_or_PF = "ABCDPQRS", /* suffix char */
 /* Ultimate return value is (index into smg_keypad_codes[] + 256). */
 
 static short
-parse_function_key(c)
-register int c;
+parse_function_key(int c)
 {
     struct _rd_iosb iosb;
     unsigned long sts;
@@ -308,8 +319,8 @@ register int c;
     } else
         sts = SS$_NORMAL;
     if (vms_ok(sts) || sts == SS$_TIMEOUT) {
-        register int cnt = iosb.trm_offset + iosb.trm_siz + inc;
-        register char *p = seq_buf;
+        int cnt = iosb.trm_offset + iosb.trm_siz + inc;
+        char *p = seq_buf;
 
         if (c == ESC) /* check for 7-bit vt100/ANSI, or vt52 */
             if (*p == '[' || *p == 'O')
@@ -317,7 +328,7 @@ register int c;
             else if (strchr(arrow_or_PF, *p))
                 c = SS3; /*CSI*/
         if (cnt > 0 && (c == SS3 || (c == CSI && strchr(arrow_or_PF, *p)))) {
-            register char *q = strchr(smg_keypad_codes, *p);
+            char *q = strchr(smg_keypad_codes, *p);
 
             if (q)
                 result = 256 + (q - smg_keypad_codes);
@@ -356,7 +367,7 @@ register int c;
 #endif /* USE_QIO_INPUT */
 
 static void
-setctty()
+setctty(void)
 {
     struct _sm_iosb iosb;
     unsigned long status;
@@ -378,7 +389,7 @@ setctty()
 
 /* atexit() routine */
 static void
-resettty()
+resettty(void)
 {
     if (settty_needed) {
         bombing = TRUE; /* don't clear screen; preserve traceback info */
@@ -394,7 +405,7 @@ resettty()
  * (for initial startup and for returning from '!' or ^Z).
  */
 void
-gettty()
+gettty(void)
 {
     static char dev_tty[] = "TT:";
     static $DESCRIPTOR(tty_dsc, dev_tty);
@@ -445,11 +456,10 @@ gettty()
 
 /* reset terminal to original state */
 void
-settty(s)
-const char *s;
+settty(const char *s)
 {
     if (!bombing)
-        end_screen();
+        term_end_screen();
     if (s)
         raw_print(s);
     if (settty_needed) {
@@ -474,8 +484,7 @@ const char *s;
 
 /* same as settty, with no clearing of the screen */
 void
-shuttty(s)
-const char *s;
+shuttty(const char *s)
 {
     bombing = TRUE;
     settty(s);
@@ -483,7 +492,7 @@ const char *s;
 }
 
 void
-setftty()
+setftty(void)
 {
     unsigned long mask = LIB$M_CLI_CTRLT | LIB$M_CLI_CTRLY;
 
@@ -504,29 +513,31 @@ setftty()
     sg.sm.tt2_char = tt2_char_active;
     setctty();
 
-    start_screen();
+    term_start_screen();
     settty_needed = TRUE;
 }
 
-/* enable kbd interupts if enabled when game started */
+/* enable kbd interrupts if enabled when game started */
 void
-intron()
+intron(void)
 {
     intr_char = CTRL('C');
 }
 
 /* disable kbd interrupts if required*/
 void
-introff()
+introff(void)
 {
     intr_char = 0;
 }
 
 #ifdef TIMED_DELAY
 
-extern unsigned long FDECL(lib$emul, (const long *, const long *,
-                                      const long *, long *));
+#ifndef VMSVSI
+extern unsigned long lib$emul(const long *, const long *, const long *,
+                              long *);
 extern unsigned long sys$schdwk(), sys$hiber();
+#endif
 
 #define VMS_UNITS_PER_SECOND 10000000L /* hundreds of nanoseconds, 1e-7 */
 /* constant for conversion from milliseconds to VMS delta time (negative) */
@@ -535,8 +546,7 @@ static const long mseconds_to_delta = VMS_UNITS_PER_SECOND / 1000L * -1L;
 /* sleep for specified number of milliseconds (note: the timer used
    generally only has 10-millisecond resolution at the hardware level...) */
 void
-msleep(mseconds)
-unsigned mseconds; /* milliseconds */
+msleep(unsigned mseconds) /* milliseconds */
 {
     long pid = 0L, zero = 0L, msec, qtime[2];
 
@@ -567,7 +577,40 @@ VA_DECL(const char *, s)
     VA_END();
 #ifndef SAVE_ON_FATAL_ERROR
     /* prevent vmsmain's exit handler byebye() from calling hangup() */
-    sethanguphandler((void FDECL((*), (int) )) SIG_DFL);
+/*    sethanguphandler((void (*)(int) )) SIG_DFL; */
+    sethanguphandler((SIG_RET_TYPE) SIG_DFL);
 #endif
     exit(EXIT_FAILURE);
 }
+
+#ifdef SIGWINCH
+/* called by resize_tty(wintty.c) after receiving a SIGWINCH signal;
+   terminal size has changed and we should update LI and CO (from termcap) */
+void
+getwindowsz(void)
+{
+    /*
+     * gettty() has code to do this, but it can't be used directly because
+     * it fetches terminal state in order to reset that upon termination.
+     * We need to avoid clobbering other saved state with values used by
+     * game-in-progress.  For now, do nothing.
+     */
+    return;
+}
+#endif
+
+#ifdef ENHANCED_SYMBOLS
+/*
+ * set in term_start_screen() and allows
+ * OS-specific changes that may be
+ * required for support of utf8.
+ * Currently a placeholder for VMS.
+ */
+void
+tty_utf8graphics_fixup(void)
+{
+    return;
+}
+#endif  /* ENHANCED_SYMBOLS */
+
+/*vmstty.c */

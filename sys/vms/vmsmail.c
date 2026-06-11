@@ -1,20 +1,25 @@
-/* NetHack 3.6	vmsmail.c	$NHDT-Date: 1449801741 2015/12/11 02:42:21 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.10 $ */
+/* NetHack 5.0	vmsmail.c	$NHDT-Date: 1685522048 2023/05/31 08:34:08 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.18 $ */
 /* Copyright (c) Robert Patrick Rankin, 1991.                     */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "config.h"
 #include "mail.h"
 
-/* lint supression due to lack of extern.h */
-unsigned long NDECL(init_broadcast_trapping);
-unsigned long NDECL(enable_broadcast_trapping);
-unsigned long NDECL(disable_broadcast_trapping);
-struct mail_info *NDECL(parse_next_broadcast);
+/* lint suppression due to lack of extern.h */
+unsigned long init_broadcast_trapping(void);
+unsigned long enable_broadcast_trapping(void);
+unsigned long disable_broadcast_trapping(void);
+struct mail_info *parse_next_broadcast(void);
+
+#ifdef VMSVSI
+#include <descrip.h>
+#include <lib$routines.h>
+#include <starlet.h>
+#endif
 
 #ifdef MAIL
 #include "wintype.h"
 #include "winprocs.h"
-#include <ctype.h>
 #include <descrip.h>
 #include <errno.h>
 #ifndef __GNUC__
@@ -27,20 +32,25 @@ struct mail_info *NDECL(parse_next_broadcast);
 /* #include <string.h> */
 #define vms_ok(sts) ((sts) & 1)
 
-static struct mail_info *FDECL(parse_brdcst, (char *));
-static void FDECL(filter_brdcst, (char *));
-static void NDECL(flush_broadcasts);
-static void FDECL(broadcast_ast, (int));
-extern char *FDECL(eos, (char *));
-extern char *FDECL(strstri, (const char *, const char *));
-extern int FDECL(strncmpi, (const char *, const char *, int));
+static struct mail_info *parse_brdcst(char *);
+static void filter_brdcst(char *);
+static void flush_broadcasts(void);
+static void broadcast_ast(int);
+extern char *eos(char *);
+extern char *strstri(const char *, const char *);
+extern int strncmpi(const char *, const char *, int);
 
-extern size_t FDECL(strspn, (const char *, const char *));
+extern size_t strspn(const char *, const char *);
 #ifndef __DECC
-extern int VDECL(sscanf, (const char *, const char *, ...));
+extern int sscanf(const char *, const char *, ...);
 #endif
+
+#ifdef VMSVSI
+#include <smg$routines.h>
+#else
 extern unsigned long smg$create_pasteboard(), smg$get_broadcast_message(),
     smg$set_broadcast_trapping(), smg$disable_broadcast_trapping();
+#endif
 
 extern volatile int broadcasts; /* defining declaration in mail.c */
 
@@ -60,7 +70,7 @@ static long pasteboard_id = 0; /* SMG's magic cookie */
  * Unrecognized broadcasts result in the mail-daemon
  * arriving and announcing the display text, but no scroll being created.
  * If SHELL is undefined, then all broadcasts are treated as 'other'; since
- * no subproceses are allowed, there'd be no way to respond to the scroll.
+ * no subprocesses are allowed, there'd be no way to respond to the scroll.
  *
  *      When a scroll of mail is read by the character, readmail() extracts
  * the command string and uses it for the default when prompting the
@@ -88,7 +98,7 @@ static long pasteboard_id = 0; /* SMG's magic cookie */
  * Anything else results in just the message text being passed along, no
  * scroll of mail so consequently no command to execute when scroll read.
  * The user can set up ``$ XYZZY :== SEND'' prior to invoking NetHack if
- * vanilla JNET responses to Bitnet messages are prefered.
+ * vanilla JNET responses to Bitnet messages are preferred.
  *
  *      Static return buffers are used because only one broadcast gets
  * processed at a time, and the essential information in each one is
@@ -107,14 +117,14 @@ static char nam_buf[63],      /* maximum onamelth, size of ONAME(object) */
 /* try to decipher and categorize broadcast message text
 */
 static struct mail_info *
-parse_brdcst(buf) /* called by parse_next_broadcast() */
-char *buf;        /* input: filtered broadcast text */
+parse_brdcst(char *buf) /* called by parse_next_broadcast() */
+                        /* input: filtered broadcast text */
 {
     int typ;
     char *txt;
     const char *nam, *cmd;
 #ifdef SHELL /* only parse if spawned commands are enabled */
-    register char *p, *q;
+    char *p, *q;
     boolean is_jnet_send;
     char user[127 + 1], node[127 + 1], sentinel;
 
@@ -294,10 +304,10 @@ char *buf;        /* input: filtered broadcast text */
 
 /* filter out non-printable characters and redundant noise
 */
-static void filter_brdcst(buf) /* called by parse_next_broadcast() */
-register char *buf;            /* in: original text; out: filtered text */
+static void filter_brdcst(char *buf) /* called by parse_next_broadcast() */
+                                        /* in: original text; out: filtered text */
 {
-    register char c, *p, *buf_p;
+    char c, *p, *buf_p;
 
     /* filter the text; restrict consecutive spaces or dots to just two */
     for (p = buf_p = buf; *buf_p; buf_p++) {
@@ -330,7 +340,7 @@ static char empty_string[] = "";
 
 /* fetch the text of a captured broadcast, then mangle and decipher it
  */
-struct mail_info *parse_next_broadcast() /* called by ckmailstatus(mail.c) */
+struct mail_info *parse_next_broadcast(void) /* called by ckmailstatus(mail.c) */
 {
     short length, msg_type;
     $DESCRIPTOR(message, empty_string); /* string descriptor for buf[] */
@@ -353,7 +363,7 @@ struct mail_info *parse_next_broadcast() /* called by ckmailstatus(mail.c) */
 
 /* spit out any pending broadcast messages whenever we leave
  */
-static void flush_broadcasts() /* called from disable_broadcast_trapping() */
+static void flush_broadcasts(void) /* called from disable_broadcast_trapping() */
 {
     if (broadcasts > 0) {
         short len, typ;
@@ -376,8 +386,7 @@ static void flush_broadcasts() /* called from disable_broadcast_trapping() */
  */
 /*ARGSUSED*/
 static void
-broadcast_ast(dummy) /* called asynchronously by terminal driver */
-int dummy UNUSED;
+broadcast_ast(int dummy UNUSED) /* called asynchronously by terminal driver */
 {
     broadcasts++;
 }
@@ -385,7 +394,7 @@ int dummy UNUSED;
 /* initialize the broadcast manipulation code; SMG makes this easy
 */
 unsigned long
-init_broadcast_trapping() /* called by setftty() [once only] */
+init_broadcast_trapping(void) /* called by setftty() [once only] */
 {
     unsigned long sts, preserve_screen_flag = 1;
 
@@ -405,7 +414,7 @@ init_broadcast_trapping() /* called by setftty() [once only] */
 /* set up the terminal driver to deliver $brkthru data to a mailbox device
  */
 unsigned long
-enable_broadcast_trapping() /* called by setftty() */
+enable_broadcast_trapping(void) /* called by setftty() */
 {
     unsigned long sts = 1;
 
@@ -427,7 +436,7 @@ enable_broadcast_trapping() /* called by setftty() */
 /* return to 'normal'; $brkthru data goes straight to the terminal
  */
 unsigned long
-disable_broadcast_trapping() /* called by settty() */
+disable_broadcast_trapping(void) /* called by settty() */
 {
     unsigned long sts = 1;
 
@@ -445,22 +454,22 @@ disable_broadcast_trapping() /* called by settty() */
 
 /* simple stubs for non-mail configuration */
 unsigned long
-init_broadcast_trapping()
+init_broadcast_trapping(void)
 {
     return 1;
 }
 unsigned long
-enable_broadcast_trapping()
+enable_broadcast_trapping(void)
 {
     return 1;
 }
 unsigned long
-disable_broadcast_trapping()
+disable_broadcast_trapping(void)
 {
     return 1;
 }
 struct mail_info *
-parse_next_broadcast()
+parse_next_broadcast(void)
 {
     return 0;
 }
@@ -494,7 +503,7 @@ struct mail_info *foo;
 }
 
 void
-ckmailstatus()
+ckmailstatus(void)
 {
     struct mail_info *brdcst, *parse_next_broadcast();
 
@@ -509,7 +518,7 @@ ckmailstatus()
 }
 
 int
-main()
+main(int argc UNUSED, char *argv[] UNUSED)
 {
     char dummy[BUFSIZ];
 
@@ -526,23 +535,21 @@ main()
 }
 
 void
-panic(s)
-char *s;
+panic(char *s)
 {
     raw_print(s);
     exit(EXIT_FAILURE);
 }
 
 void
-raw_print(s)
-char *s;
+raw_print(char *s)
 {
     puts(s);
     fflush(stdout);
 }
 
 void
-wait_synch()
+wait_synch(void)
 {
     char dummy[BUFSIZ];
 
