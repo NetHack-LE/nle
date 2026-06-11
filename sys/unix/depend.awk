@@ -1,15 +1,26 @@
 # depend.awk -- awk script used to construct makefile dependencies
 # for nethack's source files (`make depend' support for Makefile.src).
-# $NHDT-Date: 1546220373 2018/12/31 01:39:33 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.8 $
+# $NHDT-Date: 1709577497 2024/03/04 18:38:17 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.18 $
 #
 # usage:
-#   cd src ; nawk -f depend.awk ../include/*.h list-of-.c/.cpp-files
+#   awk -f depend.awk ../include/*.h list-of-.c/.cpp-files
+#   (might need nawk or gawk instead of plain awk if it is really old)
+# meta usage:
+#   ( cd src ; make all ; cp ../sys/unix/Makefile.src ./Makefile ; \
+#     make depend ; cp ./Makefile ../sys/unix/Makefile.src ; \
+#     cd .. ; sh sys/unix/setup.sh [sys/unix/hints/FOO] )
+# newer usage:
+#   cd sys/unix ; make -f Makefile.src updatedepend
 #
 # This awk program scans each file in sequence, looking for lines beginning
 # with `#include "' and recording the name inside the quotes.  For .h files,
 # that's all it does.  For each .c file, it writes out a make rule for the
 # corresponding .o file; dependencies in nested header files are propagated
 # to the .o target.
+#
+# Variables that can be set on the command line:
+#  -v dontsortdeps=1               do not sort the dependencies
+#  -v dontsortfules=1              do not sort the rules
 #
 # config.h and hack.h get special handling because of their heavy use;
 #	timestamps for them allow make to avoid rechecking dates on
@@ -18,6 +29,7 @@
 #	during development;
 # patchlev.h gets special handling because it only exists on systems
 #	which consider filename patchlevel.h to be too long;
+# amiconf.h moved from ../include/ to ../outdated/include/ so skip it
 # interp.c gets special handling because it usually doesn't exist; it's
 #	assumed to be the last #include in the file where it occurs.
 # win32api.h gets special handling because it only exists for some ports;
@@ -29,6 +41,7 @@ BEGIN		{ FS = "\""			#for `#include "X"', $2 is X
 		  special[++sp_cnt] = "../include/hack.h"
 		  alt_deps["../include/extern.h"] = ""
 		  alt_deps["../include/patchlev.h"] = ""
+		  alt_deps["../include/amiconf.h"] = ""
 		  alt_deps["interp.c"] = " #interp.c"	#comment it out
 		  alt_deps["../include/win32api.h"] = " #../include/win32api.h"
 		  alt_deps["../include/zlib.h"] = " #zlib.h"	#comment it out
@@ -36,26 +49,40 @@ BEGIN		{ FS = "\""			#for `#include "X"', $2 is X
 FNR == 1	{ output_dep()			#finish previous file
 		  file = FILENAME		#setup for current file
 		}
-/^\#[ \t]*include[ \t]+\"/  {			#find `#include "X"'
+/^[#][ \t]*include[ \t]+["]/  {			#find `#include "X"'
 		  incl = $2
 		  #[3.4.0: gnomehack headers currently aren't in include]
 		  #[3.6.2: Qt4 headers aren't in include either]
 		  #[3.6.2: curses headers likewise]
-		  if (incl ~ /\.h$/) {
-                    if (incl ~ "curses\.h")
-                      incl = ""	 # skip "curses.h"; it should be <curses.h>
+		  #[NetHack 5.0.0: Qt headers have moved; process 'moc' files]
+		  if (incl ~ /[.]h$/) {
+		    if (incl ~ "curses[.]h")
+		      incl = ""	# skip "curses.h"; it should be <curses.h>
+		    else if (incl ~ /^..\/lib\/lua-.*\/src\/l/)
+		      incl = ""	# skip lua headers
 		    else if (incl ~ /^curs/)	# curses special case
 		      incl = "../win/curses/" incl
-		    else if (incl ~ /^qt4/)	# Qt v4 special case
-		      incl = "../win/Qt4/" incl
-		    else if (incl ~ /^gn/)	# gnomehack special case
+		    else if (incl ~ /(.*\/)*qt_/) {	# Qt special cases
+		      # Qt v3 headers are in ../win/Qt3
+		      # Qt v4/v5/v6 headers are in ../win/Qt
+		      # *.moc files have path in their #include
+		      if (file ~ /[.]moc$/)
+			; # keep 'incl' as-is
+		      else if (file ~ /^[.][.]\/win\/Qt3\/.*/)
+			incl = "../win/Qt3/" incl
+		      else			# Qt v4/v5/v6
+			incl = "../win/Qt/" incl
+		    } else if (incl ~ /^gn/)	# gnomehack special case
 		      incl = "../win/gnome/" incl
 		    else
 		      incl = "../include/" incl
 		  }
 		  deps[file] = deps[file] " " incl
 		}
-END		{ output_dep() }		#finish the last file
+END		{
+		    output_dep()		#finish the last file
+		    output_final()		#write output
+		}
 
 
 #
@@ -63,16 +90,48 @@ END		{ output_dep() }		#finish the last file
 # don't do anything (we've just been collecting their dependencies);
 # for .c files, output the `make' rule for corresponding .o file
 #
-function output_dep(				targ)
+
+function output_dep(){
+  if(!dontsortrules){
+    worklist[++worklistctr] = file
+  } else {
+    output_final2()
+  }
+}
+
+function output_final(				x)
 {
-  if (file ~ /\.cp*$/) {
+  if(!dontsortrules){
+    nhsort(worklist, 1, worklistctr, 1)
+    for(x=1;x<=worklistctr;x++){
+      file = worklist[x]
+      output_final2()
+    }
+  } else {
+    return
+  }
+}
+
+function output_final2(				base, targ, moc)
+{
+  #get the file's base name (including suffix)
+  base = file;  sub("^.+/", "", base)
+  #for qt source files, add qt timestamp file as extra dependency
+  moc = (base ~ /[.]moc$/)
+  if (moc || base ~ /(.+\/)*qt_.*[.]cpp$/) {
+    deps[file] = deps[file] " $(QTn_H)"
+  }
+  if ((base ~ /[.]cp*$/ || moc) && !(file in filedone)) {
     #prior to very first .c|.cpp file, handle some special header file cases
     if (!c_count++)
       output_specials()
     #construct object filename from source filename
-    targ = file;  sub("^.+/", "", targ);  sub("\\.cp*$", ".o", targ)
+    targ = base;  sub("[.]cp*$", ".o", targ)
     #format and write the collected dependencies
     format_dep(targ, file)
+    #generated file tile.c can appear more than once in the list of files
+    #so track which files have already been handled; can't reuse done[] here
+    filedone[file]++;
   }
 }
 
@@ -86,7 +145,7 @@ function output_specials(			i, sp, alt_sp)
     #change "../include/foo.h" first to "foo.h", then ultimately to "$(FOO_H)"
     alt_sp = sp;  sub("^.+/", "", alt_sp)
     print "#", alt_sp, "timestamp"	#output a `make' comment
- #- sub("\\.", "_", alt_sp);  alt_sp = "$(" toupper(alt_sp) ")"
+ #- sub("[.]", "_", alt_sp);  alt_sp = "$(" toupper(alt_sp) ")"
  #+ Some nawks don't have toupper(), so hardwire these instead.
     sub("config.h", "$(CONFIG_H)", alt_sp);  sub("hack.h", "$(HACK_H)", alt_sp)
     format_dep(alt_sp, sp)		#output the target
@@ -100,16 +159,26 @@ function output_specials(			i, sp, alt_sp)
 # write a target and its dependency list in pretty-printed format;
 # if target's primary source file has a path prefix, also write build command
 #
-function format_dep(target, source,		n, i, list)
+function format_dep(target, source,		col, n, i, list, prefix, moc)
 {
   split("", done)			#``for (x in done) delete done[x]''
-  printf("%s:", target);  col = length(target) + 1
+  moc = (target ~ /[.]moc$/)
+  prefix = (moc || substr(target,1,1) == "$") ? "" : "$(TARGETPFX)"
+  printf("%s%s:", prefix, target);  col = length(target) + 1 + length(prefix)
   #- printf("\t");  col += 8 - (col % 8);
   #- if (col == 8) { printf("\t"); col += 8 }
   source = depend("", source, 0)
+  sub(" +$", "", source)                #strip trailing spaces, if any
   n = split(source, list, " +")
-  for (i = 2; i <= n; i++) {	#(leading whitespace yields empty 1st element)
-    if (col + length(list[i]) >= (i < n ? 78 : 80)) {
+  #first: leading whitespace yields empty 1st element; not sure why moc
+  #files duplicate the target as next element but we need to skip that too
+  first = moc ? 3 : 2
+  source = list[first]
+  if (!dontsortdeps){
+    nhsort(list, first, n, 0)
+  }
+  for (i = first; i <= n; i++) {
+    if (col + length(list[i]) >= (i < n ? 78 : 80) - 1) {
       printf(" \\\n\t\t");  col = 16	#make a backslash+newline split
     } else {
       printf(" ");  col++;
@@ -118,16 +187,17 @@ function format_dep(target, source,		n, i, list)
   }
   printf("\n")				#terminate
   #write build command if first source entry has non-include path prefix
-  source = list[2]
-  if (source ~ /\// && substr(source, 1, 11) != "../include/") {
-    if (source ~ /\.cpp$/ )
-      print "\t$(CXX) $(CXXFLAGS) -c -o $@ " source
+  if (moc) {
+    print "\t$(MOCPATH) -o $@ " source
+  } else if (source ~ /\// && substr(source, 1, 11) != "../include/") {
+    if (source ~ /[.]cpp$/ )
+      print "\t$(TARGET_CXX) $(TARGET_CXXFLAGS) -c -o $@ " source
     else if (source ~ /\/X11\//)	# "../win/X11/foo.c"
-      print "\t$(CC) $(CFLAGS) $(X11CFLAGS) -c -o $@ " source
+      print "\t$(TARGET_CC) $(TARGET_CFLAGS) $(X11CFLAGS) -c -o $@ " source
     else if (source ~ /\/gnome\//)	# "../win/gnome/foo.c"
-      print "\t$(CC) $(CFLAGS) $(GNOMEINC) -c -o $@ " source
+      print "\t$(TARGET_CC) $(TARGET_CFLAGS) $(GNOMEINC) -c -o $@ " source
     else
-      print "\t$(CC) $(CFLAGS) -c -o $@ " source
+      print "\t$(TARGET_CC) $(TARGET_CFLAGS) -c -o $@ " source
   }
 }
 
@@ -159,6 +229,60 @@ function depend(inout, name, skip,		n, i, list)
     }
   }
   return inout
+}
+
+#
+# sort list[first]..list[last]
+# Derived from: https://www.baeldung.com/linux/awk-begin-and-end-rules
+#
+function nhsort(list, first, last, cmpid,		i,j,temp)
+{
+  for (i = first; i <= last-1; i++) {
+    for (j = i+1; j <= last; j++) {
+      if (nhcmp(list[i], list[j], cmpid)) {
+	temp = list[i]
+	list[i] = list[j]
+	list[j] = temp
+      }
+    }
+  }
+}
+
+function nhcmp(a,b,cmpid)
+{
+  if(cmpid == 0){		  # sort dependencies
+      # commented out entry (there can be only one) MUST be last
+    if (a ~ /^#/){ return 1}
+    if (b ~ /^#/){ return 0}
+      # 2 .c or .cpp files
+    if (a ~ /\.c(pp)?$/ && b ~ /\.c(pp)?$/ ){ return a > b }
+      # a .c or .cpp file and anything else
+    if (a ~ /\.c(pp)?$/){ return 0 }
+    if (b ~ /\.c(pp)?$/){ return 1 }
+      # default
+    return a > b
+  } else if(cmpid == 1){	  # sort rules
+      # 2 .h files
+    if (a ~ /\.h$/ && b ~ /\/.h$/){ return a > b }
+      # a .h and anything else
+    if (a ~ /\.h$/){ return 0 }
+    if (b ~ /\.h$/){ return 1 }
+      # 2 .c or .cpp files
+    if (a ~ /\.c(pp)?$/ && b ~ /\.c(pp)?$/ ){ return a > b }
+      # a .c or .cpp file and anything else
+    if (a ~ /\.c(pp)?$/){ return 0 }
+    if (b ~ /\.c(pp)?$/){ return 1 }
+      # 2 .moc files
+    if (a ~ /\.moc$/ && b ~ /\.moc$/){ return a > b }
+      # a .moc and anything else
+    if (a ~ /\.moc$/){ return 0 }
+    if (b ~ /\.moc$/){ return 1 }
+      # default
+    return a > b
+  } else {
+    print "internal error cmpid=" cmpid
+    exit 1
+  }
 }
 
 #depend.awk#

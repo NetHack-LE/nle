@@ -1,5 +1,5 @@
 #      NetHack Documentation Makefile.
-# NetHack 3.6  Makefile.doc    $NHDT-Date: 1581732920 2020/02/15 02:15:20 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.20 $
+# NetHack 5.0  Makefile.doc    $NHDT-Date: 1700788000 2023/11/24 01:06:40 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.28 $
 # Copyright (c) 2015 by Kenneth Lorber, Kensington, Maryland
 # NetHack may be freely redistributed.  See license for details.
 
@@ -11,6 +11,8 @@ NHSROOT=..
 
 MAKEDEFS = ../util/makedefs
 
+#STRIPBS ?= ../util/stripbs
+
 # Which version do we want to build?  (XXX These are not used anywhere.)
 GUIDEBOOK = Guidebook		# regular ASCII file
 #GUIDEBOOK = Guidebook.ps	# PostScript file
@@ -19,8 +21,11 @@ GUIDEBOOK = Guidebook		# regular ASCII file
 # Some versions of col need -x to keep them from converting spaces to tabs;
 # some versions of col don't do the conversion by default and don't
 # recognize the option.  Sigh.
-COLCMD = col -bx
-#COLCMD = col -b
+#
+# col is unnecessary, but harmless, with groff.  See grotty(1).
+COLCMD ?= col -bx
+#COLCMD ?= col -b
+#COLCMD ?= $(STRIPBS)
 
 # The command to use to generate a PostScript file
 # PSCMD = ditroff | psdit
@@ -33,85 +38,102 @@ PSCMD = groff
 # Single page. Might need adjustment to .pl value
 # GUIDECMD= $(GUIDE_PREFORMAT) | perl -pe 's/^(.mt)$$/.pl 4720v\n.in 0\n.po 8\n.ll 64m\n$$1/' | nroff -c -Tascii | $(COLCMD)
 #
-GUIDECMD = $(GUIDE_PREFORMAT) | nroff -c -Tascii | $(COLCMD)
-ONEPAGECMD = $(ONEPAGE_PREFORMAT) | nroff -c -Tascii | $(COLCMD) \
-	| sed -e '/EOF--EOF/,12345D'
+GUIDECMD = $(GUIDE_PREFORMAT) | nroff -c -Tascii $(NROFF_FLAGS) | $(COLCMD)
+ONEPAGECMD = $(ONEPAGE_PREFORMAT) | nroff -c -Tascii $(NROFF_FLAGS) | $(COLCMD)
 
 # Only generate output for the current configuration:
 NHGREP = $(MAKEDEFS) --grep --input - --output -
+NEEDMAKEDEFS = $(MAKEDEFS)
 # Generate output for all configurations:
 #NHGREP = $(MAKEDEFS) --grep --input - --output - --grep-define ALLDOCS
+#NEEDMAKEDEFS = $(MAKEDEFS)
 # Fallback:
 #NHGREP = cat
+#NEEDMAKEDEFS =
 
-GUIDE_PREFORMAT = cat Guidebook.mn | $(NHGREP) | tbl tmac.n -
+GUIDEBOOK_MN_SRC = Guidebook.mn
+GUIDEBOOK_MN = $(GUIDEBOOK_MN_SRC)
+GUIDEBOOK_TEX_SRC = Guidebook.tex
+GUIDEBOOK_TEX = $(GUIDEBOOK_TEX_SRC)
+
+GUIDE_PREFORMAT = cat $(GUIDEBOOK_MN) | $(NHGREP) | tbl tmac.n -
 # for Guidebook.dat, unpaginated version of Guidebook.txt
-ONEPAGE_PREFORMAT = cat Gbk-1pg-pfx.mn Guidebook.mn Gbk-1pg-sfx.mn \
+ONEPAGE_PREFORMAT = cat Gbk-1pg-pfx.mn $(GUIDEBOOK_MN) Gbk-1pg-sfx.mn \
 	| $(NHGREP) | tbl tmac.n -
 
 # the basic guidebook
-Guidebook:	Guidebook.mn tmac.n tmac.nh
-	$(GUIDECMD) > Guidebook
+Guidebook	: $(GUIDEBOOK_MN) tmac.n tmac.nh $(NEEDMAKEDEFS) $(STRIPBS)
+	-$(GUIDECMD) > Guidebook
 
 # Fancier output for those with ditroff, psdit and a PostScript printer.
-Guidebook.ps:	Guidebook.mn tmac.n tmac.nh
+# Could be converted to Guidebook.pdf if tool(s) for that are available.
+Guidebook.ps	: $(GUIDEBOOK_MN) tmac.n tmac.nh $(NEEDMAKEDEFS)
 	$(GUIDE_PREFORMAT) | $(PSCMD) > Guidebook.ps
 
 # Guidebook.tex is the same as Guidebook.mn but formatted with LaTeX.
 # - The invocation command for LaTeX may vary in different installations.
 # - To print Guidebook.dvi you need to use a suitable dvi-driver.
 # - LaTeX needs to be run twice; second pass uses Guidebook.aux made by first.
-Guidebook.dvi:	Guidebook.tex
-	latex Guidebook.tex
-	latex Guidebook.tex
+Guidebook.dvi	: $(GUIDEBOOK_TEX)
+	latex $(GUIDEBOOK_TEX)
+	latex $(GUIDEBOOK_TEX)
 
+# makedefs has more dependencies than these; this is mainly to cope with the
+# case where it hasn't been built yet since it is usually needed for $(NHGREP)
+# (note: 'make makedefs', not 'make $(MAKEDEFS)')
+$(MAKEDEFS)	: ../util/makedefs.c ../include/config.h ../src/mdlib.c \
+		  ../util/mdgrep.h
+	( cd .. ; make makedefs )
+
+../util/stripbs: ../util/stripbs.c
+	( cd .. ; $(MAKE) stripbs )
 
 GAME	= nethack
-MANDIR	= /usr/man/man6
+MANDIR	?= /usr/man/man6
 MANEXT	= 6
+NROFF ?= nroff
 
 # manual installation for most BSD-style systems
 GAMEMANCREATE = cat nethack.6 | $(NHGREP) >
-LEVMANCREATE = cat lev_comp.6 | $(NHGREP) >
-DGNMANCREATE = cat dgn_comp.6 | $(NHGREP) >
 RCVRMANCREATE = cat recover.6 | $(NHGREP) >
 DLBMANCREATE = cat dlb.6 | $(NHGREP) >
 MDMANCREATE = cat makedefs.6 | $(NHGREP) >
 # manual installation for most SYSV-style systems
 # GAMEMANCREATE = cat nethack.6 | $(NHGREP) | nroff -man - >
-# LEVMANCREATE = cat lev_comp.6 | $(NHGREP) | nroff -man - >
-# DGNMANCREATE = cat dgn_comp.6 | $(NHGREP) | nroff -man - >
 # RCVRMANCREATE = cat recover.6 | $(NHGREP) | nroff -man - >
 # DLBMANCREATE = cat dlb.6 | $(NHGREP) | nroff -man - >
 # MDMANCREATE = cat makedefs.6 | $(NHGREP) | nroff -man - >
 
-manpages:
+manpages: $(PREMANPAGES)
 	-$(GAMEMANCREATE) $(MANDIR)/$(GAME).$(MANEXT)
-	-$(LEVMANCREATE) $(MANDIR)/lev_comp.$(MANEXT)
-	-$(DGNMANCREATE) $(MANDIR)/dgn_comp.$(MANEXT)
 	-$(RCVRMANCREATE) $(MANDIR)/recover.$(MANEXT)
 	-$(DLBMANCREATE) $(MANDIR)/dlb.$(MANEXT)
 	-$(MDMANCREATE) $(MANDIR)/makedefs.$(MANEXT)
 
 # manual creation for distribution
-DISTRIB = Guidebook.txt nethack.txt lev_comp.txt dgn_comp.txt recover.txt \
+DISTRIB = Guidebook.txt nethack.txt recover.txt \
 	dlb.txt makedefs.txt
 
 distrib: $(DISTRIB)
 	@echo "Plain text documentation is up to date."
 
-Guidebook.txt	: Guidebook.mn tmac.n tmac.nh
-	$(GUIDECMD) > Guidebook.txt
-Guidebook.dat	: Gbk-1pg-pfx.mn Gbk-1pg-sfx.mn Guidebook.mn tmac.n tmac.nh
-	$(ONEPAGECMD) > Guidebook.dat
+Guidebook.txt	: $(GUIDEBOOK_MN) tmac.n tmac.nh $(NEEDMAKEDEFS)
+	$(GUIDECMD) > $@
+Guidebook.dat	: Gbk-1pg-pfx.mn Gbk-1pg-sfx.mn $(GUIDEBOOK_MN) tmac.n tmac.nh \
+		  $(NEEDMAKEDEFS)
+	$(ONEPAGECMD) > $@
 
-MAN2TXT = $(NHGREP) | nroff -man - | $(COLCMD)
+# plain text output
+#
+# MAN2TXTPRE and MAN2TXTPOST are included so that a hints file can alter
+# both of them as required
+MAN2TXTPOST ?= | col -b
+MAN2TXT = $(NHGREP) | $(NROFF) -man $(MAN2TXTPRE) $(MAN2TXTPOST)
+# If you aren't using a hints file, you can uncomment the following
+# line if you have groff 1.23 or greater.
+#MAN2TXT = $(NHGREP) | groff -man -Tascii -P -cbou
 nethack.txt	: nethack.6
 	cat nethack.6 | $(MAN2TXT) > nethack.txt
-lev_comp.txt	: lev_comp.6
-	cat lev_comp.6 | $(MAN2TXT) > lev_comp.txt
-dgn_comp.txt	: dgn_comp.6
-	cat dgn_comp.6 | $(MAN2TXT) > dgn_comp.txt
 recover.txt	: recover.6
 	cat recover.6 | $(MAN2TXT) > recover.txt
 dlb.txt		: dlb.6
@@ -120,10 +142,11 @@ makedefs.txt		: makedefs.6
 	cat makedefs.6 | $(MAN2TXT) > makedefs.txt
 
 clean:
-	-rm -f Guidebook.aux Guidebook.log
+	-rm -f Guidebook.aux Guidebook.log $(DOC_EXTRAS)
 
 spotless: clean
-	-rm -f Guidebook Guidebook.dat Guidebook.ps Guidebook.dvi
+	-rm -f Guidebook Guidebook.dat Guidebook.ps \
+		Guidebook.dvi $(DOC_SPOTLESS_EXTRAS)
 
 maintainer-clean: spotless
 	-rm -f $(DISTRIB)

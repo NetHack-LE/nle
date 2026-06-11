@@ -1,0 +1,37 @@
+# NetHack 5.0  Makefile.check $NHDT-Date: 1599687610 2020/09/09 21:40:10 $  $NHDT-Branch: NetHack-5.0
+
+SUPATH := sys/unix/
+MKHINTSPATH := $(SUPATH)hints/
+MKINCLPATH := $(SUPATH)hints/include/
+
+#
+# Expectations:
+#
+# HINTSFILE and HINTSINCLFILES are passed from the calling Makefile
+# which is the case with the hints/*.500 and hints/include/*.500
+# set.
+#
+ifneq ("$(HINTSFILE)","")
+MKHINTSFILE := $(addprefix $(MKHINTSPATH), $(notdir $(HINTSFILE)))
+endif
+ifneq ("$(HINTSINCLFILES)","")
+MKINCLFILES := $(addprefix $(MKINCLPATH), $(HINTSINCLFILES))
+endif
+
+checkmakefiles: dat/Makefile src/Makefile util/Makefile doc/Makefile Makefile
+
+dat/Makefile: $(SUPATH)Makefile.dat $(MKHINTSFILE) $(MKINCLFILES)
+	@echo Attention: $@ is older than: $?
+
+src/Makefile: $(SUPATH)Makefile.src $(MKHINTSFILE) $(MKINCLFILES)
+	@echo Attention: $@ is older than: $?
+
+util/Makefile: $(SUPATH)Makefile.utl $(MKHINTSFILE) $(MKINCLFILES)
+	@echo Attention: $@ is older than: $?
+
+doc/Makefile: $(SUPATH)Makefile.doc $(MKHINTSFILE) $(MKINCLFILES)
+	@echo Attention: $@ is older than: $?
+
+Makefile: $(SUPATH)Makefile.top $(MKHINTSFILE) $(MKINCLFILES)
+	@echo Attention: $@ is older than: $?
+
