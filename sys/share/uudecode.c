@@ -12,20 +12,20 @@
  * from this software without specific prior written permission.
  * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 /*
  * Modified 12 April 1990 by Mark Adler for use on MSDOS systems with
  * Microsoft C and Turbo C.
  *
- * Modifed 13 February 1991 by Greg Roelofs for use on VMS systems.  As
+ * Modified 13 February 1991 by Greg Roelofs for use on VMS systems.  As
  * with the MS-DOS version, the setting of the file mode has been disabled.
  * Compile and link normally (but note that the shared-image link option
  * produces a binary only 6 blocks long, as opposed to the 137-block one
  * produced by an ordinary link).  To set up the VMS symbol to run the
  * program ("run uudecode filename" won't work), do:
- *		uudecode :== "$disk:[directory]uudecode.exe"
+ *              uudecode :== "$disk:[directory]uudecode.exe"
  * and don't forget the leading "$" or it still won't work.  The binaries
  * produced by this program are in VMS "stream-LF" format; this makes no
  * difference to VMS when running decoded executables, nor to VMS unzip,
@@ -41,11 +41,16 @@
  * Modified 08 July 2006 to cast strlen() result to int to suppress a
  * warning on platforms where size_t > sizeof(int).
  *
- * $NHDT-Date: 1432512787 2015/05/25 00:13:07 $  $NHDT-Branch: master $:$NHDT-Revision: 1.7 $
+ * Modified 05 Jan 2024 to avoid K&R function declarations, marked KR_PROTO.
+ *
+ * Modified 09 Apr 2026 to change mode variable from (int) to (unsigned int)
+ * to match prototype of sscanf %o.
+ *
+ * $NHDT-Date: 1775744389 2026/04/09 14:19:49 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.21 $
  */
 
 #ifndef lint
-static char sccsid[] = "@(#)uudecode.c	5.5 (Berkeley) 7/6/88";
+/* static char sccsid[] = "@(#)uudecode.c 5.5 (Berkeley) 7/6/88"; */
 #endif /* not lint */
 
 #ifdef __MSDOS__ /* For Turbo C */
@@ -81,19 +86,23 @@ static char sccsid[] = "@(#)uudecode.c	5.5 (Berkeley) 7/6/88";
 #include <stdlib.h>
 #endif
 
+/* #include "warnings.h" */
+#define DISABLE_WARNING_UNREACHABLE_CODE
+#define RESTORE_WARNINGS
+
 static void decode(FILE *, FILE *);
 static void outdec(char *, FILE *, int);
 
 /* single-character decode */
 #define DEC(c) (((c) - ' ') & 077)
 
+DISABLE_WARNING_UNREACHABLE_CODE
+
 int
-main(argc, argv)
-int argc;
-char **argv;
+main(int argc, char **argv)
 {
     FILE *in, *out;
-    int mode;
+    unsigned int mode;
     char dest[128];
     char buf[80];
 
@@ -124,15 +133,18 @@ char **argv;
     }
     (void) sscanf(buf, "begin %o %s", &mode, dest);
 
-#if !defined(MSDOS) && !defined(VMS) && !defined(WIN32)
+#if !defined(MSDOS) && !defined(VMS) && !defined(WIN32) && !defined(__APPLE__)
     /* handle ~user/file format */
     if (dest[0] == '~') {
         char *sl;
-        struct passwd *getpwnam();
         struct passwd *user;
-        char dnbuf[100], *index(), *strcat(), *strcpy();
+        char dnbuf[100];
+#ifdef KR_PROTO
+        struct passwd *getpwnam();
+        char *strchr(), *strcat(), *strcpy();
+#endif
 
-        sl = index(dest, '/');
+        sl = strchr(dest, '/');
         if (sl == NULL) {
             fprintf(stderr, "Illegal ~user\n");
             exit(3);
@@ -148,7 +160,8 @@ char **argv;
         strcat(dnbuf, sl);
         strcpy(dest, dnbuf);
     }
-#endif /* !defined(MSDOS) && !defined(VMS) */
+#endif /* !MSDOS && !VMS && !WIN32 && !__APPLE__  */
+    dest[sizeof dest - 1] = '\0';
 
 /* create output file */
 #if defined(MSDOS) || defined(WIN32)
@@ -175,13 +188,13 @@ char **argv;
     return 0;
 }
 
+RESTORE_WARNINGS
+
 /*
  * copy from in to out, decoding as you go along.
  */
 void
-decode(in, out)
-FILE *in;
-FILE *out;
+decode(FILE *in, FILE *out)
 {
     char buf[80];
     char *bp;
@@ -218,10 +231,7 @@ FILE *out;
  * output all of them at the end of the file.
  */
 void
-outdec(p, f, n)
-char *p;
-FILE *f;
-int n;
+outdec(char *p, FILE *f, int n)
 {
     int c1, c2, c3;
 
@@ -236,7 +246,7 @@ int n;
         putc(c3, f);
 }
 
-#if !defined(MSDOS) && !defined(VMS) && !defined(WIN32)
+#if !defined(MSDOS) && !defined(VMS) && !defined(WIN32) && !defined(__APPLE__) && !defined(__linux__)
 /*
  * Return the ptr in sp at which the character c appears;
  * NULL if not found
@@ -248,7 +258,7 @@ int n;
 
 char *
 index(sp, c)
-register char *sp, c;
+char *sp, c;
 {
     do {
         if (*sp == c)

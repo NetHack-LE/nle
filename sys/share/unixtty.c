@@ -1,4 +1,4 @@
-/* NetHack 3.6	unixtty.c	$NHDT-Date: 1570652308 2019/10/09 20:18:28 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.26 $ */
+/* NetHack 5.0	unixtty.c	$NHDT-Date: 1596498288 2020/08/03 23:44:48 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.27 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Michael Allison, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -11,6 +11,9 @@
 
 #define NEED_VARARGS
 #include "hack.h"
+#if defined(TTY_GRAPHICS) && !defined(NOTTYGRAPHICS)
+#include "wintty.h"
+#endif
 
 /*
  * The distinctions here are not BSD - rest but rather USG - rest, as
@@ -38,7 +41,6 @@
 #endif /* POSIX_TYPES */
 #ifdef LINUX
 #include <sys/ioctl.h>
-#undef delay_output /* curses redefines this */
 #include <curses.h>
 #endif
 #define kill_sym c_cc[VKILL]
@@ -131,14 +133,12 @@ struct tchars inittyb2, curttyb2;
  * used unconditionally because it conflicts with the 'bool' one.
  */
 #ifdef NEED_HAS_COLORS_DECL
-int has_colors();
+int has_colors(void);
 #endif
 
 #if defined(TTY_GRAPHICS) && ((!defined(SYSV) && !defined(HPUX)) \
                               || defined(UNIXPC) || defined(SVR4))
-#ifndef LINT
 extern /* it is defined in libtermlib (libtermcap) */
-#endif
     short ospeed; /* terminal baudrate; set by gettty */
 #else
 short ospeed = 0; /* gets around "not defined" error message */
@@ -154,8 +154,7 @@ struct termstruct inittyb, curttyb;
 
 #ifdef POSIX_TYPES
 static int
-speednum(speed)
-speed_t speed;
+speednum(speed_t speed)
 {
     switch (speed) {
     case B0:
@@ -197,7 +196,7 @@ speed_t speed;
 #endif
 
 static void
-setctty()
+setctty(void)
 {
     if (STTY(&curttyb) < 0 || STTY2(&curttyb2) < 0)
         perror("NetHack (setctty)");
@@ -209,7 +208,7 @@ setctty()
  * Called by startup() in termcap.c and after returning from ! or ^Z
  */
 void
-gettty()
+gettty(void)
 {
     if (GTTY(&inittyb) < 0 || GTTY2(&inittyb2) < 0)
         perror("NetHack (gettty)");
@@ -231,10 +230,12 @@ gettty()
 
 /* reset terminal to original state */
 void
-settty(s)
-const char *s;
+settty(const char *s)
 {
-    end_screen();
+#ifdef TTY_GRAPHICS
+    if (WINDOWPORT(tty))
+        term_end_screen();
+#endif
     if (s)
         raw_print(s);
     if (STTY(&inittyb) < 0 || STTY2(&inittyb2) < 0)
@@ -247,7 +248,7 @@ const char *s;
 }
 
 void
-setftty()
+setftty(void)
 {
     unsigned ef, cf;
     int change = 0;
@@ -259,7 +260,7 @@ setftty()
     /* Should use (ECHO|CRMOD) here instead of ECHO */
     if ((unsigned) (curttyb.echoflgs & ECHO) != ef) {
         curttyb.echoflgs &= ~ECHO;
-        /*		curttyb.echoflgs |= ef; */
+        /* curttyb.echoflgs |= ef; */
         change++;
     }
     if ((unsigned) (curttyb.cbrkflgs & CBRKMASK) != cf) {
@@ -311,14 +312,18 @@ setftty()
 
     if (change)
         setctty();
-    start_screen();
+
+#ifdef TTY_GRAPHICS
+    if (WINDOWPORT(tty))
+        term_start_screen();
+#endif
 }
 
-void intron() /* enable kbd interupts if enabled when game started */
+void intron(void) /* enable kbd interrupts if enabled when game started */
 {
 #ifdef TTY_GRAPHICS
     /* Ugly hack to keep from changing tty modes for non-tty games -dlc */
-    if (WINDOWPORT("tty") && intr_char != nonesuch
+    if (WINDOWPORT(tty) && intr_char != nonesuch
         && curttyb2.intr_sym != '\003') {
         curttyb2.intr_sym = '\003';
         setctty();
@@ -326,11 +331,11 @@ void intron() /* enable kbd interupts if enabled when game started */
 #endif
 }
 
-void introff() /* disable kbd interrupts if required*/
+void introff(void) /* disable kbd interrupts if required*/
 {
 #ifdef TTY_GRAPHICS
     /* Ugly hack to keep from changing tty modes for non-tty games -dlc */
-    if (WINDOWPORT("tty") && curttyb2.intr_sym != nonesuch) {
+    if (WINDOWPORT(tty) && curttyb2.intr_sym != nonesuch) {
         curttyb2.intr_sym = nonesuch;
         setctty();
     }
@@ -349,16 +354,16 @@ int sco_flag_console = 0;
 int sco_map_valid = -1;
 unsigned char sco_chanmap_buf[BSIZE];
 
-void NDECL(sco_mapon);
-void NDECL(sco_mapoff);
-void NDECL(check_sco_console);
-void NDECL(init_sco_cons);
+void sco_mapon(void);
+void sco_mapoff(void);
+void check_sco_console(void);
+void init_sco_cons(void);
 
 void
-sco_mapon()
+sco_mapon(void)
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && sco_flag_console) {
+    if (WINDOWPORT(tty) && sco_flag_console) {
         if (sco_map_valid != -1) {
             ioctl(0, LDSMAP, sco_chanmap_buf);
         }
@@ -368,10 +373,10 @@ sco_mapon()
 }
 
 void
-sco_mapoff()
+sco_mapoff(void)
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && sco_flag_console) {
+    if (WINDOWPORT(tty) && sco_flag_console) {
         sco_map_valid = ioctl(0, LDGMAP, sco_chanmap_buf);
         if (sco_map_valid != -1) {
             ioctl(0, LDNMAP, (char *) 0);
@@ -381,7 +386,7 @@ sco_mapoff()
 }
 
 void
-check_sco_console()
+check_sco_console(void)
 {
     if (isatty(0) && ioctl(0, CONS_GET, 0) != -1) {
         sco_flag_console = 1;
@@ -389,19 +394,17 @@ check_sco_console()
 }
 
 void
-init_sco_cons()
+init_sco_cons(void)
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && sco_flag_console) {
+    if (WINDOWPORT(tty) && sco_flag_console) {
         atexit(sco_mapon);
         sco_mapoff();
-        load_symset("IBMGraphics", PRIMARY);
+        load_symset("IBMGraphics", PRIMARYSET);
         load_symset("RogueIBM", ROGUESET);
         switch_symbols(TRUE);
-#ifdef TEXTCOLOR
         if (has_colors())
             iflags.use_color = TRUE;
-#endif
     }
 #endif
 }
@@ -413,33 +416,33 @@ init_sco_cons()
 
 int linux_flag_console = 0;
 
-void NDECL(linux_mapon);
-void NDECL(linux_mapoff);
-void NDECL(check_linux_console);
-void NDECL(init_linux_cons);
+void linux_mapon(void);
+void linux_mapoff(void);
+void check_linux_console(void);
+void init_linux_cons(void);
 
 void
-linux_mapon()
+linux_mapon(void)
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         write(1, "\033(B", 3);
     }
 #endif
 }
 
 void
-linux_mapoff()
+linux_mapoff(void)
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         write(1, "\033(U", 3);
     }
 #endif
 }
 
 void
-check_linux_console()
+check_linux_console(void)
 {
     struct vt_mode vtm;
 
@@ -449,37 +452,51 @@ check_linux_console()
 }
 
 void
-init_linux_cons()
+init_linux_cons(void)
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         atexit(linux_mapon);
         linux_mapoff();
-#ifdef TEXTCOLOR
         if (has_colors())
             iflags.use_color = TRUE;
-#endif
     }
 #endif
 }
 #endif /* __linux__ */
 
+DISABLE_WARNING_FORMAT_NONLITERAL
+
 #ifndef __begui__ /* the Be GUI will define its own error proc */
 /* fatal error */
-/*VARARGS1*/
-void error
-VA_DECL(const char *, s)
+void
+error(const char *s, ...)
 {
-    VA_START(s);
-    VA_INIT(s, const char *);
+    va_list the_args;
 
+    va_start(the_args, s);
     if (iflags.window_inited)
         exit_nhwindows((char *) 0); /* for tty, will call settty() */
     if (settty_needed)
         settty((char *) 0);
-    Vprintf(s, VA_ARGS);
+    Vprintf(s, the_args);
     (void) putchar('\n');
-    VA_END();
+    va_end(the_args);
     exit(EXIT_FAILURE);
 }
 #endif /* !__begui__ */
+
+RESTORE_WARNING_FORMAT_NONLITERAL
+
+#ifdef ENHANCED_SYMBOLS
+/*
+ * set in term_start_screen() and allows
+ * OS-specific changes that may be
+ * required for support of utf8.
+ */
+void
+tty_utf8graphics_fixup(void)
+{
+}
+#endif
+
