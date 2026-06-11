@@ -1,4 +1,4 @@
-/* NetHack 3.6	mkmap.c	$NHDT-Date: 1432512767 2015/05/25 00:12:47 $  $NHDT-Branch: master $:$NHDT-Revision: 1.16 $ */
+/* NetHack 5.0	mkmap.c	$NHDT-Date: 1717432093 2024/06/03 16:28:13 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.40 $ */
 /* Copyright (c) J. C. Collet, M. Stephenson and D. Cohrs, 1992   */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -8,77 +8,72 @@
 #define HEIGHT (ROWNO - 1)
 #define WIDTH (COLNO - 2)
 
-STATIC_DCL void FDECL(init_map, (SCHAR_P));
-STATIC_DCL void FDECL(init_fill, (SCHAR_P, SCHAR_P));
-STATIC_DCL schar FDECL(get_map, (int, int, SCHAR_P));
-STATIC_DCL void FDECL(pass_one, (SCHAR_P, SCHAR_P));
-STATIC_DCL void FDECL(pass_two, (SCHAR_P, SCHAR_P));
-STATIC_DCL void FDECL(pass_three, (SCHAR_P, SCHAR_P));
-STATIC_DCL void NDECL(wallify_map);
-STATIC_DCL void FDECL(join_map, (SCHAR_P, SCHAR_P));
-STATIC_DCL void FDECL(finish_map,
-                      (SCHAR_P, SCHAR_P, BOOLEAN_P, BOOLEAN_P, BOOLEAN_P));
-STATIC_DCL void FDECL(remove_room, (unsigned));
-void FDECL(mkmap, (lev_init *));
+staticfn void init_map(schar);
+staticfn void init_fill(schar, schar);
+staticfn schar get_map(coordxy, coordxy, schar);
+staticfn void pass_one(schar, schar);
+staticfn void pass_two(schar, schar);
+staticfn void pass_three(schar, schar);
+staticfn void join_map_cleanup(void);
+staticfn void join_map(schar, schar);
+staticfn void finish_map(schar, schar, boolean, boolean, boolean);
+staticfn void remove_room(unsigned);
+void mkmap(lev_init *);
 
-static char *new_locations;
-int min_rx, max_rx, min_ry, max_ry; /* rectangle bounds for regions */
-static int n_loc_filled;
-
-STATIC_OVL void
-init_map(bg_typ)
-schar bg_typ;
+staticfn void
+init_map(schar bg_typ)
 {
-    register int i, j;
+    coordxy x, y;
 
-    for (i = 1; i < COLNO; i++)
-        for (j = 0; j < ROWNO; j++)
-            levl[i][j].typ = bg_typ;
+    for (x = 1; x < COLNO; x++)
+        for (y = 0; y < ROWNO; y++) {
+            levl[x][y].roomno = NO_ROOM;
+            levl[x][y].typ = bg_typ;
+            levl[x][y].lit = FALSE;
+        }
 }
 
-STATIC_OVL void
-init_fill(bg_typ, fg_typ)
-schar bg_typ, fg_typ;
+staticfn void
+init_fill(schar bg_typ, schar fg_typ)
 {
-    register int i, j;
+    coordxy x, y;
     long limit, count;
 
     limit = (WIDTH * HEIGHT * 2) / 5;
     count = 0;
     while (count < limit) {
-        i = rn1(WIDTH - 1, 2);
-        j = rnd(HEIGHT - 1);
-        if (levl[i][j].typ == bg_typ) {
-            levl[i][j].typ = fg_typ;
+        x = (coordxy) rn1(WIDTH - 1, 2);
+        y = (coordxy) rnd(HEIGHT - 1);
+        if (levl[x][y].typ == bg_typ) {
+            levl[x][y].typ = fg_typ;
             count++;
         }
     }
 }
 
-STATIC_OVL schar
-get_map(col, row, bg_typ)
-int col, row;
-schar bg_typ;
+staticfn schar
+get_map(coordxy col, coordxy row, schar bg_typ)
 {
     if (col <= 0 || row < 0 || col > WIDTH || row >= HEIGHT)
         return bg_typ;
     return levl[col][row].typ;
 }
 
-static int dirs[16] = { -1, -1 /**/, -1, 0 /**/,  -1, 1 /**/, 0, -1 /**/,
-                        0,  1 /**/,  1,  -1 /**/, 1,  0 /**/, 1, 1 };
+staticfn const int dirs[16] = {
+    -1, -1 /**/, -1,  0 /**/, -1, 1 /**/, 0, -1 /**/,
+     0,  1 /**/,  1, -1 /**/,  1, 0 /**/, 1,  1
+};
 
-STATIC_OVL void
-pass_one(bg_typ, fg_typ)
-schar bg_typ, fg_typ;
+staticfn void
+pass_one(schar bg_typ, schar fg_typ)
 {
-    register int i, j;
+    coordxy x, y;
     short count, dr;
 
-    for (i = 2; i <= WIDTH; i++)
-        for (j = 1; j < HEIGHT; j++) {
+    for (x = 2; x <= WIDTH; x++)
+        for (y = 1; y < HEIGHT; y++) {
             for (count = 0, dr = 0; dr < 8; dr++)
-                if (get_map(i + dirs[dr * 2], j + dirs[(dr * 2) + 1], bg_typ)
+                if (get_map(x + dirs[dr * 2], y + dirs[(dr * 2) + 1], bg_typ)
                     == fg_typ)
                     count++;
 
@@ -86,13 +81,13 @@ schar bg_typ, fg_typ;
             case 0: /* death */
             case 1:
             case 2:
-                levl[i][j].typ = bg_typ;
+                levl[x][y].typ = bg_typ;
                 break;
             case 5:
             case 6:
             case 7:
             case 8:
-                levl[i][j].typ = fg_typ;
+                levl[x][y].typ = fg_typ;
                 break;
             default:
                 break;
@@ -100,54 +95,52 @@ schar bg_typ, fg_typ;
         }
 }
 
-#define new_loc(i, j) *(new_locations + ((j) * (WIDTH + 1)) + (i))
+#define new_loc(i, j) *(gn.new_locations + ((j) * (WIDTH + 1)) + (i))
 
-STATIC_OVL void
-pass_two(bg_typ, fg_typ)
-schar bg_typ, fg_typ;
+staticfn void
+pass_two(schar bg_typ, schar fg_typ)
 {
-    register int i, j;
+    coordxy x, y;
     short count, dr;
 
-    for (i = 2; i <= WIDTH; i++)
-        for (j = 1; j < HEIGHT; j++) {
+    for (x = 2; x <= WIDTH; x++)
+        for (y = 1; y < HEIGHT; y++) {
             for (count = 0, dr = 0; dr < 8; dr++)
-                if (get_map(i + dirs[dr * 2], j + dirs[(dr * 2) + 1], bg_typ)
+                if (get_map(x + dirs[dr * 2], y + dirs[(dr * 2) + 1], bg_typ)
                     == fg_typ)
                     count++;
             if (count == 5)
-                new_loc(i, j) = bg_typ;
+                new_loc(x, y) = bg_typ;
             else
-                new_loc(i, j) = get_map(i, j, bg_typ);
+                new_loc(x, y) = get_map(x, y, bg_typ);
         }
 
-    for (i = 2; i <= WIDTH; i++)
-        for (j = 1; j < HEIGHT; j++)
-            levl[i][j].typ = new_loc(i, j);
+    for (x = 2; x <= WIDTH; x++)
+        for (y = 1; y < HEIGHT; y++)
+            levl[x][y].typ = new_loc(x, y);
 }
 
-STATIC_OVL void
-pass_three(bg_typ, fg_typ)
-schar bg_typ, fg_typ;
+staticfn void
+pass_three(schar bg_typ, schar fg_typ)
 {
-    register int i, j;
+    coordxy x, y;
     short count, dr;
 
-    for (i = 2; i <= WIDTH; i++)
-        for (j = 1; j < HEIGHT; j++) {
+    for (x = 2; x <= WIDTH; x++)
+        for (y = 1; y < HEIGHT; y++) {
             for (count = 0, dr = 0; dr < 8; dr++)
-                if (get_map(i + dirs[dr * 2], j + dirs[(dr * 2) + 1], bg_typ)
+                if (get_map(x + dirs[dr * 2], y + dirs[(dr * 2) + 1], bg_typ)
                     == fg_typ)
                     count++;
             if (count < 3)
-                new_loc(i, j) = bg_typ;
+                new_loc(x, y) = bg_typ;
             else
-                new_loc(i, j) = get_map(i, j, bg_typ);
+                new_loc(x, y) = get_map(x, y, bg_typ);
         }
 
-    for (i = 2; i <= WIDTH; i++)
-        for (j = 1; j < HEIGHT; j++)
-            levl[i][j].typ = new_loc(i, j);
+    for (x = 2; x <= WIDTH; x++)
+        for (y = 1; y < HEIGHT; y++)
+            levl[x][y].typ = new_loc(x, y);
 }
 
 /*
@@ -157,15 +150,14 @@ schar bg_typ, fg_typ;
  * exactly matching levl[sx][sy].typ and walls are included as well.
  */
 void
-flood_fill_rm(sx, sy, rmno, lit, anyroom)
-int sx;
-register int sy;
-register int rmno;
-boolean lit;
-boolean anyroom;
+flood_fill_rm(
+    coordxy sx,
+    coordxy sy,
+    int rmno,
+    boolean lit,
+    boolean anyroom)
 {
-    register int i;
-    int nx;
+    coordxy i, nx;
     schar fg_typ = levl[sx][sy].typ;
 
     /* back up to find leftmost uninitialized location */
@@ -176,17 +168,17 @@ boolean anyroom;
     sx++; /* compensate for extra decrement */
 
     /* assume sx,sy is valid */
-    if (sx < min_rx)
-        min_rx = sx;
-    if (sy < min_ry)
-        min_ry = sy;
+    if (sx < gm.min_rx)
+        gm.min_rx = sx;
+    if (sy < gm.min_ry)
+        gm.min_ry = sy;
 
     for (i = sx; i <= WIDTH && levl[i][sy].typ == fg_typ; i++) {
         levl[i][sy].roomno = rmno;
         levl[i][sy].lit = lit;
         if (anyroom) {
             /* add walls to room as well */
-            register int ii, jj;
+            coordxy ii, jj;
             for (ii = (i == sx ? i - 1 : i); ii <= i + 1; ii++)
                 for (jj = sy - 1; jj <= sy + 1; jj++)
                     if (isok(ii, jj) && (IS_WALL(levl[ii][jj].typ)
@@ -195,11 +187,14 @@ boolean anyroom;
                         levl[ii][jj].edge = 1;
                         if (lit)
                             levl[ii][jj].lit = lit;
-                        if ((int) levl[ii][jj].roomno != rmno)
+
+                        if (levl[ii][jj].roomno == NO_ROOM)
+                            levl[ii][jj].roomno = rmno;
+                        else if ((int) levl[ii][jj].roomno != rmno)
                             levl[ii][jj].roomno = SHARED;
                     }
         }
-        n_loc_filled++;
+        gn.n_loc_filled++;
     }
     nx = i;
 
@@ -240,69 +235,57 @@ boolean anyroom;
             }
     }
 
-    if (nx > max_rx)
-        max_rx = nx - 1; /* nx is just past valid region */
-    if (sy > max_ry)
-        max_ry = sy;
+    if (nx > gm.max_rx)
+        gm.max_rx = nx - 1; /* nx is just past valid region */
+    if (sy > gm.max_ry)
+        gm.max_ry = sy;
 }
 
-/*
- * If we have drawn a map without walls, this allows us to
- * auto-magically wallify it.  Taken from lev_main.c.
- */
-STATIC_OVL void
-wallify_map()
+/* join_map uses temporary rooms; clean up after it */
+staticfn void
+join_map_cleanup(void)
 {
-    int x, y, xx, yy;
+    coordxy x, y;
 
     for (x = 1; x < COLNO; x++)
         for (y = 0; y < ROWNO; y++)
-            if (levl[x][y].typ == STONE) {
-                for (yy = y - 1; yy <= y + 1; yy++)
-                    for (xx = x - 1; xx <= x + 1; xx++)
-                        if (isok(xx, yy) && levl[xx][yy].typ == ROOM) {
-                            if (yy != y)
-                                levl[x][y].typ = HWALL;
-                            else
-                                levl[x][y].typ = VWALL;
-                        }
-            }
+            levl[x][y].roomno = NO_ROOM;
+    svn.nroom = gn.nsubroom = 0;
+    svr.rooms[svn.nroom].hx = gs.subrooms[gn.nsubroom].hx = -1;
 }
 
-STATIC_OVL void
-join_map(bg_typ, fg_typ)
-schar bg_typ, fg_typ;
+staticfn void
+join_map(schar bg_typ, schar fg_typ)
 {
-    register struct mkroom *croom, *croom2;
+    struct mkroom *croom, *croom2;
 
-    register int i, j;
-    int sx, sy;
+    coordxy x, y, sx, sy;
     coord sm, em;
 
     /* first, use flood filling to find all of the regions that need joining
      */
-    for (i = 2; i <= WIDTH; i++)
-        for (j = 1; j < HEIGHT; j++) {
-            if (levl[i][j].typ == fg_typ && levl[i][j].roomno == NO_ROOM) {
-                min_rx = max_rx = i;
-                min_ry = max_ry = j;
-                n_loc_filled = 0;
-                flood_fill_rm(i, j, nroom + ROOMOFFSET, FALSE, FALSE);
-                if (n_loc_filled > 3) {
-                    add_room(min_rx, min_ry, max_rx, max_ry, FALSE, OROOM,
-                             TRUE);
-                    rooms[nroom - 1].irregular = TRUE;
-                    if (nroom >= (MAXNROFROOMS * 2))
+    for (x = 2; x <= WIDTH; x++)
+        for (y = 1; y < HEIGHT; y++) {
+            if (levl[x][y].typ == fg_typ && levl[x][y].roomno == NO_ROOM) {
+                gm.min_rx = gm.max_rx = x;
+                gm.min_ry = gm.max_ry = y;
+                gn.n_loc_filled = 0;
+                flood_fill_rm(x, y, svn.nroom + ROOMOFFSET, FALSE, FALSE);
+                if (gn.n_loc_filled > 3) {
+                    add_room(gm.min_rx, gm.min_ry, gm.max_rx, gm.max_ry,
+                             FALSE, OROOM, TRUE);
+                    svr.rooms[svn.nroom - 1].irregular = TRUE;
+                    if (svn.nroom >= (MAXNROFROOMS * 2))
                         goto joinm;
                 } else {
                     /*
                      * it's a tiny hole; erase it from the map to avoid
                      * having the player end up here with no way out.
                      */
-                    for (sx = min_rx; sx <= max_rx; sx++)
-                        for (sy = min_ry; sy <= max_ry; sy++)
+                    for (sx = gm.min_rx; sx <= gm.max_rx; sx++)
+                        for (sy = gm.min_ry; sy <= gm.max_ry; sy++)
                             if ((int) levl[sx][sy].roomno
-                                == nroom + ROOMOFFSET) {
+                                == svn.nroom + ROOMOFFSET) {
                                 levl[sx][sy].typ = bg_typ;
                                 levl[sx][sy].roomno = NO_ROOM;
                             }
@@ -310,14 +293,15 @@ schar bg_typ, fg_typ;
             }
         }
 
-joinm:
+ joinm:
     /*
      * Ok, now we can actually join the regions with fg_typ's.
      * The rooms are already sorted due to the previous loop,
      * so don't call sort_rooms(), which can screw up the roomno's
      * validity in the levl structure.
      */
-    for (croom = &rooms[0], croom2 = croom + 1; croom2 < &rooms[nroom];) {
+    for (croom = &svr.rooms[0], croom2 = croom + 1;
+         croom2 < &svr.rooms[svn.nroom]; ) {
         /* pick random starting and end locations for "corridor" */
         if (!somexy(croom, &sm) || !somexy(croom2, &em)) {
             /* ack! -- the level is going to be busted */
@@ -329,7 +313,7 @@ joinm:
             em.y = croom2->ly + ((croom2->hy - croom2->ly) / 2);
         }
 
-        (void) dig_corridor(&sm, &em, FALSE, fg_typ, bg_typ);
+        (void) dig_corridor(&sm, &em, NULL, FALSE, fg_typ, bg_typ);
 
         /* choose next region to join */
         /* only increment croom if croom and croom2 are non-overlapping */
@@ -340,41 +324,49 @@ joinm:
         }
         croom2++; /* always increment the next room */
     }
+    join_map_cleanup();
 }
 
-STATIC_OVL void
-finish_map(fg_typ, bg_typ, lit, walled, icedpools)
-schar fg_typ, bg_typ;
-boolean lit, walled, icedpools;
+staticfn void
+finish_map(
+    schar fg_typ,
+    schar bg_typ,
+    boolean lit,
+    boolean walled,
+    boolean icedpools)
 {
-    int i, j;
+    coordxy x, y;
 
     if (walled)
-        wallify_map();
+        wallify_map(1, 0, COLNO-1, ROWNO-1);
 
     if (lit) {
-        for (i = 1; i < COLNO; i++)
-            for (j = 0; j < ROWNO; j++)
-                if ((!IS_ROCK(fg_typ) && levl[i][j].typ == fg_typ)
-                    || (!IS_ROCK(bg_typ) && levl[i][j].typ == bg_typ)
-                    || (bg_typ == TREE && levl[i][j].typ == bg_typ)
-                    || (walled && IS_WALL(levl[i][j].typ)))
-                    levl[i][j].lit = TRUE;
-        for (i = 0; i < nroom; i++)
-            rooms[i].rlit = 1;
+        for (x = 1; x < COLNO; x++)
+            for (y = 0; y < ROWNO; y++)
+                if ((!IS_OBSTRUCTED(fg_typ) && levl[x][y].typ == fg_typ)
+                    || (!IS_OBSTRUCTED(bg_typ) && levl[x][y].typ == bg_typ)
+                    || (bg_typ == TREE && levl[x][y].typ == bg_typ)
+                    || (walled && IS_WALL(levl[x][y].typ)))
+                    levl[x][y].lit = TRUE;
+        for (x = 0; x < svn.nroom; x++)
+            svr.rooms[x].rlit = 1;
     }
     /* light lava even if everything's otherwise unlit;
        ice might be frozen pool rather than frozen moat */
-    for (i = 1; i < COLNO; i++)
-        for (j = 0; j < ROWNO; j++) {
-            if (levl[i][j].typ == LAVAPOOL)
-                levl[i][j].lit = TRUE;
-            else if (levl[i][j].typ == ICE)
-                levl[i][j].icedpool = icedpools ? ICED_POOL : ICED_MOAT;
+    for (x = 1; x < COLNO; x++)
+        for (y = 0; y < ROWNO; y++) {
+            if (levl[x][y].typ == LAVAPOOL)
+                levl[x][y].lit = TRUE;
+            else if (levl[x][y].typ == ICE)
+                levl[x][y].icedpool = icedpools ? ICED_POOL : ICED_MOAT;
         }
 }
 
 /*
+ * TODO: If we really want to remove rooms after a map is plopped down
+ * in a special level, this needs to be rewritten - the maps may have
+ * holes in them ("x" mapchar), leaving parts of rooms still on the map.
+ *
  * When level processed by join_map is overlaid by a MAP, some rooms may no
  * longer be valid.  All rooms in the region lx <= x < hx, ly <= y < hy are
  * removed.  Rooms partially in the region are truncated.  This function
@@ -384,14 +376,13 @@ boolean lit, walled, icedpools;
  * region are all set.
  */
 void
-remove_rooms(lx, ly, hx, hy)
-int lx, ly, hx, hy;
+remove_rooms(coordxy lx, coordxy ly, coordxy hx, coordxy hy)
 {
     int i;
     struct mkroom *croom;
 
-    for (i = nroom - 1; i >= 0; --i) {
-        croom = &rooms[i];
+    for (i = svn.nroom - 1; i >= 0; --i) {
+        croom = &svr.rooms[i];
         if (croom->hx < lx || croom->lx >= hx || croom->hy < ly
             || croom->ly >= hy)
             continue; /* no overlap */
@@ -410,34 +401,34 @@ int lx, ly, hx, hy;
 }
 
 /*
- * Remove roomno from the rooms array, decrementing nroom.  Also updates
- * all level roomno values of affected higher numbered rooms.  Assumes
- * level structure contents corresponding to roomno have already been reset.
+ * Remove roomno from the rooms array, decrementing nroom.
+ * The last room is swapped with the being-removed room and locations
+ * within it have their roomno field updated.  Other rooms are unaffected.
+ * Assumes level structure contents corresponding to roomno have already
+ * been reset.
  * Currently handles only the removal of rooms that have no subrooms.
  */
-STATIC_OVL void
-remove_room(roomno)
-unsigned roomno;
+staticfn void
+remove_room(unsigned int roomno)
 {
-    struct mkroom *croom = &rooms[roomno];
-    struct mkroom *maxroom = &rooms[--nroom];
-    int i, j;
+    struct mkroom *croom = &svr.rooms[roomno];
+    struct mkroom *maxroom = &svr.rooms[--svn.nroom];
+    coordxy x, y;
     unsigned oroomno;
 
     if (croom != maxroom) {
         /* since the order in the array only matters for making corridors,
          * copy the last room over the one being removed on the assumption
          * that corridors have already been dug. */
-        (void) memcpy((genericptr_t) croom, (genericptr_t) maxroom,
-                      sizeof(struct mkroom));
+        *croom = *maxroom;
 
         /* since maxroom moved, update affected level roomno values */
-        oroomno = nroom + ROOMOFFSET;
+        oroomno = svn.nroom + ROOMOFFSET;
         roomno += ROOMOFFSET;
-        for (i = croom->lx; i <= croom->hx; ++i)
-            for (j = croom->ly; j <= croom->hy; ++j) {
-                if (levl[i][j].roomno == oroomno)
-                    levl[i][j].roomno = roomno;
+        for (x = croom->lx; x <= croom->hx; ++x)
+            for (y = croom->ly; y <= croom->hy; ++y) {
+                if (levl[x][y].roomno == oroomno)
+                    levl[x][y].roomno = roomno;
             }
     }
 
@@ -448,19 +439,25 @@ unsigned roomno;
 #define N_P2_ITER 1 /* tune map generation via this value */
 #define N_P3_ITER 2 /* tune map smoothing via this value */
 
+boolean
+litstate_rnd(int litstate)
+{
+    if (litstate < 0)
+        return (rnd(1 + abs(depth(&u.uz))) < 11 && rn2(77)) ? TRUE : FALSE;
+    return (boolean) litstate;
+}
+
 void
-mkmap(init_lev)
-lev_init *init_lev;
+mkmap(lev_init *init_lev)
 {
     schar bg_typ = init_lev->bg, fg_typ = init_lev->fg;
     boolean smooth = init_lev->smoothed, join = init_lev->joined;
-    xchar lit = init_lev->lit, walled = init_lev->walled;
+    xint16 lit = init_lev->lit, walled = init_lev->walled;
     int i;
 
-    if (lit < 0)
-        lit = (rnd(1 + abs(depth(&u.uz))) < 11 && rn2(77)) ? 1 : 0;
+    lit = litstate_rnd(lit);
 
-    new_locations = (char *) alloc((WIDTH + 1) * HEIGHT);
+    gn.new_locations = (char *) alloc((WIDTH + 1) * HEIGHT);
 
     init_map(bg_typ);
     init_fill(bg_typ, fg_typ);
@@ -482,10 +479,10 @@ lev_init *init_lev;
                init_lev->icedpools);
     /* a walled, joined level is cavernous, not mazelike -dlc */
     if (walled && join) {
-        level.flags.is_maze_lev = FALSE;
-        level.flags.is_cavernous_lev = TRUE;
+        svl.level.flags.is_maze_lev = FALSE;
+        svl.level.flags.is_cavernous_lev = TRUE;
     }
-    free(new_locations);
+    free(gn.new_locations);
 }
 
 /*mkmap.c*/

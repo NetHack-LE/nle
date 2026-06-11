@@ -4,32 +4,32 @@
 #include <string.h>
 #include <time.h>
 
-/* See rng.c. */
+/* Must match rnglist_t in rnd.c. */
 struct rnglist_t {
-    int FDECL((*fn), (int) );
+    int (*fn)(int);
     boolean init;
     isaac64_ctx rng_state;
 };
 extern struct rnglist_t rnglist[];
-extern int FDECL(whichrng, (int FDECL((*fn), (int) )));
+extern int whichrng(int (*fn)(int));
 
-/* See hacklib.c. */
-extern int FDECL(set_random, (unsigned long, int FDECL((*fn), (int) )));
+/* See rnd.c. */
+extern int set_random(unsigned long, int (*fn)(int));
 
 /* An appropriate version of this must always be provided in
    port-specific code somewhere. It returns a number suitable
    as seed for the random number generator */
-extern unsigned long NDECL(sys_random_seed);
+extern unsigned long sys_random_seed(void);
 
 /* NLE settings contains the initial RNG seeds */
 extern nle_settings settings;
 
 /*
  * Initializes the random number generator.
- * Originally in hacklib.c.
+ * Originally in rnd.c.
  */
 void
-init_random(int FDECL((*fn), (int) ))
+init_random(int (*fn)(int))
 {
     if (settings.initial_seeds.use_init_seeds) {
         set_random(settings.initial_seeds.seeds[whichrng(fn)], fn);

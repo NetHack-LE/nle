@@ -1,38 +1,55 @@
-/* NetHack 3.6	rect.c	$NHDT-Date: 1432512774 2015/05/25 00:12:54 $  $NHDT-Branch: master $:$NHDT-Revision: 1.11 $ */
+/* NetHack 5.0	rect.c	$NHDT-Date: 1596498203 2020/08/03 23:43:23 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.14 $ */
 /* Copyright (c) 1990 by Jean-Christophe Collet                   */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "hack.h"
 
-int FDECL(get_rect_ind, (NhRect *));
+int get_rect_ind(NhRect *);
 
-STATIC_DCL boolean FDECL(intersect, (NhRect *, NhRect *, NhRect *));
+staticfn boolean intersect(NhRect *, NhRect *, NhRect *);
 
 /*
  * In this file, we will handle the various rectangle functions we
  * need for room generation.
  */
 
-#define MAXRECT 50
 #define XLIM 4
 #define YLIM 3
 
-static NhRect rect[MAXRECT + 1];
+static NhRect *rect = (NhRect *) 0;
+static int n_rects = 0;
 static int rect_cnt;
 
 /*
- * Initialisation of internal structures. Should be called for every
+ * Initialization of internal structures. Should be called for every
  * new level to be build...
  */
 
 void
-init_rect()
+init_rect(void)
 {
+    if (!rect) {
+        n_rects = (COLNO * ROWNO) / 30;
+        rect = (NhRect *) alloc(sizeof(NhRect) * n_rects);
+        if (!rect)
+            panic("Could not alloc rect");
+    }
+
     rect_cnt = 1;
     rect[0].lx = rect[0].ly = 0;
     rect[0].hx = COLNO - 1;
     rect[0].hy = ROWNO - 1;
 }
+
+void
+free_rect(void)
+{
+    if (rect)
+        free(rect);
+    rect = 0;
+    n_rects = rect_cnt = 0;
+}
+
 
 /*
  * Search Index of one precise NhRect.
@@ -40,12 +57,11 @@ init_rect()
  */
 
 int
-get_rect_ind(r)
-NhRect *r;
+get_rect_ind(NhRect *r)
 {
-    register NhRect *rectp;
-    register int lx, ly, hx, hy;
-    register int i;
+    NhRect *rectp;
+    int lx, ly, hx, hy;
+    int i;
 
     lx = r->lx;
     ly = r->ly;
@@ -63,12 +79,11 @@ NhRect *r;
  */
 
 NhRect *
-get_rect(r)
-NhRect *r;
+get_rect(NhRect *r)
 {
-    register NhRect *rectp;
-    register int lx, ly, hx, hy;
-    register int i;
+    NhRect *rectp;
+    int lx, ly, hx, hy;
+    int i;
 
     lx = r->lx;
     ly = r->ly;
@@ -86,7 +101,7 @@ NhRect *r;
  */
 
 NhRect *
-rnd_rect()
+rnd_rect(void)
 {
     return rect_cnt > 0 ? &rect[rn2(rect_cnt)] : 0;
 }
@@ -97,9 +112,8 @@ rnd_rect()
  * otherwise returns FALSE
  */
 
-STATIC_OVL boolean
-intersect(r1, r2, r3)
-NhRect *r1, *r2, *r3;
+staticfn boolean
+intersect(NhRect *r1, NhRect *r2, NhRect *r3)
 {
     if (r2->lx > r1->hx || r2->ly > r1->hy || r2->hx < r1->lx
         || r2->hy < r1->ly)
@@ -115,13 +129,22 @@ NhRect *r1, *r2, *r3;
     return TRUE;
 }
 
+/* Put the rectangle containing both r1 and r2 into r3 */
+void
+rect_bounds(NhRect r1, NhRect r2, NhRect *r3)
+{
+    r3->lx = min(r1.lx, r2.lx);
+    r3->ly = min(r1.ly, r2.ly);
+    r3->hx = max(r1.hx, r2.hx);
+    r3->hy = max(r1.hy, r2.hy);
+}
+
 /*
  * Remove a rectangle from the list of free NhRect.
  */
 
 void
-remove_rect(r)
-NhRect *r;
+remove_rect(NhRect *r)
 {
     int ind;
 
@@ -135,12 +158,10 @@ NhRect *r;
  */
 
 void
-add_rect(r)
-NhRect *r;
+add_rect(NhRect *r)
 {
-    if (rect_cnt >= MAXRECT) {
-        if (wizard)
-            pline("MAXRECT may be too small.");
+    if (rect_cnt >= n_rects) {
+        impossible("n_rects may be too small.");
         return;
     }
     /* Check that this NhRect is not included in another one */
@@ -158,8 +179,7 @@ NhRect *r;
  */
 
 void
-split_rects(r1, r2)
-NhRect *r1, *r2;
+split_rects(NhRect *r1, NhRect *r2)
 {
     NhRect r, old_r;
     int i;

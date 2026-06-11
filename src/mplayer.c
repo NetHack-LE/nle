@@ -1,12 +1,12 @@
-/* NetHack 3.6	mplayer.c	$NHDT-Date: 1550524564 2019/02/18 21:16:04 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.26 $ */
+/* NetHack 5.0	mplayer.c	$NHDT-Date: 1596498188 2020/08/03 23:43:08 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.30 $ */
 /*      Copyright (c) Izchak Miller, 1992.                        */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "hack.h"
 
-STATIC_DCL const char *NDECL(dev_name);
-STATIC_DCL void FDECL(get_mplname, (struct monst *, char *));
-STATIC_DCL void FDECL(mk_mplayer_armor, (struct monst *, SHORT_P));
+staticfn const char *dev_name(void);
+staticfn void get_mplname(struct monst *, char *);
+staticfn void mk_mplayer_armor(struct monst *, short);
 
 /* These are the names of those who
  * contributed to the development of NetHack 3.2/3.3/3.4/3.6.
@@ -14,7 +14,7 @@ STATIC_DCL void FDECL(mk_mplayer_armor, (struct monst *, SHORT_P));
  * Keep in alphabetical order within teams.
  * Same first name is entered once within each team.
  */
-static const char *developers[] = {
+static const char *const developers[] = {
     /* devteam */
     "Alex",    "Dave",   "Dean",    "Derek",   "Eric",    "Izchak",
     "Janet",   "Jessie", "Ken",     "Kevin",   "Michael", "Mike",
@@ -40,12 +40,12 @@ static const char *developers[] = {
 };
 
 /* return a randomly chosen developer name */
-STATIC_OVL const char *
-dev_name()
+staticfn const char *
+dev_name(void)
 {
-    register int i, m = 0, n = SIZE(developers);
-    register struct monst *mtmp;
-    register boolean match;
+    int i, m = 0, n = SIZE(developers);
+    struct monst *mtmp;
+    boolean match;
 
     do {
         match = FALSE;
@@ -53,7 +53,8 @@ dev_name()
         for (mtmp = fmon; mtmp; mtmp = mtmp->nmon) {
             if (!is_mplayer(mtmp->data))
                 continue;
-            if (!strncmp(developers[i], (has_mname(mtmp)) ? MNAME(mtmp) : "",
+            if (!strncmp(developers[i],
+                         (has_mgivenname(mtmp)) ? MGIVENNAME(mtmp) : "",
                          strlen(developers[i]))) {
                 match = TRUE;
                 break;
@@ -67,10 +68,8 @@ dev_name()
     return (developers[i]);
 }
 
-STATIC_OVL void
-get_mplname(mtmp, nam)
-register struct monst *mtmp;
-char *nam;
+staticfn void
+get_mplname(struct monst *mtmp, char *nam)
 {
     boolean fmlkind = is_female(mtmp->data);
     const char *devnam;
@@ -92,16 +91,15 @@ char *nam;
                         (boolean) mtmp->female));
 }
 
-STATIC_OVL void
-mk_mplayer_armor(mon, typ)
-struct monst *mon;
-short typ;
+staticfn void
+mk_mplayer_armor(struct monst *mon, short typ)
 {
     struct obj *obj;
 
     if (typ == STRANGE_OBJECT)
         return;
     obj = mksobj(typ, FALSE, FALSE);
+    obj->oeroded = obj->oeroded2 = 0;
     if (!rn2(3))
         obj->oerodeproof = 1;
     if (!rn2(3))
@@ -117,24 +115,21 @@ short typ;
 }
 
 struct monst *
-mk_mplayer(ptr, x, y, special)
-register struct permonst *ptr;
-xchar x, y;
-register boolean special;
+mk_mplayer(struct permonst *ptr, coordxy x, coordxy y, boolean special)
 {
-    register struct monst *mtmp;
+    struct monst *mtmp;
     char nam[PL_NSIZ];
 
     if (!is_mplayer(ptr))
         return ((struct monst *) 0);
 
     if (MON_AT(x, y))
-        (void) rloc(m_at(x, y), FALSE); /* insurance */
+        (void) rloc(m_at(x, y), RLOC_ERR|RLOC_NOMSG); /* insurance */
 
     if (!In_endgame(&u.uz))
         special = FALSE;
 
-    if ((mtmp = makemon(ptr, x, y, NO_MM_FLAGS)) != 0) {
+    if ((mtmp = makemon(ptr, x, y, special ? MM_NOMSG : NO_MM_FLAGS)) != 0) {
         short weapon, armor, cloak, helm, shield;
         int quan;
         struct obj *otmp;
@@ -176,8 +171,7 @@ register boolean special;
             if (helm == HELM_OF_BRILLIANCE)
                 helm = STRANGE_OBJECT;
             break;
-        case PM_CAVEMAN:
-        case PM_CAVEWOMAN:
+        case PM_CAVE_DWELLER:
             if (rn2(4))
                 weapon = MACE;
             else if (rn2(2))
@@ -208,8 +202,7 @@ register boolean special;
             if (rn2(2))
                 shield = STRANGE_OBJECT;
             break;
-        case PM_PRIEST:
-        case PM_PRIESTESS:
+        case PM_CLERIC:
             if (rn2(2))
                 weapon = MACE;
             if (rn2(2))
@@ -262,19 +255,22 @@ register boolean special;
 
         if (weapon != STRANGE_OBJECT) {
             otmp = mksobj(weapon, TRUE, FALSE);
+            otmp->oeroded = otmp->oeroded2 = 0;
             otmp->spe = (special ? rn1(5, 4) : rn2(4));
             if (!rn2(3))
                 otmp->oerodeproof = 1;
             else if (!rn2(2))
                 otmp->greased = 1;
+            /* mk_artifact() with otmp and A_NONE will never return NULL */
             if (special && rn2(2))
-                otmp = mk_artifact(otmp, A_NONE);
+                otmp = mk_artifact(otmp, A_NONE, 99, FALSE);
             /* usually increase stack size if stackable weapon */
             if (objects[otmp->otyp].oc_merge && !otmp->oartifact
                 && monmightthrowwep(otmp))
                 otmp->quan += (long) rn2(is_spear(otmp) ? 4 : 8);
+            otmp->owt = weight(otmp);
             /* mplayers knew better than to overenchant Magicbane */
-            if (otmp->oartifact == ART_MAGICBANE)
+            if (is_art(otmp, ART_MAGICBANE))
                 otmp->spe = rnd(4);
             (void) mpickobj(mtmp, otmp);
         }
@@ -328,14 +324,12 @@ register boolean special;
  * fill up the overflow.
  */
 void
-create_mplayers(num, special)
-register int num;
-boolean special;
+create_mplayers(int num, boolean special)
 {
     int pm, x, y;
     struct monst fakemon;
 
-    fakemon = zeromonst;
+    fakemon = cg.zeromonst;
     while (num) {
         int tryct = 0;
 
@@ -353,14 +347,13 @@ boolean special;
         if (tryct > 50)
             return;
 
-        (void) mk_mplayer(&mons[pm], (xchar) x, (xchar) y, special);
+        (void) mk_mplayer(&mons[pm], (coordxy) x, (coordxy) y, special);
         num--;
     }
 }
 
 void
-mplayer_talk(mtmp)
-register struct monst *mtmp;
+mplayer_talk(struct monst *mtmp)
 {
     static const char
         *same_class_msg[3] = {
@@ -377,10 +370,10 @@ register struct monst *mtmp;
     if (mtmp->mpeaceful)
         return; /* will drop to humanoid talk */
 
-    pline("Talk? -- %s", (mtmp->data == &mons[urole.malenum]
-                          || mtmp->data == &mons[urole.femalenum])
-                             ? same_class_msg[rn2(3)]
-                             : other_class_msg[rn2(3)]);
+    SetVoice(mtmp, 0, 80, 0);
+    verbalize("Talk? -- %s", mtmp->data == &mons[gu.urole.mnum]
+                                ? same_class_msg[rn2(3)]
+                                : other_class_msg[rn2(3)]);
 }
 
 /*mplayer.c*/

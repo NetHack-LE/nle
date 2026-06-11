@@ -1,4 +1,4 @@
-/* NetHack 3.6	ball.c	$NHDT-Date: 1573940835 2019/11/16 21:47:15 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.44 $ */
+/* NetHack 5.0	ball.c	$NHDT-Date: 1596498150 2020/08/03 23:42:30 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.51 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) David Cohrs, 2006. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -8,11 +8,11 @@
 
 #include "hack.h"
 
-STATIC_DCL int NDECL(bc_order);
-STATIC_DCL void NDECL(litter);
-STATIC_OVL void NDECL(placebc_core);
-STATIC_OVL void NDECL(unplacebc_core);
-STATIC_DCL boolean FDECL(check_restriction, (int));
+staticfn int bc_order(void);
+staticfn void litter(void);
+staticfn void placebc_core(void);
+staticfn void unplacebc_core(void);
+staticfn boolean check_restriction(int);
 
 static int bcrestriction = 0;
 #ifdef BREADCRUMBS
@@ -20,10 +20,9 @@ static struct breadcrumbs bcpbreadcrumbs = {0}, bcubreadcrumbs = {0};
 #endif
 
 void
-ballrelease(showmsg)
-boolean showmsg;
+ballrelease(boolean showmsg)
 {
-    if (carried(uball)) {
+    if (carried(uball) && !welded(uball)) {
         if (showmsg)
             pline("Startled, you drop the iron ball.");
         if (uwep == uball)
@@ -41,9 +40,12 @@ boolean showmsg;
 
 /* ball&chain might hit hero when falling through a trap door */
 void
-ballfall()
+ballfall(void)
 {
     boolean gets_hit;
+
+    if (!uball || (uball && carried(uball) && welded(uball)))
+        return;
 
     gets_hit = (((uball->ox != u.ux) || (uball->oy != u.uy))
                 && ((uwep == uball) ? FALSE : (boolean) rn2(5)));
@@ -53,7 +55,7 @@ ballfall()
 
         pline_The("iron ball falls on your %s.", body_part(HEAD));
         if (uarmh) {
-            if (is_metallic(uarmh)) {
+            if (hard_helmet(uarmh)) {
                 pline("Fortunately, you are wearing a hard helmet.");
                 dmg = 3;
             } else if (flags.verbose)
@@ -114,8 +116,8 @@ ballfall()
  *
  *  Should not be called while swallowed except on waterlevel.
  */
-STATIC_OVL void
-placebc_core()
+staticfn void
+placebc_core(void)
 {
     if (!uchain || !uball) {
         impossible("Where are your ball and chain?");
@@ -141,8 +143,8 @@ placebc_core()
     bcrestriction = 0;
 }
 
-STATIC_OVL void
-unplacebc_core()
+staticfn void
+unplacebc_core(void)
 {
     if (u.uswallow) {
         if (Is_waterlevel(&u.uz)) {
@@ -162,20 +164,20 @@ unplacebc_core()
         obj_extract_self(uball);
         if (Blind && (u.bc_felt & BC_BALL)) /* drop glyph */
             levl[uball->ox][uball->oy].glyph = u.bglyph;
-
+        maybe_unhide_at(uball->ox, uball->oy);
         newsym(uball->ox, uball->oy);
     }
     obj_extract_self(uchain);
     if (Blind && (u.bc_felt & BC_CHAIN)) /* drop glyph */
         levl[uchain->ox][uchain->oy].glyph = u.cglyph;
+    maybe_unhide_at(uchain->ox, uchain->oy);
 
     newsym(uchain->ox, uchain->oy);
     u.bc_felt = 0; /* feel nothing */
 }
 
-STATIC_OVL boolean
-check_restriction(restriction)
-int restriction;
+staticfn boolean
+check_restriction(int restriction)
 {
     boolean ret = FALSE;
 
@@ -188,7 +190,7 @@ int restriction;
 
 #ifndef BREADCRUMBS
 void
-placebc()
+placebc(void)
 {
     if (!check_restriction(0)) {
 #if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
@@ -207,7 +209,7 @@ placebc()
 }
 
 void
-unplacebc()
+unplacebc(void)
 {
     if (bcrestriction) {
         impossible("unplacebc denied, restriction in place");
@@ -217,7 +219,7 @@ unplacebc()
 }
 
 int
-unplacebc_and_covet_placebc()
+unplacebc_and_covet_placebc(void)
 {
     int restriction = 0;
 
@@ -231,8 +233,7 @@ unplacebc_and_covet_placebc()
 }
 
 void
-lift_covet_and_placebc(pin)
-int pin;
+lift_covet_and_placebc(int pin)
 {
     if (!check_restriction(pin)) {
 #if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
@@ -255,9 +256,7 @@ int pin;
 #else  /* BREADCRUMBS */
 
 void
-Placebc(funcnm, linenum)
-const char *funcnm;
-int linenum;
+Placebc(const char *funcnm, int linenum)
 {
     if (!check_restriction(0)) {
 #if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
@@ -285,9 +284,7 @@ int linenum;
 }
 
 void
-Unplacebc(funcnm, linenum)
-const char *funcnm;
-int linenum;
+Unplacebc(const char *funcnm, int linenum)
 {
 
     if (bcrestriction) {
@@ -306,9 +303,7 @@ int linenum;
 }
 
 int
-Unplacebc_and_covet_placebc(funcnm, linenum)
-const char *funcnm;
-int linenum;
+Unplacebc_and_covet_placebc(const char *funcnm, int linenum)
 {
     int restriction = 0;
 
@@ -329,10 +324,7 @@ int linenum;
 }
 
 void
-Lift_covet_and_placebc(pin, funcnm, linenum)
-int pin;
-char *funcnm;
-int linenum;
+Lift_covet_and_placebc(int pin, char *funcnm, int linenum)
 {
     if (!check_restriction(pin)) {
 #if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
@@ -358,8 +350,8 @@ int linenum;
  *  Return the stacking of the hero's ball & chain.  This assumes that the
  *  hero is being punished.
  */
-STATIC_OVL int
-bc_order()
+staticfn int
+bc_order(void)
 {
     struct obj *obj;
 
@@ -367,7 +359,7 @@ bc_order()
         || u.uswallow)
         return BCPOS_DIFFER;
 
-    for (obj = level.objects[uball->ox][uball->oy]; obj;
+    for (obj = svl.level.objects[uball->ox][uball->oy]; obj;
          obj = obj->nexthere) {
         if (obj == uchain)
             return BCPOS_CHAIN;
@@ -385,8 +377,7 @@ bc_order()
  *  Set up the ball and chain variables so that the ball and chain are "felt".
  */
 void
-set_bc(already_blind)
-int already_blind;
+set_bc(int already_blind)
 {
     int ball_on_floor = !carried(uball);
 
@@ -443,9 +434,8 @@ int already_blind;
  *  Should not be called while swallowed.
  */
 void
-move_bc(before, control, ballx, bally, chainx, chainy)
-int before, control;
-xchar ballx, bally, chainx, chainy; /* only matter !before */
+move_bc(int before, int control, coordxy ballx, coordxy bally,
+        coordxy chainx, coordxy chainy)
 {
     if (Blind) {
         /*
@@ -536,9 +526,11 @@ xchar ballx, bally, chainx, chainy; /* only matter !before */
             }
 
             remove_object(uchain);
+            maybe_unhide_at(uchain->ox, uchain->oy);
             newsym(uchain->ox, uchain->oy);
             if (!carried(uball)) {
                 remove_object(uball);
+                maybe_unhide_at(uball->ox, uball->oy);
                 newsym(uball->ox, uball->oy);
             }
         } else {
@@ -565,13 +557,9 @@ xchar ballx, bally, chainx, chainy; /* only matter !before */
 
 /* return TRUE if the caller needs to place the ball and chain down again */
 boolean
-drag_ball(x, y, bc_control, ballx, bally, chainx, chainy, cause_delay,
-          allow_drag)
-xchar x, y;
-int *bc_control;
-xchar *ballx, *bally, *chainx, *chainy;
-boolean *cause_delay;
-boolean allow_drag;
+drag_ball(coordxy x, coordxy y, int *bc_control,
+          coordxy *ballx, coordxy *bally, coordxy *chainx, coordxy *chainy,
+          boolean *cause_delay, boolean allow_drag)
 {
     struct trap *t = (struct trap *) 0;
     boolean already_in_rock;
@@ -604,7 +592,7 @@ boolean allow_drag;
 
     /* only need to move the chain? */
     if (carried(uball) || distmin(x, y, uball->ox, uball->oy) <= 2) {
-        xchar oldchainx = uchain->ox, oldchainy = uchain->oy;
+        coordxy oldchainx = uchain->ox, oldchainy = uchain->oy;
 
         *bc_control = BC_CHAIN;
         move_bc(1, *bc_control, *ballx, *bally, *chainx, *chainy);
@@ -621,7 +609,7 @@ boolean allow_drag;
     (distmin(x, y, chx, chy) <= 1 \
      && distmin(chx, chy, uball->ox, uball->oy) <= 1)
 #define IS_CHAIN_ROCK(x, y)      \
-    (IS_ROCK(levl[x][y].typ)     \
+    (IS_OBSTRUCTED(levl[x][y].typ)     \
      || (IS_DOOR(levl[x][y].typ) \
          && (levl[x][y].doormask & (D_CLOSED | D_LOCKED))))
     /*
@@ -646,7 +634,7 @@ boolean allow_drag;
             already_in_rock = FALSE;
 
         switch (dist2(x, y, uball->ox, uball->oy)) {
-        /* two spaces diagonal from ball, move chain inbetween */
+        /* two spaces diagonal from ball, move chain in-between */
         case 8:
             *chainx = (uball->ox + x) / 2;
             *chainy = (uball->oy + y) / 2;
@@ -661,7 +649,7 @@ boolean allow_drag;
          *    0
          */
         case 5: {
-            xchar tempx, tempy, tempx2, tempy2;
+            coordxy tempx, tempy, tempx2, tempy2;
 
             /* find position closest to current position of chain;
                no effect if current position is already OK */
@@ -726,7 +714,7 @@ boolean allow_drag;
         }
 
         /* ball is two spaces horizontal or vertical from player; move*/
-        /* chain inbetween *unless* current chain position is OK */
+        /* chain in-between *unless* current chain position is OK */
         case 4:
             if (CHAIN_IN_MIDDLE(uchain->ox, uchain->oy))
                 break;
@@ -755,7 +743,8 @@ boolean allow_drag;
                     SKIP_TO_DRAG;
                 break;
             }
-        /* fall through */
+            FALLTHROUGH;
+        /* FALLTHRU */
         case 1:
         case 0:
             /* do nothing if possible */
@@ -786,7 +775,7 @@ boolean allow_drag;
 
     if (near_capacity() > SLT_ENCUMBER && dist2(x, y, u.ux, u.uy) <= 2) {
         You("cannot %sdrag the heavy iron ball.",
-            invent ? "carry all that and also " : "");
+            gi.invent ? "carry all that and also " : "");
         nomul(0);
         return FALSE;
     }
@@ -850,7 +839,7 @@ boolean allow_drag;
         *ballx = *chainx = x;
         *bally = *chainy = y;
     } else {
-        xchar newchainx = u.ux, newchainy = u.uy;
+        coordxy newchainx = u.ux, newchainy = u.uy;
 
         /*
          * Generally, chain moves to hero's previous location and ball
@@ -890,8 +879,7 @@ boolean allow_drag;
  *  Should not be called while swallowed.
  */
 void
-drop_ball(x, y)
-xchar x, y;
+drop_ball(coordxy x, coordxy y)
 {
     if (Blind) {
         /* get the order */
@@ -901,7 +889,7 @@ xchar x, y;
     }
 
     if (x != u.ux || y != u.uy) {
-        static const char *pullmsg = "The ball pulls you out of the %s!";
+        static const char pullmsg[] = "The ball pulls you out of the ";
         struct trap *t;
         long side;
 
@@ -909,19 +897,20 @@ xchar x, y;
             && u.utraptype != TT_INFLOOR && u.utraptype != TT_BURIEDBALL) {
             switch (u.utraptype) {
             case TT_PIT:
-                pline(pullmsg, "pit");
+                pline("%s%s!", pullmsg, "pit");
                 break;
             case TT_WEB:
-                pline(pullmsg, "web");
+                pline("%s%s!", pullmsg, "web");
+                Soundeffect(se_destroy_web, 30);
                 pline_The("web is destroyed!");
                 deltrap(t_at(u.ux, u.uy));
                 break;
             case TT_LAVA:
-                pline(pullmsg, hliquid("lava"));
+                pline("%s%s!", pullmsg, hliquid("lava"));
                 break;
             case TT_BEARTRAP:
                 side = rn2(3) ? LEFT_SIDE : RIGHT_SIDE;
-                pline(pullmsg, "bear trap");
+                pline("%s%s!", pullmsg, "bear trap");
                 set_wounded_legs(side, rn1(1000, 500));
                 if (!u.usteed) {
                     Your("%s %s is severely damaged.",
@@ -950,7 +939,7 @@ xchar x, y;
             u.ux = x - u.dx;
             u.uy = y - u.dy;
         }
-        vision_full_recalc = 1; /* hero has moved, recalculate vision later */
+        gv.vision_full_recalc = 1; /* hero has moved, recalc vision later */
 
         if (Blind) {
             /* drop glyph under the chain */
@@ -967,34 +956,34 @@ xchar x, y;
         newsym(u.ux0, u.uy0); /* clean up old position */
         if (u.ux0 != u.ux || u.uy0 != u.uy) {
             spoteffects(TRUE);
-            sokoban_guilt();
         }
     }
 }
 
 /* ball&chain cause hero to randomly lose stuff from inventory */
-STATIC_OVL void
-litter()
+staticfn void
+litter(void)
 {
     struct obj *otmp, *nextobj = 0;
     int capacity = weight_cap();
 
-    for (otmp = invent; otmp; otmp = nextobj) {
+    for (otmp = gi.invent; otmp; otmp = nextobj) {
         nextobj = otmp->nobj;
-        if ((otmp != uball) && (rnd(capacity) <= (int) otmp->owt)) {
+        if (otmp != uball && rnd(capacity) <= (int) otmp->owt) {
             if (canletgo(otmp, "")) {
                 You("drop %s and %s %s down the stairs with you.",
                     yname(otmp), (otmp->quan == 1L) ? "it" : "they",
                     otense(otmp, "fall"));
-                dropx(otmp);
-                encumber_msg(); /* drop[xyz]() probably ought to to this... */
+                setnotworn(otmp);
+                freeinv(otmp);
+                hitfloor(otmp, FALSE);
             }
         }
     }
 }
 
 void
-drag_down()
+drag_down(void)
 {
     boolean forward;
     uchar dragchance = 3;
@@ -1009,7 +998,7 @@ drag_down()
      */
     forward = carried(uball) && (uwep == uball || !uwep || !rn2(3));
 
-    if (carried(uball))
+    if (carried(uball) && !welded(uball))
         You("lose your grip on the iron ball.");
 
     cls();  /* previous level is still displayed although you
@@ -1024,6 +1013,7 @@ drag_down()
         }
     } else {
         if (rn2(2)) {
+            Soundeffect(se_iron_ball_hits_you, 25);
             pline_The("iron ball smacks into you!");
             losehp(Maybe_Half_Phys(rnd(20)), "iron ball collision",
                    KILLED_BY_AN);
@@ -1041,7 +1031,7 @@ drag_down()
 }
 
 void
-bc_sanity_check()
+bc_sanity_check(void)
 {
     int otyp, freeball, freechain;
     const char *onam;
