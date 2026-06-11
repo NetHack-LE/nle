@@ -1,4 +1,4 @@
-/* NetHack 3.6	pckeys.c	$NHDT-Date: 1501465420 2017/07/31 01:43:40 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.12 $ */
+/* NetHack 5.0	pckeys.c	$NHDT-Date: 1596498270 2020/08/03 23:44:30 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.14 $ */
 /* Copyright (c) NetHack PC Development Team 1996                 */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -9,15 +9,15 @@
 #include "hack.h"
 
 #ifdef MSDOS
-#ifdef USE_TILES
+#ifdef TILES_IN_GLYPHMAP
 #include "wintty.h"
 #include "pcvideo.h"
 
-boolean FDECL(pckeys, (unsigned char, unsigned char));
-static void FDECL(userpan, (BOOLEAN_P));
-static void FDECL(overview, (BOOLEAN_P));
-static void FDECL(traditional, (BOOLEAN_P));
-static void NDECL(refresh);
+boolean pckeys(unsigned char, unsigned char);
+static void userpan(boolean);
+static void overview(boolean);
+static void traditional(boolean);
+static void refresh(void);
 
 extern struct WinDesc *wins[MAXWIN]; /* from wintty.c */
 extern boolean inmap;                /* from video.c */
@@ -32,13 +32,11 @@ extern boolean inmap;                /* from video.c */
  *
  */
 boolean
-pckeys(scancode, shift)
-unsigned char scancode;
-unsigned char shift;
+pckeys(unsigned char scancode, unsigned char shift)
 {
     boolean opening_dialog;
 
-    opening_dialog = pl_character[0] ? FALSE : TRUE;
+    opening_dialog = svp.pl_character[0] ? FALSE : TRUE;
     switch (scancode) {
 #ifdef SIMULATE_CURSOR
     case 0x3d: /* F3 = toggle cursor type */
@@ -78,8 +76,7 @@ unsigned char shift;
 }
 
 static void
-userpan(on)
-boolean on;
+userpan(boolean on)
 {
 #ifdef SCREEN_VGA
     if (iflags.usevga)
@@ -92,8 +89,7 @@ boolean on;
 }
 
 static void
-overview(on)
-boolean on;
+overview(boolean on)
 {
 #ifdef SCREEN_VGA
     if (iflags.usevga)
@@ -106,8 +102,7 @@ boolean on;
 }
 
 static void
-traditional(on)
-boolean on;
+traditional(boolean on)
 {
 #ifdef SCREEN_VGA
     if (iflags.usevga)
@@ -120,7 +115,7 @@ boolean on;
 }
 
 static void
-refresh()
+refresh(void)
 {
 #ifdef SCREEN_VGA
     if (iflags.usevga)
@@ -131,7 +126,7 @@ refresh()
         vesa_refresh();
 #endif
 }
-#endif /* USE_TILES */
+#endif /* TILES_IN_GLYPHMAP */
 #endif /* MSDOS */
 
 /*pckeys.c*/

@@ -1,4 +1,4 @@
-/* NetHack 3.6	msdos.c	$NHDT-Date: 1432512792 2015/05/25 00:13:12 $  $NHDT-Branch: master $:$NHDT-Revision: 1.11 $ */
+/* NetHack 5.0	msdos.c	$NHDT-Date: 1596498269 2020/08/03 23:44:29 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.15 $ */
 /* Copyright (c) NetHack PC Development Team 1990 */
 /* NetHack may be freely redistributed.  See license for details.         */
 
@@ -15,7 +15,6 @@
 #include "pcvideo.h"
 
 #include <dos.h>
-#include <ctype.h>
 
 /*
  * MS-DOS functions
@@ -43,27 +42,35 @@
  */
 #define READCHAR 0x00       /* Read Character from Keyboard */
 #define GETKEYFLAGS 0x02    /* Get Keyboard Flags */
-/*#define KEY_DEBUG	 */ /* print values of unexpected key codes - devel*/
+/*#define KEY_DEBUG */      /* print values of unexpected key codes - devel*/
 
-void FDECL(get_cursor, (int *, int *));
+void get_cursor(int *, int *);
 
 /* direct bios calls are used only when iflags.BIOS is set */
 
-STATIC_DCL char NDECL(DOSgetch);
-STATIC_DCL char NDECL(BIOSgetch);
+static char DOSgetch(void);
+static char BIOSgetch(void);
+/* static long freediskspace(char *path); */
+unsigned long sys_random_seed(void);
+
 #ifndef __GO32__
-STATIC_DCL char *NDECL(getdta);
+static char *getdta(void);
 #endif
-STATIC_DCL unsigned int FDECL(dos_ioctl, (int, int, unsigned));
-#ifdef USE_TILES
-extern boolean FDECL(pckeys, (unsigned char, unsigned char)); /* pckeys.c */
+static unsigned int dos_ioctl(int, int, unsigned);
+#ifdef TILES_IN_GLYPHMAP
+extern boolean pckeys(unsigned char, unsigned char); /* pckeys.c */
 #endif
 
 int
-tgetch()
+tgetch(void)
 {
     char ch;
 
+#ifdef SCREEN_VESA
+    if (iflags.usevesa) {
+        vesa_flush_text();
+    }
+#endif /*SCREEN_VESA*/
 /* BIOSgetch can use the numeric key pad on IBM compatibles. */
 #ifdef SIMULATE_CURSOR
     if (iflags.grmode && cursor_flag)
@@ -193,7 +200,7 @@ static const struct pad {
  * Unlike Ctrl-letter, the Alt-letter keystrokes have no specific ASCII
  * meaning unless assigned one by a keyboard conversion table, so the
  * keyboard BIOS normally does not return a character code when Alt-letter
- * is pressed.	So, to interpret unassigned Alt-letters, we must use a
+ * is pressed.  So, to interpret unassigned Alt-letters, we must use a
  * scan code table to translate the scan code into a letter, then set the
  * "meta" bit for it.  -3.
  */
@@ -243,8 +250,8 @@ static const char numeric_scanmap[] = { /* ... */
 #define ALT 0x8
 #endif /* PC9800 */
 
-STATIC_OVL char
-BIOSgetch()
+static char
+BIOSgetch(void)
 {
     unsigned char scan, shift, ch = 0;
     const struct pad *kpad;
@@ -273,7 +280,7 @@ BIOSgetch()
             else
                 ch = kpad[scan - KEYPADLO].normal;
         }
-#ifdef USE_TILES
+#ifdef TILES_IN_GLYPHMAP
         /* Check for special interface manipulation keys */
         if (pckeys(scan, shift)) {
             ch = 0xFF;
@@ -289,7 +296,7 @@ BIOSgetch()
         if ((shift & ALT) && !ch) {
 #endif
 #if 0
-		pline("Scan code: %d 0x%03X", scan, scan);
+            pline("Scan code: %d 0x%03X", scan, scan);
 #endif
             if (inmap(scan))
                 ch = scanmap[scan - SCANLO];
@@ -303,8 +310,8 @@ BIOSgetch()
     return ch;
 }
 
-STATIC_OVL char
-DOSgetch()
+static char
+DOSgetch(void)
 {
     union REGS regs;
     char ch;
@@ -343,7 +350,7 @@ DOSgetch()
 }
 
 char
-switchar()
+switchar(void)
 {
     union REGS regs;
 
@@ -352,9 +359,9 @@ switchar()
     return regs.h.dl;
 }
 
-long
-freediskspace(path)
-char *path;
+#if 0
+static long
+freediskspace(char *path)
 {
     union REGS regs;
 
@@ -369,14 +376,14 @@ char *path;
     else
         return ((long) regs.x.bx * regs.x.cx * regs.x.ax);
 }
+#endif /* 0 */
 
 #ifndef __GO32__
 /*
  * Functions to get filenames using wildcards
  */
 int
-findfirst_file(path)
-char *path;
+findfirst_file(char *path)
 {
     union REGS regs;
     struct SREGS sregs;
@@ -390,7 +397,7 @@ char *path;
 }
 
 int
-findnext_file()
+findnext_file(void)
 {
     union REGS regs;
 
@@ -400,14 +407,14 @@ findnext_file()
 }
 
 char *
-foundfile_buffer()
+foundfile_buffer(void)
 {
     return (getdta() + 30);
 }
 
 /* Get disk transfer area */
-STATIC_OVL char *
-getdta()
+static char *
+getdta(void)
 {
     union REGS regs;
     struct SREGS sregs;
@@ -425,8 +432,7 @@ getdta()
 }
 
 long
-filesize_nh(file)
-char *file;
+filesize_nh(char *file)
 {
     char *dta;
 
@@ -443,15 +449,14 @@ char *file;
  * Chdrive() changes the default drive.
  */
 void
-chdrive(str)
-char *str;
+chdrive(const char *str)
 {
 #define SELECTDISK 0x0E
     char *ptr;
     union REGS inregs;
     char drive;
 
-    if ((ptr = index(str, ':')) != (char *) 0) {
+    if ((ptr = strchr(str, ':')) != (char *) 0) {
         drive = toupper(*(ptr - 1));
         inregs.h.ah = SELECTDISK;
         inregs.h.dl = drive - 'A';
@@ -477,7 +482,7 @@ char *str;
 static unsigned int old_stdin, old_stdout;
 
 void
-disable_ctrlP()
+disable_ctrlP(void)
 {
     if (!iflags.rawio)
         return;
@@ -492,7 +497,7 @@ disable_ctrlP()
 }
 
 void
-enable_ctrlP()
+enable_ctrlP(void)
 {
     if (!iflags.rawio)
         return;
@@ -503,10 +508,8 @@ enable_ctrlP()
     return;
 }
 
-STATIC_OVL unsigned int
-dos_ioctl(handle, mode, setvalue)
-int handle, mode;
-unsigned setvalue;
+static unsigned int
+dos_ioctl(int handle, int mode, unsigned setvalue)
 {
     union REGS regs;
 
@@ -520,7 +523,7 @@ unsigned setvalue;
 }
 
 unsigned long
-sys_random_seed(VOID_ARGS)
+sys_random_seed(void)
 {
     unsigned long ourseed = 0UL;
     time_t datetime = 0;

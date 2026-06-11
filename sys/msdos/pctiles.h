@@ -1,4 +1,4 @@
-/* NetHack 3.6	pctiles.h	$NHDT-Date: 1457207040 2016/03/05 19:44:00 $  $NHDT-Branch: chasonr $:$NHDT-Revision: 1.9 $ */
+/* NetHack 5.0	pctiles.h	$NHDT-Date: 1596498272 2020/08/03 23:44:32 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.10 $ */
 /*   Copyright (c) NetHack PC Development Team 1993, 1994             */
 /*   NetHack may be freely redistributed.  See license for details.   */
 /*                                                                    */
@@ -10,7 +10,7 @@
  *
  */
 
-#ifdef USE_TILES
+#ifdef TILES_IN_GLYPHMAP
 #ifndef TILE_X
 #define TILE_X 16
 #endif
@@ -45,24 +45,20 @@ struct tibhdr_struct {
  *	char packtile[TILE_Y][TILE_X];
  */
 
-extern void FDECL(CloseTileFile, (BOOLEAN_P));
-extern int FDECL(OpenTileFile, (char *, BOOLEAN_P));
-extern int FDECL(ReadTileFileHeader, (struct tibhdr_struct *, BOOLEAN_P));
+extern void CloseTileFile(boolean);
+extern int OpenTileFile(char *, boolean);
+extern int ReadTileFileHeader(struct tibhdr_struct *, boolean);
 
 #ifdef PLANAR_FILE
 #ifdef SCREEN_VGA
-extern int FDECL(ReadPlanarTileFile, (int, struct planar_cell_struct **));
-extern int FDECL(ReadPlanarTileFile_O,
-                 (int, struct overview_planar_cell_struct **));
+extern int ReadPlanarTileFile(int, struct planar_cell_struct **);
+extern int ReadPlanarTileFile_O(int, struct overview_planar_cell_struct **);
 #endif
 #endif
 
 #ifdef PACKED_FILE
-extern int FDECL(ReadPackedTileFile, (int, char (*)[TILE_X]));
+extern int ReadPackedTileFile(int, char (*)[TILE_X]);
 #endif
-
-extern short glyph2tile[MAX_GLYPH]; /* in tile.c (made from tilemap.c) */
-
-#endif /* USE_TILES */
+#endif /* TILES_IN_GLYPHMAP */
 
 /* pctiles.h */
