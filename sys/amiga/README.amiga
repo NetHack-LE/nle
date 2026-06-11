@@ -1,0 +1,114 @@
+                        NetHack 5.0 for Amiga
+                        ====================
+
+Requirements
+------------
+    - AmigaOS 3.0 or later (Kickstart 39+)
+    - 6 MB free RAM minimum (8 MB recommended)
+    - Hard drive with ~5 MB free space
+
+Recommended: RTG graphics card (Picasso96/CyberGraphX) for best
+tile rendering. Native AGA/OCS/ECS chipsets are supported.
+
+
+Installation
+------------
+Extract NH500AMI.ZIP somewhere on your hard drive (e.g. into Work:).
+You'll get a NetHack drawer with everything inside.
+
+To play from Workbench, open the NetHack drawer and double-click the
+nethack icon.
+
+To play from a Shell:
+
+    Work:NetHack/nethack
+
+To redirect to a different install -- for example to test two versions
+side by side -- set the NETHACKDIR (or HACKDIR) environment variable
+before launching:
+
+    setenv NETHACKDIR Work:games/nethack-dev/
+    Work:games/nethack-dev/nethack
+
+
+Display Modes
+-------------
+The shipped nethack.cnf selects tile mode (AMIV).  AMIV needs a screen
+with at least 4 bitplanes (16 colours) and ~384 KB free chip RAM; on
+machines that don't qualify, the binary automatically falls back to
+text mode (AMII) at startup with a short note explaining why.
+
+Tile mode auto-selects tiles32.iff (32 colors, 5 bitplanes) when the
+screen supports 32+ colors, otherwise tiles16.iff (16 colors, 4 planes).
+
+To force text mode unconditionally, edit nethack.cnf:
+
+    #OPTIONS=windowtype:amiv
+    OPTIONS=windowtype:amii
+    OPTIONS=symset:AmigaFont
+
+
+Configuration
+-------------
+Edit nethack.cnf for game options.  Defaults shipped:
+
+    OPTIONS=windowtype:amiv     - tile graphics
+    OPTIONS=number_pad:1        - numpad movement; '5' is run prefix
+    OPTIONS=time,showexp        - turn count, experience visible
+    OPTIONS=lit_corridor        - show lit corridors
+    OPTIONS=menucolors          - colored inventory items
+
+ALT+letter shortcuts to extended commands (ALT+L for #loot, ALT+F for
+#force, etc.) are enabled by default.  On keymaps that need ALT for
+typing characters (Scandinavian, German, French, ...) disable with:
+
+    OPTIONS=!altmeta
+
+Menu color examples (after OPTIONS=menucolors):
+
+    MENUCOLOR=" blessed "=green
+    MENUCOLOR=" cursed "=red
+    MENUCOLOR=" uncursed "=cyan
+
+
+Building from Source
+--------------------
+Cross-compilation from Linux using bebbo's m68k-amigaos-gcc toolchain
+(https://franke.ms/git/bebbo/amiga-gcc):
+
+    # Install toolchain to /opt/amiga
+    # Clone NetHack 5.0 source
+    cd NetHack
+    sys/unix/setup.sh sys/unix/hints/linux.500
+    make fetch-lua
+    make CROSS_TO_AMIGA=1 fetch-regex
+    make CROSS_TO_AMIGA=1 all
+    make CROSS_TO_AMIGA=1 package
+
+The distribution ZIP is created at targets/amiga/NH500AMI.ZIP.
+
+Toolchain requirements:
+
+    - m68k-amigaos-gcc (bebbo's amigaos-cross-toolchain in /opt/amiga)
+    - -noixemul (libnix) for linking
+    - -m68000 for maximum compatibility (or -m68020/040/060)
+
+
+Known Issues
+------------
+    - Native Amiga compilation (SAS/C, DICE) is not supported;
+      cross-compilation with GCC is required
+
+
+Credits
+-------
+Olaf Seibert first ported NetHack 2.3 and 3.0 to the Amiga.
+Richard Addison, Andrew Church, Jochen Erwied, Mark Gooderum,
+Ken Lorber, Greg Olson, Mike Passaretti, and Gregg Wonderly
+polished and extended the 3.0 and 3.1 ports.  Andrew Church,
+Ken Lorber, and Gregg Wonderly are responsible for the 3.2 port.
+Janne Salmijärvi resurrected the Amiga port for 3.3 and
+Teemu Suikki joined before 3.4.0.
+
+Updated for NetHack 5.0, cross compile fixes and 32 color tile support by Ingo
+Paschke in 2026.

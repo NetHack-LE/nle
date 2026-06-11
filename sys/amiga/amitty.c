@@ -20,14 +20,14 @@
 #include <clib/dos_protos.h>
 #endif
 
-void NDECL(tty_change_color);
-char *NDECL(tty_get_color_string);
-
-#ifdef TTY_GRAPHICS
+void tty_change_color(void);
+char *tty_get_color_string(void);
 
 int amibbs = 0;       /* BBS mode */
 char bbs_id[80] = ""; /* BBS uid equivalent */
 long afh_in, afh_out; /* BBS mode Amiga filehandles */
+
+#ifdef TTY_GRAPHICS
 
 void
 settty(const char *s)
@@ -58,9 +58,10 @@ setftty()
 }
 char kill_char = 'X' - '@';
 char erase_char = '\b';
-tgetch()
+int
+tgetch(void)
 {
-    char x;
+    unsigned char x;
     Read(afh_in, &x, 1);
     return (x == '\r') ? '\n' : x;
 }

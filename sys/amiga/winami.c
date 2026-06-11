@@ -3,14 +3,25 @@
  */
 /* NetHack may be freely redistributed.  See license for details. */
 
+#ifndef CROSS_TO_AMIGA
 #include "NH:sys/amiga/windefs.h"
 #include "NH:sys/amiga/winext.h"
 #include "NH:sys/amiga/winproto.h"
+#else
+#include "windefs.h"
+#include "winext.h"
+#include "winproto.h"
+#endif
+
 #include "dlb.h"
+
+#ifdef CROSS_TO_AMIGA
+#define strnicmp strncmpi
+#endif
 
 #ifdef AMIGA_INTUITION
 
-static int FDECL(put_ext_cmd, (char *, int, struct amii_WinDesc *, int));
+static int put_ext_cmd(char *, int, struct amii_WinDesc *, int);
 
 struct amii_DisplayDesc *amiIDisplay; /* the Amiga Intuition descriptor */
 struct Rectangle lastinvent, lastmsg;
@@ -28,15 +39,17 @@ long amii_scrnmode;
  * the intuition interface for the amiga...
  */
 struct window_procs amii_procs = {
-    "amii", WC_COLOR | WC_HILITE_PET | WC_INVERSE,
+    WPID(amii),
+    WC_COLOR | WC_HILITE_PET | WC_INVERSE,
+    0L,
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* color availability */
-    0L, amii_init_nhwindows,
+    amii_init_nhwindows,
     amii_player_selection, amii_askname, amii_get_nh_event,
     amii_exit_nhwindows, amii_suspend_nhwindows, amii_resume_nhwindows,
     amii_create_nhwindow, amii_clear_nhwindow, amii_display_nhwindow,
     amii_destroy_nhwindow, amii_curs, amii_putstr, genl_putmixed,
     amii_display_file, amii_start_menu, amii_add_menu, amii_end_menu,
-    amii_select_menu, genl_message_menu, amii_update_inventory,
+    amii_select_menu, genl_message_menu,
     amii_mark_synch, amii_wait_synch,
 #ifdef CLIPPING
     amii_cliparound,
@@ -50,27 +63,30 @@ struct window_procs amii_procs = {
 #ifdef CHANGE_COLOR /* only a Mac option currently */
     amii_change_color, amii_get_color_string,
 #endif
-    /* other defs that really should go away (they're tty specific) */
-    amii_delay_output, amii_delay_output, amii_outrip, genl_preference_update,
+    amii_outrip, genl_preference_update,
     genl_getmsghistory, genl_putmsghistory,
     genl_status_init, genl_status_finish, genl_status_enablefield,
     genl_status_update,
     genl_can_suspend_yes,
+    amii_update_inventory,
+    amii_ctrl_nhwindow,
 };
 
 /* The view window layout uses the same function names so we can use
  * a shared library to allow the executable to be smaller.
  */
 struct window_procs amiv_procs = {
-    "amitile", WC_COLOR | WC_HILITE_PET | WC_INVERSE,
+    WPID(amiv),
+    WC_COLOR | WC_HILITE_PET | WC_INVERSE,
+    0L,
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* color availability */
-    0L, amii_init_nhwindows,
+    amii_init_nhwindows,
     amii_player_selection, amii_askname, amii_get_nh_event,
     amii_exit_nhwindows, amii_suspend_nhwindows, amii_resume_nhwindows,
     amii_create_nhwindow, amii_clear_nhwindow, amii_display_nhwindow,
     amii_destroy_nhwindow, amii_curs, amii_putstr, genl_putmixed,
     amii_display_file, amii_start_menu, amii_add_menu, amii_end_menu,
-    amii_select_menu, genl_message_menu, amii_update_inventory,
+    amii_select_menu, genl_message_menu,
     amii_mark_synch, amii_wait_synch,
 #ifdef CLIPPING
     amii_cliparound,
@@ -84,12 +100,13 @@ struct window_procs amiv_procs = {
 #ifdef CHANGE_COLOR /* only a Mac option currently */
     amii_change_color, amii_get_color_string,
 #endif
-    /* other defs that really should go away (they're tty specific) */
-    amii_delay_output, amii_delay_output, amii_outrip, genl_preference_update,
+    amii_outrip, genl_preference_update,
     genl_getmsghistory, genl_putmsghistory,
     genl_status_init, genl_status_finish, genl_status_enablefield,
     genl_status_update,
     genl_can_suspend_yes,
+    amii_update_inventory,
+    amii_ctrl_nhwindow,
 };
 
 unsigned short amii_initmap[AMII_MAXCOLORS];
@@ -413,10 +430,11 @@ struct NewScreen NewHackScreen = { 0, 0, WIDTH, SCREENHEIGHT, 3, 0,
  * plname is filled either by an option (-u Player  or  -uPlayer) or
  * explicitly (by being the wizard) or by askname.
  * It may still contain a suffix denoting pl_character.
- * Always called after init_nhwindows() and before display_gamewindows().
+ * Always called after init_nhwindows() and before
+ * init_sound_disp_gamewindows().
  */
 void
-amii_askname()
+amii_askname(void)
 {
     char plnametmp[300]; /* From winreq.c: sizeof(StrStringSIBuff) */
     *plnametmp = 0;
@@ -424,10 +442,10 @@ amii_askname()
         amii_getlin("Who are you?", plnametmp);
     } while (strlen(plnametmp) == 0);
 
-    strncpy(plname, plnametmp, PL_NSIZ - 1); /* Avoid overflowing plname[] */
-    plname[PL_NSIZ - 1] = 0;
+    strncpy(svp.plname, plnametmp, PL_NSIZ - 1); /* Avoid overflowing plname[] */
+    svp.plname[PL_NSIZ - 1] = 0;
 
-    if (*plname == '\33') {
+    if (*svp.plname == '\33') {
         clearlocks();
         exit_nhwindows(NULL);
         nh_terminate(0);
@@ -442,12 +460,12 @@ amii_askname()
 
 #if 0 /* New function at the bottom */
 void
-amii_player_selection()
+amii_player_selection(void)
 {
-    register struct Window *cwin;
-    register struct IntuiMessage *imsg;
-    register int aredone = 0;
-    register struct Gadget *gd;
+    struct Window *cwin;
+    struct IntuiMessage *imsg;
+    int aredone = 0;
+    struct Gadget *gd;
     static int once = 0;
     long class, code;
 
@@ -461,9 +479,9 @@ amii_player_selection()
 #if 0 /* Don't query the user ... instead give random character -jhsa */
 
 #if 0 /* OBSOLETE */
-    if( *pl_character ){
-	pl_character[ 0 ] = toupper( pl_character[ 0 ] );
-	if( index( pl_classes, pl_character[ 0 ] ) )
+    if( *svp.pl_character ){
+	svp.pl_character[ 0 ] = toupper( svp.pl_character[ 0 ] );
+	if( strchr( pl_classes, svp.pl_character[ 0 ] ) )
 	    return;
     }
 #endif
@@ -487,7 +505,7 @@ amii_player_selection()
 #ifdef INTUI_NEW_LOOK
 	Type_NewWindowStructure1.Extension = wintags;
 	Type_NewWindowStructure1.Flags |= WFLG_NW_EXTENDED;
-	fillhook.h_Entry = (ULONG(*)())LayerFillHook;
+	fillhook.h_Entry = (void *) &LayerFillHook;
 	fillhook.h_Data = (void *)-2;
 	fillhook.h_SubEntry = 0;
 #endif
@@ -515,21 +533,21 @@ amii_player_selection()
 	    switch( class )
 	    {
 	    case VANILLAKEY:
-		if( index( pl_classes, toupper( code ) ) )
+		if( strchr( pl_classes, toupper( code ) ) )
 		{
-		    pl_character[0] = toupper( code );
+		    svp.pl_character[0] = toupper( code );
 		    aredone = 1;
 		}
 		else if( code == ' ' || code == '\n' || code == '\r' )
 		{
 		    flags.initrole = randrole(FALSE);
 #if 0 /* OBSOLETE */
-		    strcpy( pl_character, roles[ rnd( 11 ) ] );
+		    strcpy( svp.pl_character, roles[ rnd( 11 ) ] );
 #endif
 		    aredone = 1;
 		    amii_clear_nhwindow( WIN_BASE );
 		    CloseShWindow( cwin );
-		    RandomWindow( pl_character );
+		    RandomWindow( svp.pl_character );
 		    return;
 		}
 		else if( code == 'q' || code == 'Q' )
@@ -549,15 +567,15 @@ amii_player_selection()
 		case 1: /* Random Character */
 		    flags.initrole = randrole(FALSE);
 #if 0 /* OBSOLETE */
-		    strcpy( pl_character, roles[ rnd( 11 ) ] );
+		    strcpy( svp.pl_character, roles[ rnd( 11 ) ] );
 #endif
 		    amii_clear_nhwindow( WIN_BASE );
 		    CloseShWindow( cwin );
-		    RandomWindow( pl_character );
+		    RandomWindow( svp.pl_character );
 		    return;
 
 		default:
-		    pl_character[0] = gd->GadgetID;
+		    svp.pl_character[0] = gd->GadgetID;
 		    break;
 		}
 		aredone = 1;
@@ -583,8 +601,7 @@ amii_player_selection()
 #include "NH:sys/amiga/randwin.c"
 
 void
-RandomWindow( name )
-    char *name;
+RandomWindow(char *name)
 {
     struct MsgPort *tport;
     struct timerequest *trq;
@@ -660,7 +677,7 @@ allocerr:
 #ifdef INTUI_NEW_LOOK
 	Rnd_NewWindowStructure1.Extension = wintags;
 	Rnd_NewWindowStructure1.Flags |= WFLG_NW_EXTENDED;
-	fillhook.h_Entry = (ULONG(*)())LayerFillHook;
+	fillhook.h_Entry = (void *) &LayerFillHook;
 	fillhook.h_Data = (void *)-2;
 	fillhook.h_SubEntry = 0;
 #endif
@@ -750,10 +767,11 @@ amii_get_ext_cmd(void)
 #endif
     int colx;
     int bottom = 0;
+
     struct Window *w;
     char obufp[100];
-    register char *bufp = obufp;
-    register int c;
+    char *bufp = obufp;
+    int c;
     int com_index, oindex;
     int did_comp = 0; /* did successful completion? */
     int sel = -1;
@@ -767,7 +785,7 @@ amii_get_ext_cmd(void)
 #ifdef EXTMENU
     if (iflags.extmenu) {
         win = amii_create_nhwindow(NHW_MENU);
-        amii_start_menu(win);
+        amii_start_menu(win, MENU_BEHAVE_STANDARD);
         pline("#");
         amii_putstr(WIN_MESSAGE, -1, " ");
 
@@ -775,8 +793,9 @@ amii_get_ext_cmd(void)
             id.a_char = *extcmdlist[i].ef_txt;
             sprintf(buf, "%-10s - %s ", extcmdlist[i].ef_txt,
                     extcmdlist[i].ef_desc);
-            amii_add_menu(win, NO_GLYPH, &id, extcmdlist[i].ef_txt[0], 0, 0,
-                          buf, MENU_UNSELECTED);
+            amii_add_menu(win, (const glyph_info *) 0, &id,
+                          extcmdlist[i].ef_txt[0], 0, 0, NO_COLOR,
+                          buf, MENU_ITEMFLAGS_NONE);
         }
 
         amii_end_menu(win, (char *) 0);
@@ -830,14 +849,15 @@ amii_get_ext_cmd(void)
             }
 
             win = amii_create_nhwindow(NHW_MENU);
-            amii_start_menu(win);
+            amii_start_menu(win, MENU_BEHAVE_STANDARD);
 
             for (i = 0; extcmdlist[i].ef_txt != NULL; ++i) {
                 id.a_char = extcmdlist[i].ef_txt[0];
                 sprintf(buf, "%-10s - %s ", extcmdlist[i].ef_txt,
                         extcmdlist[i].ef_desc);
-                amii_add_menu(win, NO_GLYPH, &id, extcmdlist[i].ef_txt[0], 0,
-                              0, buf, MENU_UNSELECTED);
+                amii_add_menu(win, (const glyph_info *) 0, &id,
+                              extcmdlist[i].ef_txt[0], 0, 0, NO_COLOR,
+                              buf, MENU_ITEMFLAGS_NONE);
             }
 
             amii_end_menu(win, (char *) 0);
@@ -929,10 +949,7 @@ amii_get_ext_cmd(void)
 }
 
 static int
-put_ext_cmd(obufp, colx, cw, bottom)
-char * obufp;
-int colx, bottom;
-struct amii_WinDesc *cw;
+put_ext_cmd(char *obufp, int colx, struct amii_WinDesc *cw, int bottom)
 {
     struct Window *w = cw->win;
     char *t;
@@ -977,10 +994,9 @@ struct amii_WinDesc *cw;
 
 /* Ask a question and get a response */
 char
-amii_yn_function(query, resp, def)
-const char * query, *resp;
-char def;
+amii_yn_function(const char *query, const char *resp, char def)
 {
+
     /*
      *   Generic yes/no function. 'def' is the default (returned by space or
      *   return; 'esc' returns 'q', or 'n', or the default, depending on
@@ -992,21 +1008,21 @@ char def;
      *   are allowed); if it includes an <esc>, anything beyond that won't
      *   be shown in the prompt to the user but will be acceptable as input.
      */
-    register char q;
+    char q;
     char rtmp[40];
     boolean digit_ok, allow_num;
     char prompt[BUFSZ];
-    register struct amii_WinDesc *cw;
+    struct amii_WinDesc *cw;
 
     if (cw = amii_wins[WIN_MESSAGE])
         cw->disprows = 0;
     if (resp) {
         char *rb, respbuf[QBUFSZ];
 
-        allow_num = (index(resp, '#') != 0);
+        allow_num = (strchr(resp, '#') != 0);
         Strcpy(respbuf, resp);
         /* any acceptable responses that follow <esc> aren't displayed */
-        if ((rb = index(respbuf, '\033')) != 0)
+        if ((rb = strchr(respbuf, '\033')) != 0)
             *rb = '\0';
         (void) strncpy(prompt, query, QBUFSZ - 1);
         prompt[QBUFSZ - 1] = '\0';
@@ -1049,18 +1065,18 @@ char def;
 #endif /*0*/
         digit_ok = allow_num && isdigit(q);
         if (q == '\033') {
-            if (index(resp, 'q'))
+            if (strchr(resp, 'q'))
                 q = 'q';
-            else if (index(resp, 'n'))
+            else if (strchr(resp, 'n'))
                 q = 'n';
             else
                 q = def;
             break;
-        } else if (index(quitchars, q)) {
+        } else if (strchr(quitchars, q)) {
             q = def;
             break;
         }
-        if (!index(resp, q) && !digit_ok) {
+        if (!strchr(resp, q) && !digit_ok) {
             amii_bell();
             q = (char) 0;
         } else if (q == '#' || digit_ok) {
@@ -1086,7 +1102,7 @@ char def;
                         break; /* overflow: try again */
                     digit_string[0] = z;
                     amii_addtopl(digit_string), n_len++;
-                } else if (z == 'y' || index(quitchars, z)) {
+                } else if (z == 'y' || strchr(quitchars, z)) {
                     if (z == '\033')
                         value = -1; /* abort */
                     z = '\n';       /* break */
@@ -1126,15 +1142,14 @@ char def;
 }
 
 void
-amii_display_file(fn, complain)
-const char * fn;
-boolean complain;
+amii_display_file(const char *fn, boolean complain)
 {
-    register struct amii_WinDesc *cw;
-    register int win;
-    register dlb *fp;
-    register char *t;
-    register char buf[200];
+    struct amii_WinDesc *cw;
+    int win;
+    dlb *fp;
+    char *t;
+    char buf[200];
+
 
     if (fn == NULL)
         panic("NULL file name in display_file()");
@@ -1163,7 +1178,7 @@ boolean complain;
         cw->morestr = (char *) fn;
 
     while (dlb_fgets(buf, sizeof(buf), fp) != NULL) {
-        if (t = index(buf, '\n'))
+        if (t = strchr(buf, '\n'))
             *t = 0;
         amii_putstr(win, 0, buf);
     }
@@ -1182,12 +1197,11 @@ boolean complain;
  * are rendered in the up position by default.
  */
 void
-SetBorder(gd)
-register struct Gadget * gd;
+SetBorder(struct Gadget *gd)
 {
-    register struct Border *bp;
-    register short *sp;
-    register int i, inc = -1, dec = -1;
+    struct Border *bp;
+    short *sp;
+    int i, inc = -1, dec = -1;
     int borders = 6;
     int hipen = sysflags.amii_dripens[SHINEPEN],
         shadowpen = sysflags.amii_dripens[SHADOWPEN];
@@ -1325,7 +1339,7 @@ register struct Gadget * gd;
 /* Following function copied from wintty.c;
    Modified slightly to fit amiga needs */
 void
-amii_player_selection()
+amii_player_selection(void)
 {
     int i, k, n;
     char pick4u = 'n', thisch, lastch = 0;
@@ -1333,6 +1347,7 @@ amii_player_selection()
     winid win;
     anything any;
     menu_item *selected = 0;
+
 
     rigid_role_checks();
 
@@ -1349,9 +1364,9 @@ amii_player_selection()
             cursor_on(WIN_MESSAGE);
             pick4u = lowc(WindowGetchar());
             cursor_off(WIN_MESSAGE);
-            if (index(quitchars, pick4u))
+            if (strchr(quitchars, pick4u))
                 pick4u = 'y';
-        } while (!index(ynqchars, pick4u));
+        } while (!strchr(ynqchars, pick4u));
         pbuf[0] = pick4u;
         pbuf[1] = 0;
         amii_addtopl(pbuf);
@@ -1389,7 +1404,7 @@ amii_player_selection()
         } else {
             /* Prompt for a role */
             win = create_nhwindow(NHW_MENU);
-            start_menu(win);
+            start_menu(win, MENU_BEHAVE_STANDARD);
             any.a_void = 0; /* zero out all bits */
             for (i = 0; roles[i].name.m; i++) {
                 if (ok_role(i, flags.initrace, flags.initgend,
@@ -1412,8 +1427,8 @@ amii_player_selection()
                         } else
                             Strcpy(rolenamebuf, roles[i].name.m);
                     }
-                    add_menu(win, NO_GLYPH, &any, thisch, 0, ATR_NONE,
-                             an(rolenamebuf), MENU_UNSELECTED);
+                    add_menu(win, &nul_glyphinfo, &any, thisch, 0, ATR_NONE,
+                             NO_COLOR, an(rolenamebuf), MENU_ITEMFLAGS_NONE);
                     lastch = thisch;
                 }
             }
@@ -1421,11 +1436,11 @@ amii_player_selection()
                                   flags.initalign, PICK_RANDOM) + 1;
             if (any.a_int == 0) /* must be non-zero */
                 any.a_int = randrole(FALSE) + 1;
-            add_menu(win, NO_GLYPH, &any, '*', 0, ATR_NONE, "Random",
-                     MENU_UNSELECTED);
+            add_menu(win, &nul_glyphinfo, &any, '*', 0, ATR_NONE,
+                     NO_COLOR, "Random", MENU_ITEMFLAGS_NONE);
             any.a_int = i + 1; /* must be non-zero */
-            add_menu(win, NO_GLYPH, &any, 'q', 0, ATR_NONE, "Quit",
-                     MENU_UNSELECTED);
+            add_menu(win, &nul_glyphinfo, &any, 'q', 0, ATR_NONE,
+                     NO_COLOR, "Quit", MENU_ITEMFLAGS_NONE);
             Sprintf(pbuf, "Pick a role for your %s", plbuf);
             end_menu(win, pbuf);
             n = select_menu(win, PICK_ONE, &selected);
@@ -1480,25 +1495,25 @@ amii_player_selection()
             /* Permit the user to pick, if there is more than one */
             if (n > 1) {
                 win = create_nhwindow(NHW_MENU);
-                start_menu(win);
+                start_menu(win, MENU_BEHAVE_STANDARD);
                 any.a_void = 0; /* zero out all bits */
                 for (i = 0; races[i].noun; i++)
                     if (ok_race(flags.initrole, i, flags.initgend,
                                 flags.initalign)) {
                         any.a_int = i + 1; /* must be non-zero */
-                        add_menu(win, NO_GLYPH, &any, races[i].noun[0], 0,
-                                 ATR_NONE, races[i].noun,
-                                 MENU_UNSELECTED);
+                        add_menu(win, &nul_glyphinfo, &any, races[i].noun[0], 0,
+                                 ATR_NONE, NO_COLOR, races[i].noun,
+                                 MENU_ITEMFLAGS_NONE);
                     }
                 any.a_int = pick_race(flags.initrole, flags.initgend,
                                       flags.initalign, PICK_RANDOM) + 1;
                 if (any.a_int == 0) /* must be non-zero */
                     any.a_int = randrace(flags.initrole) + 1;
-                add_menu(win, NO_GLYPH, &any, '*', 0, ATR_NONE, "Random",
-                         MENU_UNSELECTED);
+                add_menu(win, &nul_glyphinfo, &any, '*', 0, ATR_NONE,
+                         NO_COLOR, "Random", MENU_ITEMFLAGS_NONE);
                 any.a_int = i + 1; /* must be non-zero */
-                add_menu(win, NO_GLYPH, &any, 'q', 0, ATR_NONE, "Quit",
-                         MENU_UNSELECTED);
+                add_menu(win, &nul_glyphinfo, &any, 'q', 0, ATR_NONE,
+                         NO_COLOR, "Quit", MENU_ITEMFLAGS_NONE);
                 Sprintf(pbuf, "Pick the race of your %s", plbuf);
                 end_menu(win, pbuf);
                 n = select_menu(win, PICK_ONE, &selected);
@@ -1553,24 +1568,25 @@ amii_player_selection()
             /* Permit the user to pick, if there is more than one */
             if (n > 1) {
                 win = create_nhwindow(NHW_MENU);
-                start_menu(win);
+                start_menu(win, MENU_BEHAVE_STANDARD);
                 any.a_void = 0; /* zero out all bits */
                 for (i = 0; i < ROLE_GENDERS; i++)
                     if (ok_gend(flags.initrole, flags.initrace, i,
                                 flags.initalign)) {
                         any.a_int = i + 1;
-                        add_menu(win, NO_GLYPH, &any, genders[i].adj[0], 0,
-                                 ATR_NONE, genders[i].adj, MENU_UNSELECTED);
+                        add_menu(win, &nul_glyphinfo, &any, genders[i].adj[0], 0,
+                                 ATR_NONE, NO_COLOR, genders[i].adj,
+                                 MENU_ITEMFLAGS_NONE);
                     }
                 any.a_int = pick_gend(flags.initrole, flags.initrace,
                                       flags.initalign, PICK_RANDOM) + 1;
                 if (any.a_int == 0) /* must be non-zero */
                     any.a_int = randgend(flags.initrole, flags.initrace) + 1;
-                add_menu(win, NO_GLYPH, &any, '*', 0, ATR_NONE, "Random",
-                         MENU_UNSELECTED);
+                add_menu(win, &nul_glyphinfo, &any, '*', 0, ATR_NONE,
+                         NO_COLOR, "Random", MENU_ITEMFLAGS_NONE);
                 any.a_int = i + 1; /* must be non-zero */
-                add_menu(win, NO_GLYPH, &any, 'q', 0, ATR_NONE, "Quit",
-                         MENU_UNSELECTED);
+                add_menu(win, &nul_glyphinfo, &any, 'q', 0, ATR_NONE,
+                         NO_COLOR, "Quit", MENU_ITEMFLAGS_NONE);
                 Sprintf(pbuf, "Pick the gender of your %s", plbuf);
                 end_menu(win, pbuf);
                 n = select_menu(win, PICK_ONE, &selected);
@@ -1624,24 +1640,25 @@ amii_player_selection()
             /* Permit the user to pick, if there is more than one */
             if (n > 1) {
                 win = create_nhwindow(NHW_MENU);
-                start_menu(win);
+                start_menu(win, MENU_BEHAVE_STANDARD);
                 any.a_void = 0; /* zero out all bits */
                 for (i = 0; i < ROLE_ALIGNS; i++)
                     if (ok_align(flags.initrole, flags.initrace,
                                  flags.initgend, i)) {
                         any.a_int = i + 1;
-                        add_menu(win, NO_GLYPH, &any, aligns[i].adj[0], 0,
-                                 ATR_NONE, aligns[i].adj, MENU_UNSELECTED);
+                        add_menu(win, &nul_glyphinfo, &any, aligns[i].adj[0], 0,
+                                 ATR_NONE, NO_COLOR, aligns[i].adj,
+                                 MENU_ITEMFLAGS_NONE);
                     }
                 any.a_int = pick_align(flags.initrole, flags.initrace,
                                        flags.initgend, PICK_RANDOM) + 1;
                 if (any.a_int == 0) /* must be non-zero */
                     any.a_int = randalign(flags.initrole, flags.initrace) + 1;
-                add_menu(win, NO_GLYPH, &any, '*', 0, ATR_NONE, "Random",
-                         MENU_UNSELECTED);
+                add_menu(win, &nul_glyphinfo, &any, '*', 0, ATR_NONE,
+                         NO_COLOR, "Random", MENU_ITEMFLAGS_NONE);
                 any.a_int = i + 1; /* must be non-zero */
-                add_menu(win, NO_GLYPH, &any, 'q', 0, ATR_NONE, "Quit",
-                         MENU_UNSELECTED);
+                add_menu(win, &nul_glyphinfo, &any, 'q', 0, ATR_NONE,
+                         NO_COLOR, "Quit", MENU_ITEMFLAGS_NONE);
                 Sprintf(pbuf, "Pick the alignment of your %s", plbuf);
                 end_menu(win, pbuf);
                 n = select_menu(win, PICK_ONE, &selected);

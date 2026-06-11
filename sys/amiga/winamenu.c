@@ -1,20 +1,26 @@
-/* NetHack 3.6	winmenu.c	$NHDT-Date: 1432512796 2015/05/25 00:13:16 $  $NHDT-Branch: master $:$NHDT-Revision: 1.7 $ */
+/* NetHack 3.6	winamenu.c	$NHDT-Date: 1432512796 2015/05/25 00:13:16 $  $NHDT-Branch: master $:$NHDT-Revision: 1.7 $ */
 /* Copyright (c) Gregg Wonderly, Naperville, Illinois,  1991,1992,1993,1996.
  */
 /* NetHack may be freely redistributed.  See license for details. */
 
+#ifndef CROSS_TO_AMIGA
 #include "NH:sys/amiga/windefs.h"
 #include "NH:sys/amiga/winext.h"
 #include "NH:sys/amiga/winproto.h"
+#else
+#include "windefs.h"
+#include "winext.h"
+#include "winproto.h"
+#endif
 
 /* Start building the text for a menu */
 void
-amii_start_menu(window)
-register winid window;
+amii_start_menu(winid window, unsigned long mbehavior UNUSED)
 {
-    register int i;
-    register struct amii_WinDesc *cw;
-    register amii_menu_item *mip;
+    int i;
+    struct amii_WinDesc *cw;
+    amii_menu_item *mip;
+
 
     if (window == WIN_ERR || (cw = amii_wins[window]) == NULL
         || cw->type != NHW_MENU)
@@ -56,17 +62,13 @@ register winid window;
 
 /* Add a string to a menu */
 void
-amii_add_menu(window, glyph, id, ch, gch, attr, str, preselected)
-register winid window;
-register int glyph;
-register const anything *id;
-register char ch;
-register char gch;
-register int attr;
-register const char *str;
-register BOOLEAN_P preselected;
+amii_add_menu(winid window, const glyph_info *glyphinfo, const anything *id,
+              char ch, char gch, int attr, int clr,
+              const char *str, unsigned int itemflags)
 {
-    register struct amii_WinDesc *cw;
+    struct amii_WinDesc *cw;
+
+    boolean preselected = ((itemflags & MENU_ITEMFLAGS_SELECTED) != 0);
     amii_menu_item *mip;
     char buf[4 + BUFSZ];
 
@@ -81,7 +83,8 @@ register BOOLEAN_P preselected;
     mip->identifier = *id;
     mip->selected = preselected;
     mip->attr = attr;
-    mip->glyph = Is_rogue_level(&u.uz) ? NO_GLYPH : glyph;
+    mip->color = clr;
+    mip->glyph = Is_rogue_level(&u.uz) ? NO_GLYPH : (glyphinfo ? glyphinfo->glyph : NO_GLYPH);
     mip->selector = 0;
     mip->gselector = gch;
     mip->count = -1;
@@ -122,11 +125,10 @@ register BOOLEAN_P preselected;
 /* Done building a menu. */
 
 void
-amii_end_menu(window, morestr)
-register winid window;
-register const char *morestr;
+amii_end_menu(winid window, const char *morestr)
 {
-    register struct amii_WinDesc *cw;
+    struct amii_WinDesc *cw;
+
 
     if (window == WIN_ERR || (cw = amii_wins[window]) == NULL
         || cw->type != NHW_MENU)
@@ -142,8 +144,8 @@ register const char *morestr;
         mip = cw->menu.last;
 #endif
         any.a_void = 0;
-        amii_add_menu(window, NO_GLYPH, &any, 0, 0, ATR_NONE, morestr,
-                      MENU_UNSELECTED);
+        amii_add_menu(window, (const glyph_info *) 0, &any, 0, 0, ATR_NONE,
+                      NO_COLOR, morestr, MENU_ITEMFLAGS_NONE);
 #ifdef PROMPTFIRST /* Do some shuffling. Last first, push others one forward \
                       */
         mip->next = NULL;
@@ -169,13 +171,11 @@ register const char *morestr;
 /* Select something from the menu. */
 
 int
-amii_select_menu(window, how, mip)
-register winid window;
-register int how;
-register menu_item **mip;
+amii_select_menu(winid window, int how, menu_item **mip)
 {
     int cnt;
-    register struct amii_WinDesc *cw;
+    struct amii_WinDesc *cw;
+
 
     if (window == WIN_ERR || (cw = amii_wins[window]) == NULL
         || cw->type != NHW_MENU)
@@ -190,7 +190,7 @@ register menu_item **mip;
 }
 
 amii_menu_item *
-find_menu_item(register struct amii_WinDesc *cw, int idx)
+find_menu_item(struct amii_WinDesc *cw, int idx)
 {
     amii_menu_item *mip;
     for (mip = cw->menu.items; idx > 0 && mip; mip = mip->next)
@@ -200,11 +200,11 @@ find_menu_item(register struct amii_WinDesc *cw, int idx)
 }
 
 int
-make_menu_items(register struct amii_WinDesc *cw, register menu_item **rmip)
+make_menu_items(struct amii_WinDesc *cw, menu_item **rmip)
 {
-    register int idx = 0;
-    register amii_menu_item *mip;
-    register menu_item *mmip;
+    int idx = 0;
+    amii_menu_item *mip;
+    menu_item *mmip;
 
     for (mip = cw->menu.items; mip; mip = mip->next) {
         if (mip->selected)
@@ -227,19 +227,17 @@ make_menu_items(register struct amii_WinDesc *cw, register menu_item **rmip)
 }
 
 int
-DoMenuScroll(win, blocking, how, retmip)
-int win, blocking, how;
-menu_item **retmip;
+DoMenuScroll(int win, int blocking, int how, menu_item **retmip)
 {
     amii_menu_item *amip;
-    register struct Window *w;
-    register struct NewWindow *nw;
+    struct Window *w;
+    struct NewWindow *nw;
     struct PropInfo *pip;
-    register struct amii_WinDesc *cw;
+    struct amii_WinDesc *cw;
     struct IntuiMessage *imsg;
     struct Gadget *gd;
-    register int wheight, xsize, ysize, aredone = 0;
-    register int txwd, txh;
+    int wheight, xsize, ysize, aredone = 0;
+    int txwd, txh;
     long mics, secs, class, code;
     long oldmics = 0, oldsecs = 0;
     int aidx, oidx, topidx, hidden;
@@ -348,7 +346,7 @@ menu_item **retmip;
         nw->Screen = HackScreen;
 
         if (win == WIN_INVEN) {
-            sprintf(title, "%s the %s's Inventory", plname, pl_character);
+            sprintf(title, "%s the %s's Inventory", svp.plname, svp.pl_character);
             nw->Title = title;
             if (lastinvent.MaxX != 0) {
                 nw->LeftEdge = lastinvent.MinX;
@@ -810,7 +808,7 @@ menu_item **retmip;
                                     ++topidx;
                                 else
                                     break;
-                            } else if (code = CTRL('U')
+                            } else if (code == CTRL('U')
                                               || code == MENU_PREVIOUS_PAGE) {
                                 if (topidx > 0)
                                     --topidx;
@@ -998,11 +996,13 @@ menu_item **retmip;
                             oldmics = mics;
                         } else {
                             amip = find_menu_item(cw, oidx);
-                            amip->selected = 0;
-                            amip->count = -1;
-                            reset_counting = TRUE;
-                            if (amip->canselect && amip->selector)
-                                amip->str[SOFF + 2] = '-';
+                            if (amip) {
+                                amip->selected = 0;
+                                amip->count = -1;
+                                reset_counting = TRUE;
+                                if (amip->canselect && amip->selector)
+                                    amip->str[SOFF + 2] = '-';
+                            }
                         }
                         if (counting && amip->selected && amip->canselect
                             && amip->selector) {
@@ -1083,13 +1083,12 @@ menu_item **retmip;
 }
 
 void
-ReDisplayData(win)
-winid win;
+ReDisplayData(winid win)
 {
     int totalvis;
-    register struct amii_WinDesc *cw;
-    register struct Window *w;
-    register struct Gadget *gd;
+    struct amii_WinDesc *cw;
+    struct Window *w;
+    struct Gadget *gd;
     unsigned long hidden, aidx, wheight;
     struct PropInfo *pip;
 
@@ -1114,15 +1113,13 @@ winid win;
 }
 
 long
-FindLine(win, line)
-winid win;
-int line;
+FindLine(winid win, int line)
 {
     int txwd;
-    register char *t;
-    register struct amii_WinDesc *cw;
-    register struct Window *w;
-    register int i, disprow, len;
+    char *t;
+    struct amii_WinDesc *cw;
+    struct Window *w;
+    int i, disprow, len;
     int col = -1;
 
     if (win == WIN_ERR || !(cw = amii_wins[win]) || !(w = cw->win)) {
@@ -1177,15 +1174,14 @@ int line;
 }
 
 long
-CountLines(win)
-winid win;
+CountLines(winid win)
 {
     int txwd;
     amii_menu_item *mip;
-    register char *t;
-    register struct amii_WinDesc *cw;
-    register struct Window *w;
-    register int i, disprow, len;
+    char *t;
+    struct amii_WinDesc *cw;
+    struct Window *w;
+    int i, disprow, len;
     int col = -1;
 
     if (win == WIN_ERR || !(cw = amii_wins[win]) || !(w = cw->win)) {
@@ -1241,17 +1237,15 @@ winid win;
 }
 
 void
-DisplayData(win, start)
-winid win;
-int start;
+DisplayData(winid win, int start)
 {
     int txwd;
     amii_menu_item *mip;
-    register char *t;
-    register struct amii_WinDesc *cw;
-    register struct Window *w;
-    register struct RastPort *rp;
-    register int i, disprow, len, wheight;
+    char *t;
+    struct amii_WinDesc *cw;
+    struct Window *w;
+    struct RastPort *rp;
+    int i, disprow, len, wheight;
     int whichcolor = -1;
     int col;
 
@@ -1354,6 +1348,13 @@ int start;
             whichcolor = 2;
         }
 
+        /* Apply menucolor if set for this item */
+        if (mip && mip->color != NO_COLOR && !(mip->selected)) {
+            extern const int foreg[];
+            SetAPen(rp, foreg[mip->color]);
+            whichcolor = 0; /* force re-evaluation next item */
+        }
+
         /* Next line out, wrap if too long */
 
         t = cw->data[i] + SOFF;
@@ -1418,14 +1419,11 @@ int start;
 }
 
 void
-SetPropInfo(win, gad, vis, total, top)
-register struct Window *win;
-register struct Gadget *gad;
-register long vis, total, top;
+SetPropInfo(struct Window *win, struct Gadget *gad, long vis, long total, long top)
 {
     long mflags;
-    register long hidden;
-    register int body, pot;
+    long hidden;
+    int body, pot;
 
     hidden = max(total - vis, 0);
 

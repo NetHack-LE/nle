@@ -9,6 +9,7 @@
 
 #include "hack.h"
 #include "winami.h"
+#include "windefs.h"
 
 /* Defined in config.h, let's undefine it here (static function below) */
 #undef strcmpi
@@ -18,10 +19,82 @@
 #include <intuition/intuition.h>
 
 #undef COUNT
+
 #if defined(__SASC_60) || defined(__GNUC__)
 #include <proto/exec.h>
 #include <proto/dos.h>
 #endif
+
+/* POSIX stubs needed by libnix (-noixemul) */
+#ifdef __noixemul__
+int getpid(void) { return (int)FindTask(NULL); }
+#endif
+
+/* Point NetHack: at the directory we were launched from.  Works for both
+   CLI ("nethack") and Workbench (icon double-click) launches, since
+   GetProgramDir() (V37+) resolves both.  Any existing assign is replaced;
+   it would just be stale state from a previous install or session. */
+void
+amiga_self_assign(void)
+{
+    BPTR dup;
+
+    if (GetProgramDir() == 0)
+        return;
+    if ((dup = DupLock(GetProgramDir())) == 0)
+        return;
+    if (!AssignLock("NetHack", dup))
+        UnLock(dup);
+}
+
+/* Generate an RFC 4122 v4 UUID for this game.  Entropy comes from
+   DateStamp + the running task's address mixed through a small LCG. */
+void
+get_nhuuid(void)
+{
+    uchar bytes[16];
+    struct DateStamp ds;
+    unsigned long x;
+    int i;
+
+    if (svn.nhuuid[0])
+        return;
+
+    DateStamp(&ds);
+    x = (unsigned long) ds.ds_Days
+      ^ ((unsigned long) ds.ds_Minute << 16)
+      ^ ((unsigned long) ds.ds_Tick << 8)
+      ^ (unsigned long) FindTask(NULL);
+    /* Classic glibc/POSIX rand() LCG (Knuth, C99 7.22.2.1).  Full period
+       2^32; we read bits 16-23 to skip the LCG's bad low bits. */
+    for (i = 0; i < 16; i++) {
+        x = x * 1103515245u + 12345u;
+        bytes[i] = (uchar) (x >> 16);
+    }
+    /* RFC 4122: version=4 (random), variant=10. */
+    bytes[6] = (bytes[6] & 0x0F) | 0x40;
+    bytes[8] = (bytes[8] & 0x3F) | 0x80;
+
+    Snprintf(svn.nhuuid, sizeof svn.nhuuid,
+             "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
+             "%02x%02x%02x%02x%02x%02x",
+             bytes[0], bytes[1], bytes[2], bytes[3],
+             bytes[4], bytes[5],
+             bytes[6], bytes[7],
+             bytes[8], bytes[9],
+             bytes[10], bytes[11], bytes[12], bytes[13],
+             bytes[14], bytes[15]);
+}
+
+void
+free_nhuuid(void)
+{
+    int i;
+
+    for (i = 0; i < SIZE(svn.nhuuid); i++) {
+        svn.nhuuid[i] = 0;
+    }
+}
 
 #ifdef AZTEC_50
 #include <functions.h>
@@ -29,12 +102,21 @@
 #endif
 
 /* Prototypes */
-#include "NH:sys/amiga/winami.p"
+#ifndef CROSS_TO_AMIGA
 #include "NH:sys/amiga/amiwind.p"
+#include "NH:sys/amiga/winami.p"
 #include "NH:sys/amiga/amidos.p"
+#else
+#include "amiwind.p"
+#include "winami.p"
+#include "amidos.p"
+#endif
+
 
 extern char Initialized;
 extern struct window_procs amii_procs;
+struct ami_sysflags sysflags = {0};
+FILE *fopenp(const char *, const char *);
 
 #ifndef __SASC_60
 int Enable_Abort = 0; /* for stdio package */
@@ -46,13 +128,14 @@ char PATH[PATHLEN] = "NetHack:";
 static boolean record_exists(void);
 
 void
-flushout()
+flushout(void)
 {
     (void) fflush(stdout);
 }
 
 #ifndef getuid
-getuid()
+int
+getuid(void)
 {
     return 1;
 }
@@ -60,26 +143,19 @@ getuid()
 
 #ifndef getlogin
 char *
-getlogin()
+getlogin(void)
 {
     return ((char *) NULL);
 }
 #endif
 
-#ifndef AZTEC_50
-int
-abs(x)
-int x;
-{
-    return x < 0 ? -x : x;
-}
-#endif
+/* abs() provided by libnix/stdlib */
 
 #ifdef SHELL
 int
-dosh()
+dosh(void)
 {
-    int i;
+    int i = 0;
     char buf[BUFSZ];
     extern struct ExecBase *SysBase;
 
@@ -113,8 +189,7 @@ dosh()
  */
 /* TODO: update this for FFS */
 long
-freediskspace(path)
-char *path;
+freediskspace(char *path)
 {
 #ifdef UNTESTED
     /* these changes from Patric Mueller <bhaak@gmx.net> for AROS to
@@ -123,9 +198,9 @@ char *path;
      */
     unsigned long long freeBytes = 0;
 #else
-    register long freeBytes = 0;
+    long freeBytes = 0;
 #endif
-    register struct InfoData *infoData; /* Remember... longword aligned */
+    struct InfoData *infoData; /* Remember... longword aligned */
     char fileName[32];
 
     /*
@@ -137,11 +212,11 @@ char *path;
      *  so must be on the current device, so "" is enough...
      */
     {
-        register char *colon;
+        char *colon;
 
         strncpy(fileName, path, sizeof(fileName) - 1);
         fileName[31] = 0;
-        if (colon = index(fileName, ':'))
+        if (colon = strchr(fileName, ':'))
             colon[1] = '\0';
         else
             fileName[0] = '\0';
@@ -183,12 +258,11 @@ char *path;
 }
 
 long
-filesize(file)
-char *file;
+filesize(char *file)
 {
-    register BPTR fileLock;
-    register struct FileInfoBlock *fileInfoBlock;
-    register long size = 0;
+    BPTR fileLock;
+    struct FileInfoBlock *fileInfoBlock;
+    long size = 0;
 
     fileInfoBlock =
         (struct FileInfoBlock *) alloc(sizeof(struct FileInfoBlock));
@@ -204,14 +278,14 @@ char *file;
 
 #if 0
 void
-eraseall(path, files)
-const char *path, *files;
+void
+eraseall(const char *path, const char *files)
 {
     BPTR dirLock, dirLock2;
     struct FileInfoBlock *fibp;
     int chklen;
 #if (NH_DEVEL_STATUS != NH_STATUS_RELEASED)
-    if(files != alllevels)panic("eraseall");
+    if(files != g.alllevels)panic("eraseall");
 #endif
     chklen=(int)index(files,'*')-(int)files;
 
@@ -240,12 +314,11 @@ const char *path, *files;
 #if 0 /* Unused */
 #define COPYSIZE 4096
 
-char *CopyFile(from, to)
-const char *from, *to;
+char *CopyFile(const char *from, const char *to)
 {
-    register BPTR fromFile, toFile;
-    register char *buffer;
-    register long size;
+    BPTR fromFile, toFile;
+    char *buffer;
+    long size;
     char *error = NULL;
 
     buffer = (char *) alloc(COPYSIZE);
@@ -272,14 +345,16 @@ const char *from, *to;
 }
 #endif
 
+#ifdef MFLOPPY
 /* this should be replaced */
-saveDiskPrompt(start)
+int
+saveDiskPrompt(int start)
 {
     char buf[BUFSIZ], *bp;
     BPTR fileLock;
     if (sysflags.asksavedisk) {
         /* Don't prompt if you can find the save file */
-        if (fileLock = Lock(SAVEF, SHARED_LOCK)) {
+        if (fileLock = Lock(gs.SAVEF, SHARED_LOCK)) {
             UnLock(fileLock);
 #if defined(TTY_GRAPHICS)
             if (windowprocs.win_init_nhwindows
@@ -294,7 +369,7 @@ saveDiskPrompt(start)
             return 1;
         }
         pline("If save file is on a SAVE disk, put that disk in now.");
-        if (strlen(SAVEF) > QBUFSZ - 25 - 22)
+        if (strlen(gs.SAVEF) > QBUFSZ - 25 - 22)
             panic("not enough buffer space for prompt");
 /* THIS IS A HACK */
 #if defined(TTY_GRAPHICS)
@@ -305,7 +380,7 @@ saveDiskPrompt(start)
 #endif
 #if defined(AMII_GRAPHICS)
         if (windowprocs.win_init_nhwindows == amii_procs.win_init_nhwindows) {
-            getlind("File name ?", buf, SAVEF);
+            getlind("File name ?", buf, gs.SAVEF);
             clear_nhwindow(WIN_BASE);
         }
 #endif
@@ -314,21 +389,22 @@ saveDiskPrompt(start)
             return 0;
 
         /* Strip any whitespace. Also, if nothing was entered except
-         * whitespace, do not change the value of SAVEF.
+         * whitespace, do not change the value of gs.SAVEF.
          */
         for (bp = buf; *bp; bp++) {
             if (!isspace(*bp)) {
-                strncpy(SAVEF, bp, PATHLEN);
+                strncpy(gs.SAVEF, bp, PATHLEN);
                 break;
             }
         }
     }
     return 1;
 }
+#endif /* MFLOPPY */
 
 /* Return 1 if the record file was found */
 static boolean
-record_exists()
+record_exists(void)
 {
     FILE *file;
 
@@ -345,7 +421,7 @@ record_exists()
  * For Amiga: do nothing, but called from restore.c
  */
 void
-gameDiskPrompt()
+gameDiskPrompt(void)
 {
 }
 #endif
@@ -355,8 +431,7 @@ gameDiskPrompt()
  * be room for the /.
  */
 void
-append_slash(name)
-char *name;
+append_slash(char *name)
 {
     char *ptr;
 
@@ -371,8 +446,7 @@ char *name;
 }
 
 void
-getreturn(str)
-const char *str;
+getreturn(const char *str)
 {
     int ch;
 
@@ -386,12 +460,11 @@ const char *str;
 #define PATHSEP ';'
 
 FILE *
-fopenp(name, mode)
-register const char *name, *mode;
+fopenp(const char *name, const char *mode)
 {
-    register char *bp, *pp, lastch;
-    register FILE *fp;
-    register BPTR theLock;
+    char *bp, *pp, lastch = 0;
+    FILE *fp;
+    BPTR theLock;
     char buf[BUFSIZ];
 
     /* Try the default directory first.  Then look along PATH.
@@ -442,7 +515,12 @@ register const char *name, *mode;
 
 static BPTR OrgDirLock = NO_LOCK;
 
-chdir(dir) char *dir;
+int
+chdir(
+#ifdef CROSS_TO_AMIGA
+      const
+#endif
+      char *dir)
 {
     extern char orgdir[];
 
@@ -479,7 +557,7 @@ chdir(dir) char *dir;
  */
 #undef exit
 void
-nethack_exit(code)
+nethack_exit(int code)
 {
 #ifdef CHDIR
     extern char orgdir[];
@@ -496,11 +574,11 @@ nethack_exit(code)
     exit(code);
 }
 
-void regularize(s) /* normalize file name - we don't like :'s or /'s */
-register char *s;
+void
+regularize(char *s) /* normalize file name - we don't like :'s or /'s */
 {
-    register char *lp;
+    char *lp;
 
-    while ((lp = index(s, ':')) || (lp = index(s, '/')))
+    while ((lp = strchr(s, ':')) || (lp = strchr(s, '/')))
         *lp = '_';
 }

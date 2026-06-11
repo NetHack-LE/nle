@@ -2,9 +2,15 @@
 /* Copyright (c) Gregg Wonderly, Naperville, Illinois,  1991,1992,1993. */
 /* NetHack may be freely redistributed.  See license for details. */
 
+#ifndef CROSS_TO_AMIGA
 #include "NH:sys/amiga/windefs.h"
 #include "NH:sys/amiga/winext.h"
 #include "NH:sys/amiga/winproto.h"
+#else
+#include "windefs.h"
+#include "winext.h"
+#include "winproto.h"
+#endif
 
 #define GADBLUEPEN 2
 #define GADREDPEN 3
@@ -39,7 +45,11 @@ struct NewWindow StrWindow = {
     &String, NULL, NULL, NULL, NULL, 5, 5, 0xffff, 0xffff, CUSTOMSCREEN
 };
 
+#ifndef CROSS_TO_AMIGA
 #include "NH:sys/amiga/colorwin.c"
+#else
+#include "colorwin.c"
+#endif
 
 #define XSIZE 2
 #define YSIZE 3
@@ -48,21 +58,25 @@ struct NewWindow StrWindow = {
 #define GADOKAY 6
 #define GADCANCEL 7
 
+#ifndef CROSS_TO_AMIGA
 #include "NH:sys/amiga/clipwin.c"
+#else
+#include "clipwin.c"
+#endif
 
 void ClearCol(struct Window *w);
 
 void
-EditColor()
+EditColor(void)
 {
-    extern char configfile[];
+    const char *configfile = get_configfile();
     int i, done = 0, okay = 0;
     long code, qual, class;
-    register struct Gadget *gd, *dgad;
-    register struct Window *nw;
-    register struct IntuiMessage *imsg;
-    register struct PropInfo *pip;
-    register struct Screen *scrn;
+    struct Gadget *gd, *dgad;
+    struct Window *nw;
+    struct IntuiMessage *imsg;
+    struct PropInfo *pip;
+    struct Screen *scrn;
     long aidx;
     int msx, msy;
     int curcol = 0, drag = 0;
@@ -114,11 +128,7 @@ EditColor()
 #ifdef INTUI_NEW_LOOK
         Col_NewWindowStructure1.Extension = wintags;
         Col_NewWindowStructure1.Flags |= WFLG_NW_EXTENDED;
-#ifdef __GNUC__
         fillhook.h_Entry = (void *) &LayerFillHook;
-#else
-        fillhook.h_Entry = (ULONG (*) ()) LayerFillHook;
-#endif
         fillhook.h_Data = (void *) -2;
         fillhook.h_SubEntry = 0;
 #endif
@@ -234,7 +244,7 @@ EditColor()
                         for (i = 0; i < amii_numcolors; ++i) {
                             fprintf(nfp, "%03x", colors[i]);
                             if ((i + 1) < amii_numcolors)
-                                putc(',', nfp);
+                                putc('/', nfp);
                         }
                         putc('\n', nfp);
                     }
@@ -342,11 +352,11 @@ EditClipping(void)
     char buf[40];
     int done = 0, okay = 0;
     long code, qual, class;
-    register struct Gadget *gd, *dgad;
-    register struct Window *nw;
-    register struct IntuiMessage *imsg;
-    register struct PropInfo *pip;
-    register struct Screen *scrn;
+    struct Gadget *gd, *dgad;
+    struct Window *nw;
+    struct IntuiMessage *imsg;
+    struct PropInfo *pip;
+    struct Screen *scrn;
     long aidx;
     int lmxsize = mxsize, lmysize = mysize;
     int lxclipbord = xclipbord, lyclipbord = yclipbord;
@@ -374,11 +384,7 @@ EditClipping(void)
 #ifdef INTUI_NEW_LOOK
         ClipNewWindowStructure1.Extension = wintags;
         ClipNewWindowStructure1.Flags |= WFLG_NW_EXTENDED;
-#ifdef __GNUC__
         fillhook.h_Entry = (void *) &LayerFillHook;
-#else
-        fillhook.h_Entry = (ULONG (*) ()) LayerFillHook;
-#endif
         fillhook.h_Data = (void *) -2;
         fillhook.h_SubEntry = 0;
 #endif
@@ -532,8 +538,7 @@ EditClipping(void)
 }
 
 char *
-dirname(str)
-char *str;
+dirname(char *str)
 {
     char *t, c;
     static char dir[300];
@@ -541,9 +546,9 @@ char *str;
     t = strrchr(str, '/');
     if (!t)
         t = strrchr(str, ':');
-    if (!t)
-        t = str;
-    else {
+    if (!t) {
+        dir[0] = '\0';
+    } else {
         c = *t;
         *t = 0;
         strcpy(dir, str);
@@ -553,8 +558,7 @@ char *str;
 }
 
 char *
-basename(str)
-char *str;
+basename(char *str)
 {
     char *t;
 
@@ -568,7 +572,8 @@ char *str;
     return (t);
 }
 
-filecopy(from, to) char *from, *to;
+int
+filecopy(char *from, char *to)
 {
     char *buf;
     int i = 0;
@@ -592,7 +597,7 @@ filecopy(from, to) char *from, *to;
 }
 
 /* The colornames, and the default values for the pens */
-static struct COLDEF {
+struct COLDEF {
     char *name, *defval;
 };
 struct COLDEF amii_colnames[AMII_MAXCOLORS] = {
@@ -643,10 +648,7 @@ ClearCol(struct Window *w)
 }
 
 void
-DrawCol(w, idx, colors)
-struct Window *w;
-int idx;
-UWORD *colors;
+DrawCol(struct Window *w, int idx, UWORD *colors)
 {
     int bxorx, bxory, bxxlen, bxylen;
     int i, incx, incy, r, g, b;
@@ -728,10 +730,7 @@ UWORD *colors;
 }
 
 void
-DispCol(w, idx, colors)
-struct Window *w;
-int idx;
-UWORD *colors;
+DispCol(struct Window *w, int idx, UWORD *colors)
 {
     char buf[50];
     char *colname, *defval;
@@ -810,26 +809,21 @@ amii_setpens(int count)
 /* Generate a requester for a string value. */
 
 void
-amii_getlin(prompt, bufp)
-const char *prompt;
-char *bufp;
+amii_getlin(const char *prompt, char *bufp)
 {
     getlind(prompt, bufp, 0);
 }
 
 /* and with default */
 void
-getlind(prompt, bufp, dflt)
-const char *prompt;
-char *bufp;
-const char *dflt;
+getlind(const char *prompt, char *bufp, const char *dflt)
 {
 #ifndef TOPL_GETLINE
-    register struct Window *cwin;
-    register struct IntuiMessage *imsg;
-    register long class, code, qual;
-    register int aredone = 0;
-    register struct Gadget *gd;
+    struct Window *cwin;
+    struct IntuiMessage *imsg;
+    long class, code, qual;
+    int aredone = 0;
+    struct Gadget *gd;
     static int once;
 
     *StrString = 0;
@@ -858,11 +852,7 @@ const char *dflt;
 #ifdef INTUI_NEW_LOOK
         StrWindow.Extension = wintags;
         StrWindow.Flags |= WFLG_NW_EXTENDED;
-#ifdef __GNUC__
         fillhook.h_Entry = (void *) &LayerFillHook;
-#else
-        fillhook.h_Entry = (ULONG (*) ()) LayerFillHook;
-#endif
         fillhook.h_Data = (void *) -2;
         fillhook.h_SubEntry = 0;
 #endif
@@ -992,9 +982,7 @@ const char *dflt;
 }
 
 void
-amii_change_color(pen, val, rev)
-int pen, rev;
-long val;
+amii_change_color(int pen, long val, int rev)
 {
     if (rev)
         sysflags.amii_curmap[pen] = ~val;
@@ -1006,11 +994,12 @@ long val;
 }
 
 char *
-amii_get_color_string()
+amii_get_color_string(void)
 {
     int i;
     char s[10];
     static char buf[BUFSZ];
+
 
     *buf = 0;
     for (i = 0; i < min(32, amii_numcolors); ++i) {
