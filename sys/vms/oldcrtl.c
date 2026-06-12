@@ -1,5 +1,5 @@
-/* NetHack 3.6	oldcrtl.c	$NHDT-Date: 1432512789 2015/05/25 00:13:09 $  $NHDT-Branch: master $:$NHDT-Revision: 1.8 $ */
-/*	 Pat Rankin  May'90					  */
+/* NetHack 5.0	oldcrtl.c	$NHDT-Date: 1596498304 2020/08/03 23:45:04 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.9 $ */
+/*       Pat Rankin  May'90                                       */
 /* VMS NetHack support, not needed for vms 4.6,4.7,5.x,or later   */
 
 #ifdef VERYOLD_VMS
@@ -7,7 +7,7 @@
  * The following routines are used by NetHack but were not available
  * from the C Run-Time Library (VAXCRTL) prior to VMS V4.6.
  *
- *	atexit, memcmp, memcpy, qsort, rename, vprintf, vsprintf
+ *        atexit, memcmp, memcpy, qsort, rename, vprintf, vsprintf
  *
  * Most of them are implemented here, but others will have to be worked
  * around in another fashion [such as '#define USE_OLDARGS' (even though

@@ -12,26 +12,26 @@
  * from this software without specific prior written permission.
  * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  */
 
 /* Several minor changes were made for the NetHack distribution to satisfy
  * non-BSD compilers (by definition BSD compilers do not need to compile
  * this file for NetHack).  These changes consisted of:
- *	- changing the sccsid conditions to nested ifdefs from defined()s
- *	to accommodate stupid preprocessors
- *	- giving srandom() type void instead of allowing it to default to int
- *	- making the first return in initstate() return a value consistent
- *	with its type (instead of no value)
- *	- ANSI function prototyping in extern.h - therefore include hack.h
- *	instead of stdio.h and remove separate declaration of random() from
- *	the beginning of function srandom
- *	- moving sccsid after hack.h to allow precompiled headers, which
- *	means the defined()s would be ok again...
- *	- change fprintf(stderr, "x(%d)y\n", z) to impossible("x(%d)y", z)
- *	- remove useless variable `j' from srandom()
- *	- cast result of pointer subtraction to long since ptrdiff_t could
- *	be bigger than that and trigger warnings when assigning to long
+ *      - changing the sccsid conditions to nested ifdefs from defined()s
+ *      to accommodate stupid preprocessors
+ *      - giving srandom() type void instead of allowing it to default to int
+ *      - making the first return in initstate() return a value consistent
+ *      with its type (instead of no value)
+ *      - ANSI function prototyping in extern.h - therefore include hack.h
+ *      instead of stdio.h and remove separate declaration of random() from
+ *      the beginning of function srandom
+ *      - moving sccsid after hack.h to allow precompiled headers, which
+ *      means the defined()s would be ok again...
+ *      - change fprintf(stderr, "x(%d)y\n", z) to impossible("x(%d)y", z)
+ *      - remove useless variable `j' from srandom()
+ *      - cast result of pointer subtraction to long since ptrdiff_t could
+ *      be bigger than that and trigger warnings when assigning to long
  *
  * $NHDT-Date: 1432512787 2015/05/25 00:13:07 $  $NHDT-Branch: master $:$NHDT-Revision: 1.5 $
  */
@@ -42,7 +42,7 @@
 #else
 #ifdef LIBC_SCCS
 #ifndef lint
-static char sccsid[] = "@(#)random.c	5.5 (Berkeley) 7/6/88";
+static char sccsid[] = "@(#)random.c 5.5 (Berkeley) 7/6/88";
 #endif
 #endif /* LIBC_SCCS and not lint */
 
@@ -56,7 +56,7 @@ static char sccsid[] = "@(#)random.c	5.5 (Berkeley) 7/6/88";
  * initialized to contain information for random number generation with that
  * much state information.  Good sizes for the amount of state information are
  * 32, 64, 128, and 256 bytes.  The state can be switched by calling the
- * setstate() routine with the same array as was initiallized with
+ * setstate() routine with the same array as was initialized with
  * initstate().
  * By default, the package runs with 128 bytes of state information and
  * generates far better random numbers than a linear congruential generator.
@@ -125,19 +125,19 @@ static char sccsid[] = "@(#)random.c	5.5 (Berkeley) 7/6/88";
 
 #define MAX_TYPES 5 /* max number of types above */
 
-static int degrees[MAX_TYPES] = { DEG_0, DEG_1, DEG_2, DEG_3, DEG_4 };
+static const int degrees[MAX_TYPES] = { DEG_0, DEG_1, DEG_2, DEG_3, DEG_4 };
 
-static int seps[MAX_TYPES] = { SEP_0, SEP_1, SEP_2, SEP_3, SEP_4 };
+static const int seps[MAX_TYPES] = { SEP_0, SEP_1, SEP_2, SEP_3, SEP_4 };
 
 /*
  * Initially, everything is set up as if from :
- *		initstate( 1, &randtbl, 128 );
+ *            initstate( 1, &randtbl, 128 );
  * Note that this initialization takes advantage of the fact that srandom()
  * advances the front and rear pointers 10*rand_deg times, and hence the
  * rear pointer which starts at 0 will also end up at zero; thus the zeroeth
  * element of the state information, which contains info about the current
  * position of the rear pointer is just
- *	MAX_TYPES*(rptr - state) + TYPE_3 == TYPE_3.
+ *      MAX_TYPES*(rptr - state) + TYPE_3 == TYPE_3.
  */
 
 static long randtbl[DEG_3 + 1] = {
@@ -158,7 +158,7 @@ static long randtbl[DEG_3 + 1] = {
  * away with just one pointer, but the code for random() is more efficient
  *this
  * way).  The pointers are left positioned as they would be from the call
- *			initstate( 1, randtbl, 128 )
+ *                      initstate( 1, randtbl, 128 )
  * (The position of the rear pointer, rptr, is really 0 (as explained above
  * in the initialization of randtbl) because the state table pointer is set
  * to point to randtbl[1] (as explained below).
@@ -240,7 +240,7 @@ unsigned x;
 char *
 initstate(seed, arg_state, n)
 
-unsigned seed;   /* seed for R. N. G. */
+unsigned seed;   /* seed for RNG */
 char *arg_state; /* pointer to state array */
 int n;           /* # bytes of state info */
 {
@@ -348,7 +348,7 @@ char *arg_state;
  * random:
  * If we are using the trivial TYPE_0 R.N.G., just do the old linear
  * congruential bit.  Otherwise, we do our fancy trinomial stuff, which is the
- * same in all ther other cases due to all the global variables that have been
+ * same in all the other cases due to all the global variables that have been
  * set up.  The basic operation is to add the number at the rear pointer into
  * the one at the front pointer.  Then both pointers are advanced to the next
  * location cyclically in the table.  The value returned is the sum generated,

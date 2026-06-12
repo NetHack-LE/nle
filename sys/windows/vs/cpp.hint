@@ -1,0 +1,31 @@
+// Hint files help the Visual Studio IDE interpret Visual C++ identifiers
+// such as names of functions and macros.
+// For more information see https://go.microsoft.com/fwlink/?linkid=865984
+#define E
+#define NDECL(x) x
+#define FDECL(x, y) x y
+#define staticfn
+#define NONNULL
+#define NONNULLPTRS
+#define NONNULLARG1
+#define NONNULLARG2
+#define NONNULLARG3
+#define NONNULLARG4
+#define NONNULLARG5
+#define NONNULLARG6
+#define NONNULLARG7
+#define NONNULLARG12
+#define NONNULLARG23
+#define NONNULLARG123
+#define NONNULLARG13
+#define NONNULLARG14
+#define NONNULLARG134
+#define NONNULLARG145
+#define NONNULLARG17
+#define NONNULLARG24
+#define NONNULLARG45
+#define NO_NNARGS
+#define ATTRNORETURN
+#define NORETURN
+#define PRINTF_F
+

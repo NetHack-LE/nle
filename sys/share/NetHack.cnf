@@ -20,18 +20,16 @@
 # try commenting out this line.
 OPTIONS=rawio,BIOS,symset:IBMGraphics_2,roguesymset:RogueEpyx
 
-# Here is a suggested symbol set from Michael Feir, 
-# for use by blind NetHack players
-#OPTIONS=symset:NHAccess,roguesymset:NHAccess
+# Here is a suggested symbol set for use by blind NetHack players
+#OPTIONS=symset:plain
 
 # To use VGA graphical tiles on an MS-DOS PC with VGA or better,uncomment 
 # this:
 #OPTIONS=video:autodetect
+# And to explicitly set the resolution:
+#OPTIONS=video_width:1024
+#OPTIONS=video_height:768
 
-# Some versions of NetHack use the pc speaker to play the notes given when
-# playing music instruments in NetHack.  To use this feature, if available,
-# uncomment the following line:
-#OPTIONS=soundcard:autodetect
 
 # If your machine is NEC PC-9800, use:
 #OPTIONS=rawio,BIOS,video:default
@@ -130,4 +128,17 @@ OPTIONS=time,noshowexp,number_pad:2,lit_corridor
 #MENUCOLOR=" holy "=green
 #MENUCOLOR=" cursed "=red
 #MENUCOLOR=" unholy "=red
-#MENUCOLOR=" cursed .* (being worn)"=orange&underline
+#MENUCOLOR=" cursed .* \(being worn\)"=orange&underline
+
+# statusbar highlighting
+#OPTIONS=hitpointbar
+#OPTIONS=hilite_status:hitpoints/100%/gray&normal
+#OPTIONS=hilite_status:hitpoints/<100%/green&normal
+#OPTIONS=hilite_status:hitpoints/<66%/yellow&normal
+#OPTIONS=hilite_status:hitpoints/<50%/orange&normal
+#OPTIONS=hilite_status:hitpoints/<33%/red&bold
+#OPTIONS=hilite_status:hitpoints/<15%/red&inverse
+#OPTIONS=hilite_status:power-max/up/green
+#OPTIONS=hilite_status:power-max/down/red
+#OPTIONS=hilite_status:armor-class/down/green
+#OPTIONS=hilite_status:armor-class/up/red

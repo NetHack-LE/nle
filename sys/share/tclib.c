@@ -1,5 +1,5 @@
-/* NetHack 3.6	tclib.c	$NHDT-Date: 1432512788 2015/05/25 00:13:08 $  $NHDT-Branch: master $:$NHDT-Revision: 1.8 $ */
-/* Copyright (c) Robert Patrick Rankin, 1995			  */
+/* NetHack 5.0	tclib.c	$NHDT-Date: 1596498287 2020/08/03 23:44:47 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.10 $ */
+/* Copyright (c) Robert Patrick Rankin, 1995                      */
 /* NetHack may be freely redistributed.  See license for details. */
 
 /* termcap library implementation */
@@ -21,13 +21,13 @@ char *BC, *UP;
 short ospeed;
 
 /* exported routines */
-int FDECL(tgetent, (char *, const char *));
-int FDECL(tgetflag, (const char *));
-int FDECL(tgetnum, (const char *));
-char *FDECL(tgetstr, (const char *, char **));
-char *FDECL(tgoto, (const char *, int, int));
-char *FDECL(tparam, (const char *, char *, int, int, int, int, int));
-void FDECL(tputs, (const char *, int, int (*)(int)));
+int tgetent(char *, const char *);
+int tgetflag(const char *);
+int tgetnum(const char *);
+char *tgetstr(const char *, char **);
+char *tgoto(const char *, int, int);
+char *tparam(const char *, char *, int, int, int, int, int);
+void tputs(const char *, int, int (*)(int));
 
 /* local support data */
 static char *tc_entry;
@@ -49,10 +49,10 @@ static short baud_rates[] = {
 #endif /* !NO_DELAY_PADDING */
 
 /* local support code */
-static int FDECL(tc_store, (const char *, const char *));
-static char *FDECL(tc_find, (FILE *, const char *, char *, int));
-static char *FDECL(tc_name, (const char *, char *));
-static const char *FDECL(tc_field, (const char *, const char **));
+static int tc_store(const char *, const char *);
+static char *tc_find(FILE *, const char *, char *, int);
+static char *tc_name(const char *, char *);
+static const char *tc_field(const char *, const char **);
 
 #ifndef min
 #define min(a, b) ((a) < (b) ? (a) : (b))
@@ -60,9 +60,8 @@ static const char *FDECL(tc_field, (const char *, const char **));
 
 /* retrieve the specified terminal entry and return it in `entbuf' */
 int
-tgetent(entbuf, term)
-char *entbuf; /* size must be at least [TCBUFSIZ] */
-const char *term;
+tgetent(char *entbuf, /* size must be at least [TCBUFSIZ] */
+        const char *term)
 {
     int result;
     FILE *fp;
@@ -96,18 +95,17 @@ const char *term;
 
 /* copy the entry into the output buffer */
 static int
-tc_store(trm, ent)
-const char *trm, *ent;
+tc_store(const char *trm, const char *ent)
 {
     const char *bar, *col;
     char *s;
     size_t n;
     int k;
 
-    if (!ent || !*ent || !trm || !*trm || (col = index(ent, ':')) == 0)
+    if (!ent || !*ent || !trm || !*trm || (col = strchr(ent, ':')) == 0)
         return 0;
     (void) strcpy(tc_entry, trm);
-    if (((bar = index(ent, '|')) != 0 && bar < col)
+    if (((bar = strchr(ent, '|')) != 0 && bar < col)
         || ((long) (n = strlen(trm)) == (long) (col - ent)
             && strncmp(ent, trm, n) == 0))
         (void) strcat(tc_entry, col);
@@ -137,11 +135,7 @@ const char *trm, *ent;
 
 /* search for an entry in the termcap file */
 static char *
-tc_find(fp, term, buffer, bufsiz)
-FILE *fp;
-const char *term;
-char *buffer;
-int bufsiz;
+tc_find(FILE *fp, const char *term, char *buffer, int bufsiz)
 {
     int in, len, first, skip;
     char *ip, *op, *tc_fetch, tcbuf[TCBUFSIZ];
@@ -177,7 +171,7 @@ int bufsiz;
             *op++ = *ip, bufsiz -= 1;
         if (ip[0] == ':' && ip[1] == 't' && ip[2] == 'c' && ip[3] == '=') {
             tc_fetch = &ip[4];
-            if ((ip = index(tc_fetch, ':')) != 0)
+            if ((ip = strchr(tc_fetch, ':')) != 0)
                 *ip = '\0';
             break;
         }
@@ -198,18 +192,16 @@ int bufsiz;
 
 /* check whether `ent' contains `nam'; return start of field entries */
 static char *
-tc_name(nam, ent)
-const char *nam;
-char *ent;
+tc_name(const char *nam, char *ent)
 {
     char *nxt, *lst, *p = ent;
     size_t n = strlen(nam);
 
-    if ((lst = index(p, ':')) == 0)
+    if ((lst = strchr(p, ':')) == 0)
         lst = p + strlen(p);
 
     while (p < lst) {
-        if ((nxt = index(p, '|')) == 0 || nxt > lst)
+        if ((nxt = strchr(p, '|')) == 0 || nxt > lst)
             nxt = lst;
         if ((long) (nxt - p) == (long) n && strncmp(p, nam, n) == 0)
             return lst;
@@ -220,8 +212,7 @@ char *ent;
 
 /* look up a numeric entry */
 int
-tgetnum(which)
-const char *which;
+tgetnum(const char *which)
 {
     const char *q, *p = tc_field(which, &q);
     char numbuf[32];
@@ -239,8 +230,7 @@ const char *which;
 
 /* look up a boolean entry */
 int
-tgetflag(which)
-const char *which;
+tgetflag(const char *which)
 {
     const char *p = tc_field(which, (const char **) 0);
 
@@ -249,9 +239,7 @@ const char *which;
 
 /* look up a string entry; update `*outptr' */
 char *
-tgetstr(which, outptr)
-const char *which;
-char **outptr;
+tgetstr(const char *which, char **outptr)
 {
     int n;
     char c, *r, *result;
@@ -260,7 +248,7 @@ char **outptr;
     if (!p || p[2] != '=')
         return (char *) 0;
     p += 3;
-    if ((q = index(p, ':')) == 0)
+    if ((q = strchr(p, ':')) == 0)
         q = p + strlen(p);
     r = result = *outptr;
     while (p < q) {
@@ -326,15 +314,13 @@ char **outptr;
 
 /* look for a particular field name */
 static const char *
-tc_field(field, tc_end)
-const char *field;
-const char **tc_end;
+tc_field(const char *field, const char **tc_end)
 {
     const char *end, *q, *p = tc_entry;
 
     end = p + strlen(p);
     while (p < end) {
-        if ((p = index(p, ':')) == 0)
+        if ((p = strchr(p, ':')) == 0)
             break;
         ++p;
         if (p[0] == field[0] && p[1] == field[1]
@@ -343,7 +329,7 @@ const char **tc_end;
     }
     if (tc_end) {
         if (p) {
-            if ((q = index(p + 2, ':')) == 0)
+            if ((q = strchr(p + 2, ':')) == 0)
                 q = end;
         } else
             q = 0;
@@ -356,20 +342,17 @@ static char cmbuf[64];
 
 /* produce a string which will position the cursor at <row,col> if output */
 char *
-tgoto(cm, col, row)
-const char *cm;
-int col, row;
+tgoto(const char *cm, int col, int row)
 {
     return tparam(cm, cmbuf, (int) (sizeof cmbuf), row, col, 0, 0);
 }
 
 /* format a parameterized string, ala sprintf */
 char *
-tparam(ctl, buf, buflen, row, col, row2, col2)
-const char *ctl; /* parameter control string */
-char *buf;       /* output buffer */
-int buflen;      /* ought to have been `size_t'... */
-int row, col, row2, col2;
+tparam(const char *ctl, /* parameter control string */
+       char *buf,       /* output buffer */
+       int buflen,      /* ought to have been `size_t'... */
+       int row, int col, int row2, int col2)
 {
     int atmp, ac, av[5];
     char c, *r, *z, *bufend, numbuf[32];
@@ -412,7 +395,7 @@ int row, col, row2, col2;
                        LF from becoming CR+LF, for instance; only
                        makes sense if this is a cursor positioning
                        sequence, but we have no way to check that */
-                    while (index("\004\t\n\013\f\r", *r)) {
+                    while (strchr("\004\t\n\013\f\r", *r)) {
                         if (ac & 1) { /* row */
                             if (!UP || !*UP)
                                 break; /* can't fix */
@@ -501,14 +484,13 @@ int row, col, row2, col2;
 
 /* send a string to the terminal, possibly padded with trailing NULs */
 void
-tputs(string, range, output_func)
-const char *string; /* characters to output */
-int range;          /* number of lines affected, used for `*' delays */
-int FDECL((*output_func),(int)); /* actual output routine;
+tputs(const char *string, /* characters to output */
+      int range,          /* number of lines affected, used for `*' delays */
+      int (*output_func)(int)) /* actual output routine;
                                   * return value ignored */
 {
-    register int c, num = 0;
-    register const char *p = string;
+    int c, num = 0;
+    const char *p = string;
 
     if (!p || !*p)
         return;

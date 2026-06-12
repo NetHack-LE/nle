@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+    <LUA_VERSION>5.4.8</LUA_VERSION>
+    <RootDir>$(MSBuildProjectDirectory)\..\..\..\..\</RootDir>
+    <BinDir>$(RootDir)binary\$(Configuration)\$(Platform)\</BinDir>
+    <ObjDir>$(ProjectDir)obj\$(Configuration)\$(Platform)\$(TargetName)\</ObjDir>
+    <SymbolsDir>$(ProjectDir)symbols\$(Configuration)\$(Platform)\$(TargetName)\</SymbolsDir>
+    <ToolsDir>$(RootDir)tools\$(Configuration)\$(Platform)\</ToolsDir>
+    <ImageDir>$(vsDir)\Images\</ImageDir>
+    <UtilDir>$(RootDir)util\</UtilDir>
+    <DatDir>$(RootDir)dat\</DatDir>
+    <DocDir>$(RootDir)doc\</DocDir>
+    <IncDir>$(RootDir)include\</IncDir>
+    <LibDir>$(RootDir)lib\</LibDir>
+    <SndWavDir>$(RootDir)sound\wav\</SndWavDir>
+    <SndWindDir>$(RootDir)sound\windsound\</SndWindDir>
+    <SrcDir>$(RootDir)src\</SrcDir>
+    <SysDir>$(RootDir)sys\</SysDir>
+    <UtilDir>$(RootDir)util\</UtilDir>
+    <SysShareDir>$(RootDir)sys\share\</SysShareDir>
+    <SysWindDir>$(RootDir)sys\windows\</SysWindDir>
+    <vsDir>$(SysWindDir)vs\</vsDir>
+    <WinShareDir>$(RootDir)win\share\</WinShareDir>
+    <WinTtyDir>$(RootDir)win\tty\</WinTtyDir>
+    <WinWin32Dir>$(RootDir)win\win32\</WinWin32Dir>
+    <OutDir>$(ToolsDir)</OutDir>
+    <IntDir>$(ObjDir)</IntDir>
+    <WinCursDir>$(RootDir)win\curses\</WinCursDir>
+    <SubmodulesDir>$(RootDir)submodules\</SubmodulesDir>
+    <LuaDir>$(LibDir)lua-$(LUA_VERSION)\src\</LuaDir>
+    <SftagsDir>$(RootDir)\sys\windows\vs\sftags\</SftagsDir>
+    <SfctoolDir>$(RootDir)\sys\windows\vs\sfctool\</SfctoolDir>
+    <PackageBin>$(RootDir)binary\$(Configuration)\$(Platform)</PackageBin>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PDCURSESMOD)'=='' AND Exists('$(LibDir)pdcursesmod\curses.h')">
+    <PDCURSESMOD>$(LibDir)pdcursesmod\</PDCURSESMOD>
+    <PDCURSES>$(PDCURSESMOD)</PDCURSES>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PDCURSESMOD)'=='' AND Exists('$(SubmodulesDir)pdcursesmod\curses.h')">
+    <PDCURSESMOD>$(SubmodulesDir)pdcursesmod\</PDCURSESMOD>
+    <PDCURSES>$(PDCURSESMOD)</PDCURSES>
+  </PropertyGroup>
+  <PropertyGroup>
+    <HostTools></HostTools>
+    <Host>$(Platform)</Host>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PROCESSOR_ARCHITECTURE)'=='ARM64'AND '$(Platform)'=='x86'">
+    <HostTools>..\ARM64\</HostTools>
+    <Host>arm64</Host>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PROCESSOR_ARCHITECTURE)'=='ARM64'AND '$(Platform)'=='x64'">
+    <HostTools>..\ARM64\</HostTools>
+    <Host>arm64</Host>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PROCESSOR_ARCHITECTURE)'=='ARM64'AND '$(Platform)'=='ARM64'">
+    <HostTools>..\ARM64\</HostTools>
+    <Host>arm64</Host>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PROCESSOR_ARCHITECTURE)'=='AMD64'AND '$(Platform)'=='x86'">
+    <HostTools>..\x64\</HostTools>
+    <Host>x64</Host>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PROCESSOR_ARCHITECTURE)'=='AMD64'AND '$(Platform)'=='x64'">
+    <HostTools>..\x64\</HostTools>
+    <Host>x64</Host>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(PROCESSOR_ARCHITECTURE)'=='AMD64'AND '$(Platform)'=='ARM64'">
+    <HostTools>..\x64\</HostTools>
+    <Host>x64</Host>
+  </PropertyGroup>
+</Project>

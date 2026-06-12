@@ -1,4 +1,4 @@
-/* NetHack 3.6  pmatchregex.c	$NHDT-Date: 1544482890 2018/12/10 23:01:30 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.2 $ */
+/* NetHack 5.0  pmatchregex.c	$NHDT-Date: 1737691300 2025/01/23 20:01:40 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.10 $ */
 /* Copyright (c) Sean Hunt  2015.                                 */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -20,7 +20,7 @@ struct nhregex {
 };
 
 struct nhregex *
-regex_init()
+regex_init(void)
 {
     struct nhregex *re;
 
@@ -30,9 +30,7 @@ regex_init()
 }
 
 boolean
-regex_compile(s, re)
-const char *s;
-struct nhregex *re;
+regex_compile(const char *s, struct nhregex *re)
 {
     if (!re)
         return FALSE;
@@ -43,17 +41,14 @@ struct nhregex *re;
     return TRUE;
 }
 
-const char *
-regex_error_desc(re)
-struct nhregex *re UNUSED;
+char *
+regex_error_desc(struct nhregex *re UNUSED, char *errbuf)
 {
-    return "pattern match compilation error";
+    return strcpy(errbuf, "pattern match compilation error");
 }
 
 boolean
-regex_match(s, re)
-const char *s;
-struct nhregex *re;
+regex_match(const char *s, struct nhregex *re)
 {
     if (!re || !re->pat || !s)
         return FALSE;
@@ -62,12 +57,13 @@ struct nhregex *re;
 }
 
 void
-regex_free(re)
-struct nhregex *re;
+regex_free(struct nhregex *re)
 {
-    if (re) {
-        if (re->pat)
-            free((genericptr_t) re->pat);
-        free((genericptr_t) re);
-    }
+    assert(re != NULL); /* regex_free() is declared with NONNULLPTR1 */
+
+    if (re->pat)
+        free((genericptr_t) re->pat);
+    free((genericptr_t) re);
 }
+
+/*pmatchregex.c*/

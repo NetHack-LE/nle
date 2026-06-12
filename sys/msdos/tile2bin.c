@@ -1,14 +1,14 @@
-/* NetHack 3.6	tile2bin.c	$NHDT-Date: 1457207041 2016/03/05 19:44:01 $  $NHDT-Branch: chasonr $:$NHDT-Revision: 1.9 $ */
+/* NetHack 5.0	tile2bin.c	$NHDT-Date: 1596498275 2020/08/03 23:44:35 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.11 $ */
 /*   Copyright (c) NetHack PC Development Team 1993, 1994, 1995     */
 /*   NetHack may be freely redistributed.  See license for details. */
 
 /*
  * Edit History:
  *
- *	Initial Creation			M.Allison	93/10/21
- *	ifndef MONITOR_HEAP for heaputil.c	P.Winner	94/03/12
- *      added Borland C _stklen variable	Y.Sapir		94/05/01
- *	fixed to use text tiles from win/share	M.Allison	95/01/31
+ *    Initial Creation                          M.Allison    1993/10/21
+ *    ifndef MONITOR_HEAP for heaputil.c        P.Winner     1994/03/12
+ *    added Borland C _stklen variable          Y.Sapir      1994/05/01
+ *    fixed to use text tiles from win/share    M.Allison    1995/01/31
  *
  */
 
@@ -17,11 +17,7 @@
 #include "tile.h"
 #include "pctiles.h"
 
-#include <dos.h>
-#ifndef MONITOR_HEAP
-#include <stdlib.h>
-#endif
-#include <time.h>
+/* #include <dos.h> */
 
 #ifdef __GO32__
 #include <unistd.h>
@@ -44,7 +40,7 @@ extern unsigned _stklen = STKSIZ;
 #undef PACKED_FILE
 #endif
 
-extern char *FDECL(tilename, (int, int));
+extern char *tilename(int, int);
 
 #ifdef PLANAR_FILE
 char masktable[8] = { 0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01 };
@@ -66,10 +62,10 @@ int num_colors;
 pixel pixels[TILE_Y][TILE_X];
 struct tibhdr_struct tibheader;
 
-static void FDECL(write_tibtile, (int));
-static void FDECL(write_tibheader, (FILE *, struct tibhdr_struct *));
-static void FDECL(build_tibtile, (pixel(*) [TILE_X], BOOLEAN_P));
-static void NDECL(remap_colors);
+static void write_tibtile(int);
+static void write_tibheader(FILE *, struct tibhdr_struct *);
+static void build_tibtile(pixel(*) [TILE_X], boolean);
+static void remap_colors(void);
 
 #ifndef OVERVIEW_FILE
 char *tilefiles[] = { "../win/share/monsters.txt", "../win/share/objects.txt",
@@ -84,9 +80,7 @@ int filenum;
 int paletteflag;
 
 int
-main(argc, argv)
-int argc;
-char *argv[];
+main(int argc, char *argv[])
 {
     int i;
     struct tm *newtime;
@@ -191,8 +185,13 @@ char *argv[];
     tibheader.compiler = OTHER_COMP;
 #endif
 
-    strncpy(tibheader.ident, "NetHack 3.6 MSDOS Port binary tile file", 80);
+    strncpy(tibheader.ident, "NetHack 5.0 MSDOS Port binary tile file", 80);
+#if !defined(NOSTRFTIME)
+    (void) strftime(tibheader.timestamp,
+                  sizeof tibheader.timestamp, "%c", newtime);
+#else
     strncpy(tibheader.timestamp, asctime(newtime), 24);
+#endif
     tibheader.timestamp[25] = '\0';
     tibheader.tilecount = tilecount;
     tibheader.numcolors = num_colors;
@@ -223,9 +222,7 @@ char *argv[];
 }
 
 static void
-write_tibheader(fileptr, tibhdr)
-FILE *fileptr;
-struct tibhdr_struct *tibhdr;
+write_tibheader(FILE *fileptr, struct tibhdr_struct *tibhdr)
 {
     if (fseek(fileptr, 0L, SEEK_SET)) {
         Fprintf(stderr, "Error writing header to tile file\n");
@@ -234,9 +231,7 @@ struct tibhdr_struct *tibhdr;
 }
 
 static void
-build_tibtile(pixels, statues)
-pixel (*pixels)[TILE_X];
-boolean statues;
+build_tibtile(pixel (*pixels)[TILE_X], boolean statues)
 {
     static int graymappings[] = {
         /* .  A  B  C  D  E  F  G  H  I  J  K  L  M  N  O  P  */
@@ -314,8 +309,7 @@ boolean statues;
 }
 
 static void
-write_tibtile(recnum)
-int recnum;
+write_tibtile(int recnum)
 {
     long fpos;
 
@@ -352,7 +346,7 @@ int recnum;
 }
 
 static void
-remap_colors()
+remap_colors(void)
 {
     char swap;
 

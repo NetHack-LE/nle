@@ -3,14 +3,28 @@
  */
 /* NetHack may be freely redistributed.  See license for details. */
 
+#ifndef CROSS_TO_AMIGA
 #include "NH:sys/amiga/windefs.h"
 #include "NH:sys/amiga/winext.h"
 #include "NH:sys/amiga/winproto.h"
+#else
+#include "windefs.h"
+#include "winext.h"
+#include "winproto.h"
+#endif
+
 #include "patchlevel.h"
-#include "date.h"
 
 extern struct TagItem scrntags[];
-
+#ifndef CROSS_TO_AMIGA
+extern struct Library *ConsoleDevice;
+#else
+extern struct Device *
+# ifdef __CONSTLIBBASEDECL__
+     __CONSTLIBBASEDECL__
+# endif /* __CONSTLIBBASEDECL__ */
+       ConsoleDevice;
+#endif
 static BitMapHeader amii_bmhd;
 static void cursor_common(struct RastPort *, int, int);
 
@@ -25,6 +39,11 @@ int xclipbord = 4, yclipbord = 2;
 #endif
 
 int mxsize, mysize;
+
+/* Track the last level we centered the clipping viewport on, so that
+   both amii_clear_nhwindow (pre-docrt centering) and amii_cliparound
+   (scroll/pan during play) can detect level changes. */
+static d_level clip_saved_level = { 127, 127 }; /* XXX */
 struct Rectangle amii_oldover;
 struct Rectangle amii_oldmsg;
 
@@ -43,8 +62,7 @@ int amii_otherBPen;
 long amii_libvers = LIBRARY_FONT_VERSION;
 
 void
-ami_wininit_data(dir)
-int dir;
+ami_wininit_data(int dir)
 {
     extern unsigned short amii_init_map[AMII_MAXCOLORS];
     extern unsigned short amiv_init_map[AMII_MAXCOLORS];
@@ -53,11 +71,7 @@ int dir;
         return;
 
     if (!WINVERS_AMIV) {
-#ifdef TEXTCOLOR
         amii_numcolors = 8;
-#else
-        amii_numcolors = 4;
-#endif
         amii_defpens[0] = C_BLACK; /* DETAILPEN        */
         amii_defpens[1] = C_BLUE;  /* BLOCKPEN         */
         amii_defpens[2] = C_BROWN; /* TEXTPEN          */
@@ -139,12 +153,13 @@ struct TagItem wintags[] = {
 };
 #endif
 
-void amii_destroy_nhwindow(win) /* just hide */
-register winid win;
+void
+amii_destroy_nhwindow(winid win) /* just hide */
 {
     int i;
     int type;
-    register struct amii_WinDesc *cw;
+    struct amii_WinDesc *cw;
+
 
     if (win == WIN_ERR || (cw = amii_wins[win]) == NULL) {
         panic(winpanicstr, win, "destroy_nhwindow");
@@ -249,26 +264,37 @@ PPC_LayerFillHook(void)
     struct RastPort *rp = (struct RastPort *) REG_A2;
     struct FillParams *fp = (struct FillParams *) REG_A1;
 #else
+/* Assembly trampoline: Intuition calls LayerFillHook with arguments
+   in registers a0 (hook), a1 (fillparams), a2 (rastport).
+   Push them onto the stack and call the C implementation. */
+__asm(
+"	.globl _LayerFillHook\n"
+"_LayerFillHook:\n"
+"	move.l a1,-(sp)\n"
+"	move.l a2,-(sp)\n"
+"	move.l a0,-(sp)\n"
+"	jsr _LayerFillHook_impl\n"
+"	lea 12(sp),sp\n"
+"	rts\n"
+);
 void
-LayerFillHook(void)
+LayerFillHook_impl(struct Hook *hk, struct RastPort *rp,
+                    struct FillParams *fp)
 {
-    register struct Hook *hk asm("a0");
-    register struct RastPort *rp asm("a2");
-    register struct FillParams *fp asm("a1");
 #endif
 #else
 void
 #ifndef _DCC
     __interrupt
 #endif
-        __saveds __asm LayerFillHook(register __a0 struct Hook *hk,
-                                     register __a2 struct RastPort *rp,
-                                     register __a1 struct FillParams *fp)
+        __saveds __asm LayerFillHook(__a0 struct Hook *hk,
+                                     __a2 struct RastPort *rp,
+                                     __a1 struct FillParams *fp)
 {
 #endif
 
-    register long x, y, xmax, ymax;
-    register int apen;
+    long x, y, xmax, ymax;
+    int apen;
     struct RastPort rptmp;
 
     memcpy(&rptmp, rp, sizeof(struct RastPort));
@@ -310,14 +336,16 @@ void
 }
 #endif
 
-amii_create_nhwindow(type) register int type;
+winid
+amii_create_nhwindow(int type)
 {
-    register struct Window *w = NULL;
-    register struct NewWindow *nw = NULL;
-    register struct amii_WinDesc *wd = NULL;
+    struct Window *w = NULL;
+    struct NewWindow *nw = NULL;
+    struct amii_WinDesc *wd = NULL;
     struct Window *mapwin = NULL, *stwin = NULL, *msgwin = NULL;
-    register int newid;
+    int newid;
     int maph, stath, scrfontysize;
+
 
     scrfontysize = HackScreen->Font->ta_YSize;
 
@@ -552,11 +580,7 @@ amii_create_nhwindow(type) register int type;
         case NHW_OVER:
         case NHW_MAP:
             if (wd) {
-#ifdef __GNUC__
                 fillhook.h_Entry = (void *) &LayerFillHook;
-#else
-                fillhook.h_Entry = (ULONG (*) ()) LayerFillHook;
-#endif
                 fillhook.h_Data = (void *) type;
                 fillhook.h_SubEntry = 0;
                 wd->hook = alloc(sizeof(fillhook));
@@ -654,6 +678,10 @@ amii_create_nhwindow(type) register int type;
                    / w->RPort->TxHeight;
         wd->cols = (w->Width - w->BorderLeft - w->BorderRight - 2)
                    / w->RPort->TxWidth;
+        /* Map window uses y+2 offset in amii_print_glyph, so cury
+           values go up to ROWNO+2. Ensure rows accommodates this. */
+        if (type == NHW_MAP && wd->rows < ROWNO + 3)
+            wd->rows = ROWNO + 3;
     }
 
     /* Okay, now do the individual type initialization */
@@ -725,7 +753,9 @@ amii_create_nhwindow(type) register int type;
          */
         wd->data = (char **) alloc(3 * sizeof(char *));
         wd->data[0] = (char *) alloc(wd->cols + 10);
+        wd->data[0][0] = '\0';
         wd->data[1] = (char *) alloc(wd->cols + 10);
+        wd->data[1][0] = '\0';
         wd->data[2] = NULL;
         break;
 
@@ -760,7 +790,7 @@ amii_create_nhwindow(type) register int type;
         SetMenuStrip(w, MenuStrip);
         /* Make our requesters come to our screen */
         {
-            register struct Process *myProcess =
+            struct Process *myProcess =
                 (struct Process *) FindTask(NULL);
             pr_WindowPtr = (struct Window *) (myProcess->pr_WindowPtr);
             myProcess->pr_WindowPtr = (APTR) w;
@@ -776,8 +806,7 @@ amii_create_nhwindow(type) register int type;
             Abort(AG_OpenDev | AO_ConsoleDev);
         }
 
-        ConsoleDevice = (struct Library *) ConsoleIO.io_Device;
-
+	ConsoleDevice = (struct Device *) ConsoleIO.io_Device;
         KbdBuffered = 0;
 
 #ifdef HACKFONT
@@ -811,12 +840,23 @@ PPC_SM_Filter(void)
     ULONG modeID = (ULONG) REG_A1;
     struct ScreenModeRequester *smr = (struct ScreenModeRequester *) REG_A2;
 #else
+/* Assembly trampoline for SM_Filter hook callback.
+   SM_Filter is the asm entry point; SM_Filter_impl is the C body. */
+extern void SM_Filter(void);
+__asm(
+"	.globl _SM_Filter\n"
+"_SM_Filter:\n"
+"	move.l a2,-(sp)\n"
+"	move.l a1,-(sp)\n"
+"	move.l a0,-(sp)\n"
+"	jsr _SM_Filter_impl\n"
+"	lea 12(sp),sp\n"
+"	rts\n"
+);
 int
-SM_Filter(void)
+SM_Filter_impl(struct Hook *hk, ULONG modeID,
+               struct ScreenModeRequester *smr)
 {
-    register struct Hook *hk asm("a0");
-    register ULONG modeID asm("a1");
-    register struct ScreenModeRequester *smr asm("a2");
 #endif
 #else
 int
@@ -824,8 +864,8 @@ int
     __interrupt
 #endif
         __saveds __asm SM_Filter(
-            register __a0 struct Hook *hk, register __a1 ULONG modeID,
-            register __a2 struct ScreenModeRequester *smr)
+            __a0 struct Hook *hk, __a1 ULONG modeID,
+            __a2 struct ScreenModeRequester *smr)
 {
 #endif
     struct DimensionInfo dims;
@@ -846,16 +886,57 @@ int
     return 0;
 }
 
+/* Switch from AMIV (tile) to AMII (text) and tell the player why. */
+static void
+amii_fall_back(const char *why1, const char *why2)
+{
+    extern struct window_procs amii_procs;
+
+    raw_print(why1);
+    raw_print(why2);
+    raw_print("Falling back to text mode.  Set windowtype:amii in");
+    raw_print("nethack.cnf to suppress this warning.");
+    windowprocs = amii_procs;
+    ami_wininit_data(WININIT);
+}
+
+static void
+amii_maybe_fall_back_to_text(void)
+{
+    if (!WINVERS_AMIV)
+        return;
+
+    if (IntuitionBase->LibNode.lib_Version >= 37) {
+        struct Screen *wbscr;
+        int wb_depth = -1;
+
+        if ((wbscr = LockPubScreen("Workbench")) != NULL) {
+            wb_depth = wbscr->BitMap.Depth;
+            UnlockPubScreen(NULL, wbscr);
+        }
+        if (wb_depth >= 0 && wb_depth < 4) {
+            amii_fall_back("Workbench screen is shallower than 16 colours",
+                           "(tile mode requires depth >= 4).");
+            return;
+        }
+    }
+
+    if (AvailMem(MEMF_CHIP) < 384L * 1024L) {
+        amii_fall_back("Not enough chip RAM available for tile mode",
+                       "(< 384 KB free).");
+        return;
+    }
+}
+
 /* Initialize the windowing environment */
 
 void
-amii_init_nhwindows(argcp, argv)
-int *argcp;
-char **argv;
+amii_init_nhwindows(int *argcp, char **argv)
 {
     int i;
     struct Screen *wbscr;
     int forcenobig = 0;
+
 
     if (HackScreen)
         panic("init_nhwindows() called twice", 0);
@@ -911,6 +992,8 @@ char **argv;
     if ((AslBase = OpenLibrary("asl.library", amii_libvers)) == NULL) {
         Abort(AG_OpenLib);
     }
+
+    amii_maybe_fall_back_to_text();
 
     amiIDisplay =
         (struct amii_DisplayDesc *) alloc(sizeof(struct amii_DisplayDesc));
@@ -1172,9 +1255,16 @@ char **argv;
     }
 #endif
 
-    if (WINVERS_AMIV)
+    if (WINVERS_AMIV) {
+        extern char *tilefile;
+        if (amii_numcolors >= 32) {
+            tilefile = "NetHack:tiles/tiles32.iff";
+            amii_numcolors = 32;
+        } else {
+            tilefile = "NetHack:tiles/tiles16.iff";
+        }
         amii_bmhd = ReadTileImageFiles();
-    else
+    } else
         memcpy(amii_initmap, amii_init_map, sizeof(amii_initmap));
     memcpy(sysflags.amii_curmap, amii_initmap, sizeof(sysflags.amii_curmap));
 
@@ -1201,11 +1291,7 @@ char **argv;
     /* While openscreen fails try fewer colors to see if that is the problem.
      */
     while ((HackScreen = OpenScreen((void *) &NewHackScreen)) == NULL) {
-#ifdef TEXTCOLOR
         if (--NewHackScreen.Depth < 3)
-#else
-        if (--NewHackScreen.Depth < 2)
-#endif
             Abort(AN_OpenScreen & ~AT_DeadEnd);
     }
     amii_numcolors = 1L << NewHackScreen.Depth;
@@ -1345,11 +1431,11 @@ amii_setdrawpens(struct Window *w, int type)
 /* Clear the indicated window */
 
 void
-amii_clear_nhwindow(win)
-register winid win;
+amii_clear_nhwindow(winid win)
 {
-    register struct amii_WinDesc *cw;
-    register struct Window *w;
+    struct amii_WinDesc *cw;
+    struct Window *w;
+
 
     if (reclip == 2)
         return;
@@ -1378,6 +1464,40 @@ register winid win;
     amii_setfillpens(w, cw->type);
     SetDrMd(w->RPort, JAM2);
 
+#ifdef CLIPPING
+    /* When clearing the map for a full redraw (docrt/cls), center the
+       clipping viewport on the player BEFORE the map is redrawn.
+       Without this, the first docrt() after a level change or new game
+       draws with stale clip coordinates (typically 0,0), leaving the
+       player off-screen until their first move triggers amii_cliparound. */
+    if (cw->type == NHW_MAP && clipping && u.ux
+        && !on_level(&u.uz, &clip_saved_level)) {
+        int COx, LIx;
+        struct RastPort *rp = w->RPort;
+
+        if (Is_rogue_level(&u.uz)) {
+            COx = (w->Width - w->BorderLeft - w->BorderRight) / rp->TxWidth;
+            LIx = (w->Height - w->BorderTop - w->BorderBottom) / rp->TxHeight;
+        } else {
+            COx = CO;
+            LIx = LI;
+        }
+        clipx = max(0, (int) u.ux - COx / 2);
+        clipxmax = clipx + COx;
+        if (clipxmax > COLNO) {
+            clipxmax = COLNO;
+            clipx = clipxmax - COx;
+        }
+        clipy = max(0, (int) u.uy - LIx / 2);
+        clipymax = clipy + LIx;
+        if (clipymax > ROWNO) {
+            clipymax = ROWNO;
+            clipy = clipymax - LIx;
+        }
+        clip_saved_level = u.uz;
+    }
+#endif
+
     if (cw->type == NHW_MENU || cw->type == NHW_TEXT) {
         RectFill(w->RPort, w->BorderLeft, w->BorderTop,
                  w->Width - w->BorderRight - 1,
@@ -1402,11 +1522,10 @@ register winid win;
 /* Dismiss the window from the screen */
 
 void
-dismiss_nhwindow(win)
-register winid win;
+dismiss_nhwindow(winid win)
 {
-    register struct Window *w;
-    register struct amii_WinDesc *cw;
+    struct Window *w;
+    struct amii_WinDesc *cw;
 
     if (win == WIN_ERR || (cw = amii_wins[win]) == NULL) {
         panic(winpanicstr, win, "dismiss_nhwindow");
@@ -1442,9 +1561,9 @@ register winid win;
 }
 
 void
-amii_exit_nhwindows(str)
-const char *str;
+amii_exit_nhwindows(const char *str)
 {
+
     /* Seems strange to have to do this... but we need the BASE window
      * left behind...
      */
@@ -1459,14 +1578,13 @@ const char *str;
 }
 
 void
-amii_display_nhwindow(win, blocking)
-winid win;
-boolean blocking;
+amii_display_nhwindow(winid win, boolean blocking)
 {
     menu_item *mip;
     int cnt;
     static int lastwin = -1;
     struct amii_WinDesc *cw;
+
 
     if (!Initialized)
         return;
@@ -1497,14 +1615,12 @@ boolean blocking;
 }
 
 void
-amii_curs(window, x, y)
-winid window;
-register int x, y; /* not xchar: perhaps xchar is unsigned and
-              curx-x would be unsigned as well */
+amii_curs(winid window, int x, int y)
 {
-    register struct amii_WinDesc *cw;
-    register struct Window *w;
-    register struct RastPort *rp;
+    struct amii_WinDesc *cw;
+    struct Window *w;
+    struct RastPort *rp;
+
 
     if (window == WIN_ERR || (cw = amii_wins[window]) == NULL)
         panic(winpanicstr, window, "curs");
@@ -1525,8 +1641,14 @@ register int x, y; /* not xchar: perhaps xchar is unsigned and
     cw->curx = x;
     cw->cury = y;
 
+    /* Silently skip rendering for out-of-bounds coordinates */
+    if (cw->rows > 0 && y >= cw->rows)
+        return;
+    if (cw->cols > 0 && x >= cw->cols)
+        return;
+
 #ifdef DEBUG
-    if (x < 0 || y < 0 || y >= cw->rows || x >= cw->cols) {
+    if (0 && (x < 0 || y < 0 || y >= cw->rows || x >= cw->cols)) {
         char *s = "[unknown type]";
         switch (cw->type) {
         case NHW_MESSAGE:
@@ -1648,12 +1770,10 @@ printf("pos: (%d,%d)->(%d,%d)\n",x,y,qqx,qqy);
 }
 
 void
-amii_set_text_font(name, size)
-char *name;
-int size;
+amii_set_text_font(char *name, int size)
 {
-    register int i;
-    register struct amii_WinDesc *cw;
+    int i;
+    struct amii_WinDesc *cw;
     int osize = TextsFont13.ta_YSize;
     static char nname[100];
 
@@ -1694,11 +1814,10 @@ int size;
 }
 
 void
-kill_nhwindows(all)
-register int all;
+kill_nhwindows(int all)
 {
-    register int i;
-    register struct amii_WinDesc *cw;
+    int i;
+    struct amii_WinDesc *cw;
 
     /* Foreach open window in all of amii_wins[], CloseShWindow, free memory
      */
@@ -1711,12 +1830,10 @@ register int all;
 }
 
 void
-amii_cl_end(cw, curs_pos)
-register struct amii_WinDesc *cw;
-register int curs_pos;
+amii_cl_end(struct amii_WinDesc *cw, int curs_pos)
 {
-    register struct Window *w = cw->win;
-    register int oy, ox;
+    struct Window *w = cw->win;
+    int oy, ox;
 
     if (!w)
         panic("NULL window pointer in amii_cl_end()");
@@ -1730,12 +1847,11 @@ register int curs_pos;
 }
 
 void
-cursor_off(window)
-winid window;
+cursor_off(winid window)
 {
-    register struct amii_WinDesc *cw;
-    register struct Window *w;
-    register struct RastPort *rp;
+    struct amii_WinDesc *cw;
+    struct Window *w;
+    struct RastPort *rp;
     int curx, cury;
     int x, y;
     long dmode;
@@ -1790,13 +1906,12 @@ winid window;
 }
 
 void
-cursor_on(window)
-winid window;
+cursor_on(winid window)
 {
     int x, y;
-    register struct amii_WinDesc *cw;
-    register struct Window *w;
-    register struct RastPort *rp;
+    struct amii_WinDesc *cw;
+    struct Window *w;
+    struct RastPort *rp;
     unsigned char ch;
     long dmode;
     short apen, bpen;
@@ -1843,10 +1958,13 @@ winid window;
     if (WINVERS_AMIV && cw->type == NHW_MAP) {
         cursor_common(rp, x, y);
     } else {
-        Move(rp, x, y);
-        ch = CURSOR_CHAR;
-        Text(rp, &ch, 1);
-        Move(rp, x, y);
+        if (w && x >= 0 && y >= 0
+            && x < w->Width && y < w->Height) {
+            Move(rp, x, y);
+            ch = CURSOR_CHAR;
+            Text(rp, &ch, 1);
+            Move(rp, x, y);
+        }
     }
 
     SetDrMd(rp, dmode);
@@ -1855,9 +1973,7 @@ winid window;
 }
 
 static void
-cursor_common(rp, x, y)
-struct RastPort *rp;
-int x, y;
+cursor_common(struct RastPort *rp, int x, int y)
 {
     int x1, x2, y1, y2;
 
@@ -1880,29 +1996,27 @@ int x, y;
 }
 
 void
-amii_suspend_nhwindows(str)
-const char *str;
+amii_suspend_nhwindows(const char *str)
 {
     if (HackScreen)
         ScreenToBack(HackScreen);
 }
 
 void
-amii_resume_nhwindows()
+amii_resume_nhwindows(void)
 {
     if (HackScreen)
         ScreenToFront(HackScreen);
 }
 
 void
-amii_bell()
+amii_bell(void)
 {
     DisplayBeep(NULL);
 }
 
 void
-removetopl(cnt)
-int cnt;
+removetopl(int cnt)
 {
     struct amii_WinDesc *cw = amii_wins[WIN_MESSAGE];
     /* NB - this is sufficient for
@@ -1920,7 +2034,7 @@ int cnt;
 
 #ifdef PORT_HELP
 void
-port_help()
+port_help(void)
 {
     display_file(PORT_HELP, 1);
 }
@@ -1936,16 +2050,19 @@ port_help()
  */
 
 void
-amii_print_glyph(win, x, y, glyph, bkglyph)
-winid win;
-xchar x, y;
-int glyph, bkglyph;
+amii_print_glyph(winid win, coordxy x, coordxy y,
+                  const glyph_info *glyphinfo,
+                  const glyph_info *bkglyphinfo UNUSED)
 {
     struct amii_WinDesc *cw;
     uchar ch;
+    int glyph;
     int color, och;
     extern const int zapcolors[];
     unsigned special;
+
+
+    glyph = glyphinfo->glyph;
 
     /* In order for the overview window to work, we can not clip here */
     if (!WINVERS_AMIV) {
@@ -1978,8 +2095,8 @@ if(u.uz.dlevel != x){
     } else /* AMII, or Rogue level in either version */
     {
         /* map glyph to character and color */
-        (void) mapglyph(glyph, &och, &color, &special, x, y, 0);
-        ch = (uchar) och;
+	ch = glyphinfo->ttychar;
+	color = glyphinfo->gm.sym.color;
         if (WINVERS_AMIV) { /* implies Rogue level here */
             amii_curs(win, x, y);
             amiga_print_glyph(win, NO_COLOR, ch + 10000);
@@ -1987,15 +2104,11 @@ if(u.uz.dlevel != x){
             /* Move the cursor. */
             amii_curs(win, x, y + 2);
 
-#ifdef TEXTCOLOR
             /* Turn off color if rogue level. */
             if (Is_rogue_level(&u.uz))
                 color = NO_COLOR;
 
             amiga_print_glyph(win, color, ch);
-#else
-            g_putch(ch); /* print the character */
-#endif
             cw->curx++; /* one character over */
         }
     }
@@ -2004,10 +2117,10 @@ if(u.uz.dlevel != x){
 /* Make sure the user sees a text string when no windowing is available */
 
 void
-amii_raw_print(s)
-register const char *s;
+amii_raw_print(const char *s)
 {
     int argc = 0;
+
 
     if (!s)
         return;
@@ -2040,10 +2153,10 @@ register const char *s;
  */
 
 void
-amii_raw_print_bold(s)
-register const char *s;
+amii_raw_print_bold(const char *s)
 {
     int argc = 0;
+
 
     if (!s)
         return;
@@ -2075,20 +2188,28 @@ register const char *s;
 /* Rebuild/update the inventory if the window is up.
  */
 void
-amii_update_inventory()
+amii_update_inventory(int arg UNUSED)
 {
-    register struct amii_WinDesc *cw;
+    struct amii_WinDesc *cw;
+
 
     if (WIN_INVEN != WIN_ERR && (cw = amii_wins[WIN_INVEN])
         && cw->type == NHW_MENU && cw->win) {
-        display_inventory(NULL, FALSE);
+        repopulate_perminvent();
     }
+}
+
+/* Stub for ctrl_nhwindow - no special handling needed for Amiga */
+win_request_info *
+amii_ctrl_nhwindow(winid window UNUSED, int request UNUSED, win_request_info *wri UNUSED)
+{
+    return (win_request_info *) 0;
 }
 
 /* Humm, doesn't really do anything useful */
 
 void
-amii_mark_synch()
+amii_mark_synch(void)
 {
     if (!amiIDisplay)
         fflush(stderr);
@@ -2099,7 +2220,7 @@ amii_mark_synch()
  * ask for a key to be pressed.
  */
 void
-amii_wait_synch()
+amii_wait_synch(void)
 {
     if (!amiIDisplay || amiIDisplay->rawprint) {
         if (amiIDisplay)
@@ -2113,7 +2234,7 @@ amii_wait_synch()
 }
 
 void
-amii_setclipped()
+amii_setclipped(void)
 {
 #ifdef CLIPPING
     clipping = TRUE;
@@ -2124,12 +2245,35 @@ amii_setclipped()
 #endif
 }
 
+/* Redraw a rectangular region of the map via newsym().  Used after
+   ScrollRaster() shifts existing pixels — only the exposed strip needs
+   redrawing.  Does NOT flush; the caller flushes after all regions. */
+static void
+redraw_map_region(int x1, int y1, int x2, int y2)
+{
+    int x, y;
+
+    if (!u.ux)
+        return;
+    if (x1 < 1) x1 = 1;
+    if (y1 < 0) y1 = 0;
+    if (x2 >= COLNO) x2 = COLNO - 1;
+    if (y2 >= ROWNO) y2 = ROWNO - 1;
+    for (y = y1; y <= y2; y++)
+        for (x = x1; x <= x2; x++) {
+            /* Invalidate the glyph buffer so newsym() redraws even if
+             * the glyph hasn't changed — the pixels were shifted by
+             * ScrollRaster and no longer match the buffer. */
+            gg.gbuf[y][x].glyphinfo.glyph = NO_GLYPH;
+            newsym(x, y);
+        }
+}
+
 /* XXX still to do: suppress scrolling if we violate the boundary but the
  * edge of the map is already displayed
  */
 void
-amii_cliparound(x, y)
-register int x, y;
+amii_cliparound(int x, int y)
 {
 #ifdef CLIPPING
     int oldx = clipx, oldy = clipy;
@@ -2138,8 +2282,9 @@ register int x, y;
 #define SCROLLCNT 1            /* Get there in 3 moves... */
     int scrollcnt = SCROLLCNT; /* ...or 1 if we changed level */
 
-    if (!clipping) /* And 1 in anycase, cleaner, simpler, quicker */
+    if (!clipping) { /* And 1 in anycase, cleaner, simpler, quicker */
         return;
+    }
 
     if (Is_rogue_level(&u.uz)) {
         struct Window *w = amii_wins[WIN_MAP]->win;
@@ -2156,16 +2301,22 @@ register int x, y;
      * reasonablely large window extra motion is avoided; for
      * the rogue level hopefully this means no motion at all.
      */
-    {
-        static d_level saved_level = { 127, 127 }; /* XXX */
-
-        if (!on_level(&u.uz, &saved_level)) {
-            scrollcnt = 1; /* jump with blanking */
-            clipx = clipy = 0;
-            clipxmax = COx;
-            clipymax = LIx;
-            saved_level = u.uz; /* save as new current level */
+    if (!on_level(&u.uz, &clip_saved_level)) {
+        scrollcnt = 1; /* jump with blanking */
+        /* Center viewport on the player for the new level. */
+        clipx = max(0, x - COx / 2);
+        clipxmax = clipx + COx;
+        if (clipxmax > COLNO) {
+            clipxmax = COLNO;
+            clipx = clipxmax - COx;
         }
+        clipy = max(0, y - LIx / 2);
+        clipymax = clipy + LIx;
+        if (clipymax > ROWNO) {
+            clipymax = ROWNO;
+            clipy = clipymax - LIx;
+        }
+        clip_saved_level = u.uz; /* save as new current level */
     }
 
     if (x <= clipx + xclipbord) {
@@ -2187,13 +2338,12 @@ register int x, y;
     reclip = 1;
     if (clipx != oldx || clipy != oldy || clipxmax != oldxmax
         || clipymax != oldymax) {
-#ifndef NOSCROLLRASTER
         struct Window *w = amii_wins[WIN_MAP]->win;
         struct RastPort *rp = w->RPort;
-        int xdelta, ydelta, xmod, ymod, i;
-        int incx, incy, mincx, mincy;
-        int savex, savey, savexmax, saveymax;
-        int scrx, scry;
+        int dx = clipx - oldx;
+        int dy = clipy - oldy;
+        int scrx, scry;       /* tile pixel dimensions */
+        int halfW, halfH;     /* half viewport in tiles */
 
         if (Is_rogue_level(&u.uz)) {
             scrx = rp->TxWidth;
@@ -2203,129 +2353,63 @@ register int x, y;
             scry = mysize;
         }
 
-        /* Ask that the glyph routines not draw the overview window */
-        reclip = 2;
-        cursor_off(WIN_MAP);
+        halfW = COx / 2;
+        halfH = LIx / 2;
 
-        /* Compute how far we are moving in terms of tiles */
-        mincx = clipx - oldx;
-        mincy = clipy - oldy;
+        /* Erase the map cursor before shifting pixels, otherwise the
+           old cursor position leaves a COMPLEMENT artifact on screen. */
+        if (WIN_MAP != WIN_ERR)
+            cursor_off(WIN_MAP);
 
-        /* How many tiles to get there in SCROLLCNT moves */
-        incx = (clipx - oldx) / scrollcnt;
-        incy = (clipy - oldy) / scrollcnt;
-
-        /* If less than SCROLLCNT tiles, then move by 1 tile if moving at all
-         */
-        if (incx == 0)
-            incx = (mincx != 0);
-        if (incy == 0)
-            incy = (mincy != 0);
-
-        /* Get count of pixels to move each iteration and final pixel count */
-        xdelta = ((clipx - oldx) * scrx) / scrollcnt;
-        xmod = ((clipx - oldx) * scrx) % scrollcnt;
-        ydelta = ((clipy - oldy) * scry) / scrollcnt;
-        ymod = ((clipy - oldy) * scry) % scrollcnt;
-
-        /* Preserve the final move location */
-        savex = clipx;
-        savey = clipy;
-        saveymax = clipymax;
-        savexmax = clipxmax;
-
-/*
- * Set clipping rectangle to be just the region that will be exposed so
- * that drawing will be faster
- */
-#if 0 /* Doesn't seem to work quite the way it should */
-	/* In some cases hero is 'centered' offscreen */
-	if( xdelta < 0 )
-	{
-	    clipx = oldx;
-	    clipxmax = clipx + incx;
-	}
-	else if( xdelta > 0 )
-	{
-	    clipxmax = oldxmax;
-	    clipx = clipxmax - incx;
-	}
-	else
-	{
-	    clipx = oldx;
-	    clipxmax = oldxmax;
-	}
-
-	if( ydelta < 0 )
-	{
-	    clipy = oldy;
-	    clipymax = clipy + incy;
-	}
-	else if( ydelta > 0 )
-	{
-	    clipymax = oldymax;
-	    clipy = clipymax - incy;
-	}
-	else
-	{
-	    clipy = oldy;
-	    clipymax = oldymax;
-	}
-#endif
-        /* Now, in scrollcnt moves, move the picture toward the final view */
-        for (i = 0; i < scrollcnt; ++i) {
-#ifdef DISPMAP
-            if (i == scrollcnt - 1 && (xmod != 0 || ymod != 0)
-                && (xdelta != 0 || ydelta != 0)) {
-                incx += (clipx - oldx) % scrollcnt;
-                incy += (clipy - oldy) % scrollcnt;
-                xdelta += xmod;
-                ydelta += ymod;
+        /* Large jumps (teleport, level change): just redraw everything. */
+        if (abs(dx) > halfW || abs(dy) > halfH
+            || scrollcnt != SCROLLCNT) {
+            {
+                int savedAPen = rp->FgPen;
+                int savedDrMd = rp->DrawMode;
+                SetAPen(rp, amii_otherBPen);
+                SetDrMd(rp, JAM1);
+                RectFill(rp, w->BorderLeft, w->BorderTop,
+                         w->Width - w->BorderRight - 1,
+                         w->Height - w->BorderBottom - 1);
+                SetAPen(rp, savedAPen);
+                SetDrMd(rp, savedDrMd);
             }
-#endif
-            /* Scroll the raster if we are scrolling */
-            if (xdelta != 0 || ydelta != 0) {
-                ScrollRaster(rp, xdelta, ydelta, w->BorderLeft, w->BorderTop,
-                             w->Width - w->BorderRight - 1,
-                             w->Height - w->BorderBottom - 1);
+            redraw_map(FALSE);
+        } else {
+            /* Flush pending glyphs — they reference old clip coords */
+            flush_glyph_buffer(w);
 
-                if (mincx == 0)
-                    incx = 0;
-                else
-                    mincx -= incx;
+            /* Hardware-blit the viewport by the scroll delta */
+            ScrollRaster(rp, dx * scrx, dy * scry,
+                         w->BorderLeft, w->BorderTop,
+                         w->Width - w->BorderRight - 1,
+                         w->Height - w->BorderBottom - 1);
 
-                clipx += incx;
-                clipxmax += incx;
+            /* Redraw only the exposed strip(s) */
+            if (dx > 0)
+                redraw_map_region(clipxmax - dx, clipy,
+                                  clipxmax, clipymax - 1);
+            else if (dx < 0)
+                redraw_map_region(clipx, clipy,
+                                  clipx - dx, clipymax - 1);
 
-                if (mincy == 0)
-                    incy = 0;
-                else
-                    mincy -= incy;
+            if (dy > 0)
+                redraw_map_region(clipx, clipymax - dy,
+                                  clipxmax, clipymax - 1);
+            else if (dy < 0)
+                redraw_map_region(clipx, clipy,
+                                  clipxmax, clipy - dy - 1);
 
-                clipy += incy;
-                clipymax += incy;
-
-                /* Draw the exposed portion */
-                redraw_map();
-                flush_glyph_buffer(amii_wins[WIN_MAP]->win);
-            }
+            flush_glyph_buffer(w);
         }
-
-        clipx = savex;
-        clipy = savey;
-        clipymax = saveymax;
-        clipxmax = savexmax;
-#endif
-        redraw_map();
-        flush_glyph_buffer(amii_wins[WIN_MAP]->win);
     }
     reclip = 0;
 #endif
 }
 
 void
-flushIDCMP(port)
-struct MsgPort *port;
+flushIDCMP(struct MsgPort *port)
 {
     struct Message *msg;
     while (msg = GetMsg(port))

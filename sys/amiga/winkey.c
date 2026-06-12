@@ -2,16 +2,24 @@
 /* Copyright (c) Gregg Wonderly, Naperville, Illinois,  1991,1992,1993. */
 /* NetHack may be freely redistributed.  See license for details. */
 
+#ifndef CROSS_TO_AMIGA
 #include "NH:sys/amiga/windefs.h"
 #include "NH:sys/amiga/winext.h"
 #include "NH:sys/amiga/winproto.h"
+#else
+#include "windefs.h"
+#include "winext.h"
+#include "winproto.h"
+#endif
 
-amii_nh_poskey(x, y, mod) int *x, *y, *mod;
+int
+amii_nh_poskey(coordxy *x, coordxy *y, int *mod)
 {
     struct amii_WinDesc *cw;
     WETYPE type;
     struct RastPort *rp;
     struct Window *w;
+    /* No entry log for nh_poskey -- too noisy (called constantly) */
 
     if (cw = amii_wins[WIN_MESSAGE]) {
         cw->wflags &= ~FLMAP_SKIP;
@@ -53,10 +61,11 @@ amii_nh_poskey(x, y, mod) int *x, *y, *mod;
 }
 
 int
-amii_nhgetch()
+amii_nhgetch(void)
 {
     int ch;
     struct amii_WinDesc *cw = amii_wins[WIN_MESSAGE];
+    /* No entry log for nhgetch -- too noisy (called constantly) */
 
     if (WIN_MAP != WIN_ERR && amii_wins[WIN_MAP]) {
         cursor_on(WIN_MAP);
@@ -69,15 +78,15 @@ amii_nhgetch()
 }
 
 void
-amii_get_nh_event()
+amii_get_nh_event(void)
 {
     /* nothing now - later I have no idea.  Is this just a Mac hook? */
 }
 
 void
-amii_getret()
+amii_getret(void)
 {
-    register int c;
+    int c;
 
     raw_print("");
     raw_print("Press Return...");

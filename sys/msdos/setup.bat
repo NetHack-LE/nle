@@ -1,5 +1,5 @@
 @echo off
-REM    NetHack 3.6 setup.bat   $NHDT-Date: 1432512792 2015/05/25 00:13:12 $ $NHDT-Branch: master $:$NHDT-Revision: 1.9 $
+REM    NetHack 5.0 setup.bat   $NHDT-Date: 1596498274 2020/08/03 23:44:34 $ $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.18 $
 REM    Copyright (c) NetHack PC Development Team 1990 - 2019
 REM    NetHack may be freely redistributed.  See license for details.
 
@@ -16,7 +16,7 @@ goto err_set
 echo Checking to see if directories are set up properly ...
 if not exist ..\..\include\hack.h  goto err_dir
 if not exist ..\..\src\hack.c      goto err_dir
-if not exist ..\..\dat\wizard.des  goto err_dir
+if not exist ..\..\dat\wizard1.lua  goto err_dir
 if not exist ..\..\util\makedefs.c goto err_dir
 if not exist ..\..\win\tty\wintty.c goto err_dir
 echo Directories OK.
@@ -125,8 +125,9 @@ echo distribution.
 echo The following files need to exist under the names on the
 echo right in order to build NetHack:
 echo.
-echo  ..\..\dat\data.base        needs to be copied to ..\..\dat\data.bas
-echo  ..\..\include\patchlevel.h needs to be copied to ..\..\include\patchlev.h
+echo  ..\..\dat\data.base           needs to be copied to ..\..\dat\data.bas
+echo  ..\..\include\patchlevel.h    needs to be copied to ..\..\include\patchlev.h
+echo  ..\..\sys\share\posixregex.c  needs to be copied to ..\..\sys\share\posixreg.c
 echo.
 echo setup.bat was unable to perform the necessary changes because at least
 echo one of the files doesn't exist under its short name, and the 

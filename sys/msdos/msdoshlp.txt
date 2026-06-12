@@ -1,4 +1,4 @@
-            MSDOS specific help file for NetHack 3.6
+            MSDOS specific help file for NetHack 5.0
 		  (Last Revision: December 4, 1999)
 
 Copyright (c) NetHack PC Development Team 1993-1999.
@@ -47,7 +47,7 @@ OPTIONS=VIDEO
 
 		ie: OPTIONS=video:autodetect
 
-		Possible values are: AUTODETECT, DEFAULT, VGA
+		Possible values are: AUTODETECT, DEFAULT, VGA, VESA
 
 		AUTODETECT Checks for a supported hi-res video
                            adaptor, and if it detects one, NetHack 
@@ -61,6 +61,9 @@ OPTIONS=VIDEO
                            Any forcing of specific video routines has
                            potential to cause machine lock-ups if 
                            the specified video hardware is not present.	
+
+		VESA       Forces use of VESA specific video routines.
+                           Reverts to TTY mode if no VESA BIOS is found.
 
 OPTIONS=VIDEOSHADES
 		(defaults.nh only)
@@ -101,7 +104,7 @@ OPTIONS=VIDEOCOLORS
 		(defaults.nh only)
 		This option is only provided because some people on
 		r.g.r.n mentioned how they liked to modify the color
-		values from the default ANSI.SYS behaviour, and were
+		values from the default ANSI.SYS behavior, and were
 		"upset" to find out that they could no longer do so
 		under 3.1.2.  The color map is as accurate as possible
 		on standard PC video hardware as it stands, and any

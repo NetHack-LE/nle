@@ -1,19 +1,20 @@
-/* NetHack 3.6	video.c	$NHDT-Date: 1554215931 2019/04/02 14:38:51 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.12 $ */
-/*   Copyright (c) NetHack PC Development Team 1993, 1994, 2001	    */
+/* NetHack 5.0	video.c	$NHDT-Date: 1596498277 2020/08/03 23:44:37 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.16 $ */
+/*   Copyright (c) NetHack PC Development Team 1993, 1994, 2001     */
 /*   NetHack may be freely redistributed.  See license for details. */
-/*								    */
+
 /*
  * video.c - Hardware video support front-ends
  *
  *Edit History:
- *     Initial Creation 	     M. Allison      1993/04/04
- *     Add djgpp support	     K. Smolkowski   1993/04/26
+ *     Initial Creation              M. Allison      1993/04/04
+ *     Add djgpp support             K. Smolkowski   1993/04/26
  *     Add txt/graphics mode support M. Allison      1993/10/30
  *     Add graphics mode cursor sim. M. Allison      1994/02/19
  *     Add hooks for decals on vga   M. Allison      2001/04/07
  */
 
 #include "hack.h"
+#include "wintty.h"
 
 #ifndef STUBVIDEO
 #include "pcvideo.h"
@@ -73,7 +74,7 @@
  */
 
 void
-get_scr_size()
+get_scr_size(void)
 {
 #ifdef SCREEN_VGA
     if (iflags.usevga) {
@@ -88,6 +89,14 @@ get_scr_size()
         txt_get_scr_size();
 }
 
+#ifdef ENHANCED_SYMBOLS
+void g_pututf8(uint8 *utf8str)
+{
+    /* not implemented for msdos (yet) */
+    nhUse(utf8str);
+}
+#endif
+
 /*
  * --------------------------------------------------------------
  * The rest of this file is only compiled if NO_TERMS is defined.
@@ -96,7 +105,6 @@ get_scr_size()
 
 #ifdef NO_TERMS
 
-#include <ctype.h>
 #include "wintty.h"
 
 #ifdef __GO32__
@@ -111,35 +119,90 @@ typedef long clock_t;
 #include <dos.h> /* needed for delay() */
 #endif
 
-#ifdef SCREEN_DJGPPFAST /* parts of this block may be unecessary now */
+#ifdef SCREEN_DJGPPFAST /* parts of this block may be unnecessary now */
 #define get_cursor(x, y) ScreenGetCursor(y, x)
 #endif
 
 #ifdef SCREEN_BIOS
-void FDECL(get_cursor, (int *, int *));
+void get_cursor(int *, int *);
 #endif
 
-void FDECL(adjust_cursor_flags, (struct WinDesc *));
-void FDECL(cmov, (int, int));
-void FDECL(nocmov, (int, int));
-STATIC_DCL void NDECL(init_ttycolor);
+void adjust_cursor_flags(struct WinDesc *);
+void cmov(int, int);
+void nocmov(int, int);
+static void init_ttycolor(void);
 
 int savevmode;               /* store the original video mode in here */
 int curcol, currow;          /* graphics mode current cursor locations */
 int g_attribute;             /* Current attribute to use */
 int monoflag;                /* 0 = not monochrome, else monochrome */
+int inversed;
 int attrib_text_normal;      /* text mode normal attribute */
 int attrib_gr_normal;        /* graphics mode normal attribute */
 int attrib_text_intense;     /* text mode intense attribute */
 int attrib_gr_intense;       /* graphics mode intense attribute */
-boolean traditional = FALSE; /* traditonal TTY character mode */
+uint32 curframecolor = NO_COLOR;   /* current background text color */
+boolean traditional = FALSE; /* traditional TTY character mode */
 boolean inmap = FALSE;       /* in the map window */
-#ifdef TEXTCOLOR
 char ttycolors[CLR_MAX]; /* also used/set in options.c */
-#endif                   /* TEXTCOLOR */
+
+/* for linkage from wintty.c */
 
 void
-backsp()
+term_shutdown(void)
+{
+}
+
+#ifdef ASCIIGRAPH
+void
+graph_on(void)
+{
+}
+
+void
+graph_off(void)
+{
+}
+#endif
+
+void
+term_curs_set(int visibility)
+{
+    static int vis = -1;
+
+    if (vis == visibility)
+        return;
+
+    if (!visibility) {
+        if (!iflags.grmode) {
+            txt_hide_cursor();
+#ifdef SCREEN_VGA
+        } else if (iflags.usevga) {
+            vga_hide_cursor();
+#endif
+#ifdef SCREEN_VESA
+        } else if (iflags.usevesa) {
+            vesa_hide_cursor();
+        }
+#endif
+    } else if (visibility) {
+        if (!iflags.grmode) {
+            txt_show_cursor();
+#ifdef SCREEN_VGA
+        } else if (iflags.usevga) {
+            vga_show_cursor();
+#endif
+#ifdef SCREEN_VESA
+        } else if (iflags.usevesa) {
+            vesa_show_cursor();
+        }
+#endif
+    }
+    vis = visibility;
+}
+
+void
+backsp(void)
 {
     if (!iflags.grmode) {
         txt_backsp();
@@ -155,7 +218,7 @@ backsp()
 }
 
 void
-clear_screen()
+term_clear_screen(void)
 {
     if (!iflags.grmode) {
         txt_clear_screen();
@@ -165,12 +228,12 @@ clear_screen()
 #endif
 #ifdef SCREEN_VESA
     } else if (iflags.usevesa) {
-        vesa_clear_screen(BACKGROUND_VGA_COLOR);
+        vesa_clear_screen(BACKGROUND_VESA_COLOR);
 #endif
     }
 }
 
-void cl_end() /* clear to end of line */
+void cl_end(void) /* clear to end of line */
 {
     int col, row;
 
@@ -190,7 +253,7 @@ void cl_end() /* clear to end of line */
     tty_curs(BASE_WINDOW, (int) ttyDisplay->curx + 1, (int) ttyDisplay->cury);
 }
 
-void cl_eos() /* clear to end of screen */
+void cl_eos(void) /* clear to end of screen */
 {
     int cy = (int) ttyDisplay->cury + 1;
 
@@ -209,8 +272,7 @@ void cl_eos() /* clear to end of screen */
 }
 
 void
-cmov(col, row)
-register int col, row;
+cmov(int col, int row)
 {
     ttyDisplay->cury = (uchar) row;
     ttyDisplay->curx = (uchar) col;
@@ -232,16 +294,12 @@ int
 has_color(int color)
 {
     ++color; /* prevents compiler warning (unref. param) */
-#ifdef TEXTCOLOR
     return (monoflag) ? 0 : 1;
-#else
-    return 0;
-#endif
 }
 #endif
 
 void
-home()
+home(void)
 {
     tty_curs(BASE_WINDOW, 1, 0);
     ttyDisplay->curx = ttyDisplay->cury = (uchar) 0;
@@ -259,8 +317,7 @@ home()
 }
 
 void
-nocmov(col, row)
-int col, row;
+nocmov(int col, int row)
 {
     if (!iflags.grmode) {
         txt_gotoxy(col, row);
@@ -276,13 +333,13 @@ int col, row;
 }
 
 void
-standoutbeg()
+standoutbeg(void)
 {
     g_attribute = iflags.grmode ? attrib_gr_intense : attrib_text_intense;
 }
 
 void
-standoutend()
+standoutend(void)
 {
     g_attribute = iflags.grmode ? attrib_gr_normal : attrib_text_normal;
 }
@@ -297,19 +354,24 @@ void
 term_end_attr(int attr)
 {
     switch (attr) {
+    case ATR_INVERSE:
+        inversed = 0;
+        FALLTHROUGH;
+        /*FALLTHRU*/
     case ATR_ULINE:
     case ATR_BOLD:
     case ATR_BLINK:
-    case ATR_INVERSE:
     default:
         g_attribute = iflags.grmode ? attrib_gr_normal : attrib_text_normal;
     }
+    curframecolor = NO_COLOR;
 }
 
 void
 term_end_color(void)
 {
     g_attribute = iflags.grmode ? attrib_gr_normal : attrib_text_normal;
+    curframecolor = NO_COLOR;
 }
 
 void
@@ -342,13 +404,9 @@ term_start_attr(int attr)
         }
         break;
     case ATR_INVERSE:
-        if (monoflag) {
-            g_attribute = ATTRIB_MONO_REVERSE;
-        } else {
-            g_attribute =
-                iflags.grmode ? attrib_gr_intense : attrib_text_intense;
-        }
-        break;
+        inversed = 1;
+        FALLTHROUGH;
+        /*FALLTHRU*/
     default:
         g_attribute = iflags.grmode ? attrib_gr_normal : attrib_text_normal;
         break;
@@ -358,18 +416,40 @@ term_start_attr(int attr)
 void
 term_start_color(int color)
 {
-#ifdef TEXTCOLOR
     if (monoflag) {
         g_attribute = attrib_text_normal;
     } else {
-        if (color >= 0 && color < CLR_MAX) {
+        if (color == NO_COLOR) { /* 5.0 behave like term_end_color() */
+            g_attribute = iflags.grmode ? attrib_gr_normal : attrib_text_normal;
+            curframecolor = NO_COLOR;
+        } else if (color >= 0 && color < CLR_MAX) {
             if (iflags.grmode)
                 g_attribute = color;
             else
                 g_attribute = ttycolors[color];
         }
     }
-#endif
+}
+
+void
+term_start_bgcolor(int bgcolor)
+{
+    // pline("before bgcolor = %d, curframecolor = %d", bgcolor, curframecolor);
+    if (!monoflag) {
+        if (bgcolor >= 0 && bgcolor < CLR_MAX)
+            curframecolor = bgcolor;
+    }
+    // pline("after  bgcolor = %d, curframecolor = %d", bgcolor, curframecolor);
+}
+
+void
+term_start_extracolor(uint32 nhcolor UNUSED, uint16 color256idx UNUSED)
+{
+}
+
+void
+term_end_extracolor(void)
+{
 }
 
 void
@@ -379,7 +459,7 @@ term_start_raw_bold(void)
 }
 
 void
-tty_delay_output()
+tty_delay_output(void)
 {
 #ifdef TIMED_DELAY
     if (flags.nap) {
@@ -391,7 +471,7 @@ tty_delay_output()
 }
 
 void
-tty_end_screen()
+term_end_screen(void)
 {
     if (!iflags.grmode) {
         txt_clear_screen();
@@ -400,31 +480,29 @@ tty_end_screen()
 #endif
 #ifdef SCREEN_VGA
     } else if (iflags.usevga) {
-        vga_tty_end_screen();
+        vga_term_end_screen();
 #endif
 #ifdef SCREEN_VESA
     } else if (iflags.usevesa) {
-        vesa_tty_end_screen();
+        vesa_term_end_screen();
 #endif
     }
 }
 
 void
-tty_nhbell()
+tty_nhbell(void)
 {
     txt_nhbell();
 }
 
 void
-tty_number_pad(state)
-int state;
+tty_number_pad(int state)
 {
     ++state; /* prevents compiler warning (unref. param) */
 }
 
 void
-tty_startup(wid, hgt)
-int *wid, *hgt;
+term_startup(int *wid, int *hgt)
 {
     /* code to sense display adapter is required here - MJA */
 
@@ -438,12 +516,12 @@ int *wid, *hgt;
 
 #ifdef SCREEN_VGA
     if (iflags.usevga) {
-        vga_tty_startup(wid, hgt);
+        vga_term_startup(wid, hgt);
     } else
 #endif
 #ifdef SCREEN_VESA
     if (iflags.usevesa) {
-        vesa_tty_startup(wid, hgt);
+        vesa_term_startup(wid, hgt);
     } else
 #endif
         txt_startup(wid, hgt);
@@ -456,19 +534,19 @@ int *wid, *hgt;
         setclipped();
 #endif
 
-#ifdef TEXTCOLOR
     init_ttycolor();
-#endif
 
 #ifdef MONO_CHECK
     monoflag = txt_monoadapt_check();
 #else
     monoflag = 0;
 #endif
+
+    inversed = 0;
 }
 
 void
-tty_start_screen()
+term_start_screen(void)
 {
 #ifdef PC9800
     fputs("\033[>1h", stdout);
@@ -478,8 +556,9 @@ tty_start_screen()
 }
 
 void
-gr_init()
+gr_init(void)
 {
+    windowprocs.wincap2 &= ~WC2_EXTRACOLORS;
 #ifdef SCREEN_VGA
     if (iflags.usevga) {
         vga_Init();
@@ -499,7 +578,7 @@ gr_init()
 }
 
 void
-gr_finish()
+gr_finish(void)
 {
     if (iflags.grmode) {
 #ifdef SCREEN_VGA
@@ -530,30 +609,29 @@ gr_finish()
  * as those in win/tty).
  *
  * xputs - Writes a c null terminated string at the current location.
- *	   Depending on compile options, this could just be a series
- *	   of repeated calls to xputc() for each character.
+ *         Depending on compile options, this could just be a series
+ *         of repeated calls to xputc() for each character.
  *
  * xputc - Writes a single character at the current location. Since
- *	   various places in the code assume that control characters
- *	   can be used to control, we are forced to interpret some of
- *	   the more common ones, in order to keep things looking correct.
+ *         various places in the code assume that control characters
+ *         can be used to control, we are forced to interpret some of
+ *         the more common ones, in order to keep things looking correct.
  *
  * xputg - If using a graphics mode display mechanism (such as VGA, this
- *	   routine is used to display a graphical representation of a
- *	   NetHack glyph at the current location.  For more information on
- *	   NetHack glyphs refer to the comments in include/display.h.
+ *         routine is used to display a graphical representation of a
+ *         NetHack glyph at the current location.  For more information on
+ *         NetHack glyphs refer to the comments in include/display.h.
  *
  * NOTES:
- *	   wintty.h uses macros to redefine common output functions
- *	   such as puts, putc, putchar, so that they get steered into
- *	   either xputs (for strings) or xputc (for single characters).
- *	   References to puts, putc, and putchar in other source files
- *	   (that include wintty.h) are actually using these routines.
+ *         wintty.h uses macros to redefine common output functions
+ *         such as puts, putc, putchar, so that they get steered into
+ *         either xputs (for strings) or xputc (for single characters).
+ *         References to puts, putc, and putchar in other source files
+ *         (that include wintty.h) are actually using these routines.
  */
 
 void
-xputs(s)
-const char *s;
+xputs(const char *s)
 {
     int col, row;
 
@@ -575,16 +653,22 @@ const char *s;
 
 /* same signature as 'putchar()' with potential failure result ignored */
 int
-xputc(ch) /* write out character (and attribute) */
-int ch;
+xputc(int ch) /* write out character (and attribute) */
 {
     int i;
     char attribute;
 
     i = iflags.grmode ? attrib_gr_normal : attrib_text_normal;
-
     attribute = (char) ((g_attribute == 0) ? i : g_attribute);
+
+    if (curframecolor != NO_COLOR) {
+        attribute |= ((ttycolors[curframecolor]) << 4);
+    }
+
     if (!iflags.grmode) {
+        if (inversed) {
+            attribute = (g_attribute % 8) << 4;
+        }
         txt_xputc(ch, attribute);
 #ifdef SCREEN_VGA
     } else if (iflags.usevga) {
@@ -599,28 +683,24 @@ int ch;
 }
 
 /* write out a glyph picture at current location */
-void xputg(glyphnum, ch, special)
-int glyphnum;
-int ch;
-unsigned special;
+void xputg(const glyph_info *glyphinfo, const glyph_info *bkglyphinfo)
 {
     if (!iflags.grmode || !iflags.tile_view) {
-        (void) xputc((char) ch);
+        (void) xputc((char) glyphinfo->ttychar);
 #ifdef SCREEN_VGA
     } else if (iflags.grmode && iflags.usevga) {
-        vga_xputg(glyphnum, ch, special);
+        vga_xputg(glyphinfo, bkglyphinfo);
 #endif
 #ifdef SCREEN_VESA
     } else if (iflags.grmode && iflags.usevesa) {
-        vesa_xputg(glyphnum, ch, special);
+        vesa_xputg(glyphinfo, bkglyphinfo);
 #endif
     }
 }
 
 #ifdef POSITIONBAR
 void
-video_update_positionbar(posbar)
-char *posbar;
+video_update_positionbar(char *posbar)
 {
     if (!iflags.grmode)
         return;
@@ -636,8 +716,7 @@ char *posbar;
 #endif
 
 void
-adjust_cursor_flags(cw)
-struct WinDesc *cw;
+adjust_cursor_flags(struct WinDesc *cw)
 {
 #ifdef SIMULATE_CURSOR
 #if 0
@@ -664,7 +743,7 @@ int cursor_flag;
 
 /* The check for iflags.grmode is made BEFORE calling these. */
 void
-DrawCursor()
+DrawCursor(void)
 {
 #ifdef SCREEN_VGA
     if (iflags.usevga)
@@ -677,7 +756,7 @@ DrawCursor()
 }
 
 void
-HideCursor()
+HideCursor(void)
 {
 #ifdef SCREEN_VGA
     if (iflags.usevga)
@@ -691,41 +770,40 @@ HideCursor()
 
 #endif /* SIMULATE_CURSOR */
 
-#ifdef TEXTCOLOR
 /*
- * CLR_BLACK		0
- * CLR_RED		1
- * CLR_GREEN		2
- * CLR_BROWN		3	low-intensity yellow
- * CLR_BLUE 		4
- * CLR_MAGENTA		5
- * CLR_CYAN 		6
- * CLR_GRAY 		7	low-intensity white
- * NO_COLOR		8
- * CLR_ORANGE		9
- * CLR_BRIGHT_GREEN 	10
- * CLR_YELLOW		11
- * CLR_BRIGHT_BLUE	12
- * CLR_BRIGHT_MAGENTA	13
- * CLR_BRIGHT_CYAN	14
- * CLR_WHITE		15
- * CLR_MAX		16
- * BRIGHT		8
+ * CLR_BLACK            0
+ * CLR_RED              1
+ * CLR_GREEN            2
+ * CLR_BROWN            3       low-intensity yellow
+ * CLR_BLUE             4
+ * CLR_MAGENTA          5
+ * CLR_CYAN             6
+ * CLR_GRAY             7       low-intensity white
+ * NO_COLOR             8
+ * CLR_ORANGE           9
+ * CLR_BRIGHT_GREEN     10
+ * CLR_YELLOW           11
+ * CLR_BRIGHT_BLUE      12
+ * CLR_BRIGHT_MAGENTA   13
+ * CLR_BRIGHT_CYAN      14
+ * CLR_WHITE            15
+ * CLR_MAX              16
+ * BRIGHT               8
  */
 
 #ifdef VIDEOSHADES
 /* assign_videoshades() is prototyped in extern.h */
 /* assign_videocolors() is prototyped in extern.h */
-/* assign_video()	is prototyped in extern.h */
+/* assign_video()       is prototyped in extern.h */
 
 int shadeflag; /* shades are initialized */
 int colorflag; /* colors are initialized */
-char *schoice[3] = { "dark", "normal", "light" };
-char *shade[3];
+const char *schoice[3] = { "dark", "normal", "light" };
+const char *shade[3];
 #endif /* VIDEOSHADES */
 
-STATIC_OVL void
-init_ttycolor()
+static void
+init_ttycolor(void)
 {
 #ifdef VIDEOSHADES
     if (!shadeflag) {
@@ -763,7 +841,7 @@ init_ttycolor()
 #endif
 }
 
-static int FDECL(convert_uchars, (char *, uchar *, int));
+static int convert_uchars(char *, uchar *, int);
 #ifdef VIDEOSHADES
 int
 assign_videoshades(char *choiceptr)
@@ -776,11 +854,11 @@ assign_videoshades(char *choiceptr)
     cvalue[0] = choices;
 
     /* find the next ' ' or tab */
-    cptr = index(cvalue[0], '-');
+    cptr = strchr(cvalue[0], '-');
     if (!cptr)
-        cptr = index(cvalue[0], ' ');
+        cptr = strchr(cvalue[0], ' ');
     if (!cptr)
-        cptr = index(cvalue[0], '\t');
+        cptr = strchr(cvalue[0], '\t');
     if (!cptr)
         return 0;
     *cptr = '\0';
@@ -790,11 +868,11 @@ assign_videoshades(char *choiceptr)
     } while (isspace(*cptr) || (*cptr == '-'));
     cvalue[1] = cptr;
 
-    cptr = index(cvalue[1], '-');
+    cptr = strchr(cvalue[1], '-');
     if (!cptr)
-        cptr = index(cvalue[0], ' ');
+        cptr = strchr(cvalue[0], ' ');
     if (!cptr)
-        cptr = index(cvalue[0], '\t');
+        cptr = strchr(cvalue[0], '\t');
     if (!cptr)
         return 0;
     *cptr = '\0';
@@ -842,8 +920,8 @@ assign_videoshades(char *choiceptr)
 /*
  * Process defaults.nh OPTIONS=videocolors:xxx
  * Left to right assignments for:
- *	red green brown blue magenta cyan orange br.green yellow
- *	br.blue br.mag br.cyan
+ *      red green brown blue magenta cyan orange br.green yellow
+ *      br.blue br.mag br.cyan
  *
  * Default Mapping (BIOS): 4-2-6-1-5-3-12-10-14-9-13-11
  */
@@ -872,10 +950,9 @@ assign_videocolors(char *colorvals)
 }
 
 static int
-convert_uchars(bufp, list, size)
-char *bufp;  /* current pointer */
-uchar *list; /* return list */
-int size;
+convert_uchars(char *bufp,  /* current pointer */
+               uchar *list, /* return list */
+               int size)
 {
     unsigned int num = 0;
     int count = 0;
@@ -916,7 +993,6 @@ int size;
 }
 
 #endif /* VIDEOSHADES */
-#endif /* TEXTCOLOR */
 
 /*
  * Process defaults.nh OPTIONS=video:xxxx
@@ -924,18 +1000,17 @@ int size;
  *    where (current) legitimate values are:
  *
  *    autodetect (attempt to determine the adapter type)
- *    default	 (force use of the default video method for environment)
- *    vga	 (use vga adapter code)
+ *    default    (force use of the default video method for environment)
+ *    vga        (use vga adapter code)
  */
 int
-assign_video(sopt)
-char *sopt;
+assign_video(char *sopt)
 {
     /*
      * debug
      *
-     *	printf("video is %s",sopt);
-     *	getch();
+     *  printf("video is %s",sopt);
+     *  getch();
      */
     iflags.grmode = 0;
     iflags.hasvesa = 0;
@@ -978,7 +1053,7 @@ char *sopt;
 #endif
         /*
          * Auto-detect Priorities (arbitrary for now):
-         *	VESA, VGA
+         *    VESA, VGA
          */
         if (iflags.hasvesa) iflags.usevesa = 1;
         else if (iflags.hasvga) {
@@ -994,8 +1069,7 @@ char *sopt;
 }
 
 void
-tileview(enable)
-boolean enable;
+tileview(boolean enable)
 {
 #ifdef SCREEN_VGA
     if (iflags.grmode && iflags.usevga)
@@ -1011,8 +1085,7 @@ boolean enable;
 #else  /* STUBVIDEO */
 
 void
-tileview(enable)
-boolean enable;
+tileview(boolean enable)
 {
 }
 #endif /* STUBVIDEO */

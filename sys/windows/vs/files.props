@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <!-- -v -->
+    <Defs Include = "$(DatDir)options"/>
+	<!-- -o -->
+    <Defs Include = "$(IncDir)onames.h"/>
+	<!-- -r -->
+    <Defs Include = "$(DatDir)rumors"/>
+	<!-- -s -->
+    <Defs Include = "$(DatDir)engrave"/>
+    <Defs Include = "$(DatDir)epitaph"/>
+    <Defs Include = "$(DatDir)bogusmon"/>
+	<!-- -h -->
+    <Defs Include = "$(DatDir)oracles"/>
+  </ItemGroup>
+  <ItemGroup>
+    <Luafiles Include = "air.lua"/>
+    <Luafiles Include = "Arc-fila.lua"/>
+    <Luafiles Include = "Arc-filb.lua"/>
+    <Luafiles Include = "Arc-goal.lua"/>
+    <Luafiles Include = "Arc-loca.lua"/>
+    <Luafiles Include = "Arc-strt.lua"/>
+    <Luafiles Include = "asmodeus.lua"/>
+    <Luafiles Include = "astral.lua"/>
+    <Luafiles Include = "baalz.lua"/>
+    <Luafiles Include = "Bar-fila.lua"/>
+    <Luafiles Include = "Bar-filb.lua"/>
+    <Luafiles Include = "Bar-goal.lua"/>
+    <Luafiles Include = "Bar-loca.lua"/>
+    <Luafiles Include = "Bar-strt.lua"/>
+    <Luafiles Include = "bigrm-1.lua"/>
+    <Luafiles Include = "bigrm-10.lua"/>
+    <Luafiles Include = "bigrm-11.lua"/>
+    <Luafiles Include = "bigrm-12.lua"/>
+    <Luafiles Include = "bigrm-13.lua"/>
+    <Luafiles Include = "bigrm-2.lua"/>
+    <Luafiles Include = "bigrm-3.lua"/>
+    <Luafiles Include = "bigrm-4.lua"/>
+    <Luafiles Include = "bigrm-5.lua"/>
+    <Luafiles Include = "bigrm-6.lua"/>
+    <Luafiles Include = "bigrm-7.lua"/>
+    <Luafiles Include = "bigrm-8.lua"/>
+    <Luafiles Include = "bigrm-9.lua"/>
+    <Luafiles Include = "castle.lua"/>
+    <Luafiles Include = "Cav-fila.lua"/>
+    <Luafiles Include = "Cav-filb.lua"/>
+    <Luafiles Include = "Cav-goal.lua"/>
+    <Luafiles Include = "Cav-loca.lua"/>
+    <Luafiles Include = "Cav-strt.lua"/>
+    <Luafiles Include = "dungeon.lua"/>
+    <Luafiles Include = "earth.lua"/>
+    <Luafiles Include = "fakewiz1.lua"/>
+    <Luafiles Include = "fakewiz2.lua"/>
+    <Luafiles Include = "fire.lua"/>
+    <Luafiles Include = "Hea-fila.lua"/>
+    <Luafiles Include = "Hea-filb.lua"/>
+    <Luafiles Include = "Hea-goal.lua"/>
+    <Luafiles Include = "Hea-loca.lua"/>
+    <Luafiles Include = "Hea-strt.lua"/>
+    <Luafiles Include = "hellfill.lua"/>
+    <Luafiles Include = "juiblex.lua"/>
+    <Luafiles Include = "Kni-fila.lua"/>
+    <Luafiles Include = "Kni-filb.lua"/>
+    <Luafiles Include = "Kni-goal.lua"/>
+    <Luafiles Include = "Kni-loca.lua"/>
+    <Luafiles Include = "Kni-strt.lua"/>
+    <Luafiles Include = "knox.lua"/>
+    <Luafiles Include = "medusa-1.lua"/>
+    <Luafiles Include = "medusa-2.lua"/>
+    <Luafiles Include = "medusa-3.lua"/>
+    <Luafiles Include = "medusa-4.lua"/>
+    <Luafiles Include = "minefill.lua"/>
+    <Luafiles Include = "minend-1.lua"/>
+    <Luafiles Include = "minend-2.lua"/>
+    <Luafiles Include = "minend-3.lua"/>
+    <Luafiles Include = "minetn-1.lua"/>
+    <Luafiles Include = "minetn-2.lua"/>
+    <Luafiles Include = "minetn-3.lua"/>
+    <Luafiles Include = "minetn-4.lua"/>
+    <Luafiles Include = "minetn-5.lua"/>
+    <Luafiles Include = "minetn-6.lua"/>
+    <Luafiles Include = "minetn-7.lua"/>
+    <Luafiles Include = "Mon-fila.lua"/>
+    <Luafiles Include = "Mon-filb.lua"/>
+    <Luafiles Include = "Mon-goal.lua"/>
+    <Luafiles Include = "Mon-loca.lua"/>
+    <Luafiles Include = "Mon-strt.lua"/>
+    <Luafiles Include = "nhcore.lua"/>
+    <Luafiles Include = "nhlib.lua"/>
+    <Luafiles Include = "oracle.lua"/>
+    <Luafiles Include = "orcus.lua"/>
+    <Luafiles Include = "Pri-fila.lua"/>
+    <Luafiles Include = "Pri-filb.lua"/>
+    <Luafiles Include = "Pri-goal.lua"/>
+    <Luafiles Include = "Pri-loca.lua"/>
+    <Luafiles Include = "Pri-strt.lua"/>
+    <Luafiles Include = "quest.lua"/>
+    <Luafiles Include = "Ran-fila.lua"/>
+    <Luafiles Include = "Ran-filb.lua"/>
+    <Luafiles Include = "Ran-goal.lua"/>
+    <Luafiles Include = "Ran-loca.lua"/>
+    <Luafiles Include = "Ran-strt.lua"/>
+    <Luafiles Include = "Rog-fila.lua"/>
+    <Luafiles Include = "Rog-filb.lua"/>
+    <Luafiles Include = "Rog-goal.lua"/>
+    <Luafiles Include = "Rog-loca.lua"/>
+    <Luafiles Include = "Rog-strt.lua"/>
+    <Luafiles Include = "Sam-fila.lua"/>
+    <Luafiles Include = "Sam-filb.lua"/>
+    <Luafiles Include = "Sam-goal.lua"/>
+    <Luafiles Include = "Sam-loca.lua"/>
+    <Luafiles Include = "Sam-strt.lua"/>
+    <Luafiles Include = "sanctum.lua"/>
+    <Luafiles Include = "soko1-1.lua"/>
+    <Luafiles Include = "soko1-2.lua"/>
+    <Luafiles Include = "soko2-1.lua"/>
+    <Luafiles Include = "soko2-2.lua"/>
+    <Luafiles Include = "soko3-1.lua"/>
+    <Luafiles Include = "soko3-2.lua"/>
+    <Luafiles Include = "soko4-1.lua"/>
+    <Luafiles Include = "soko4-2.lua"/>
+    <Luafiles Include = "themerms.lua"/>
+    <Luafiles Include = "Tou-fila.lua"/>
+    <Luafiles Include = "Tou-filb.lua"/>
+    <Luafiles Include = "Tou-goal.lua"/>
+    <Luafiles Include = "Tou-loca.lua"/>
+    <Luafiles Include = "Tou-strt.lua"/>
+    <Luafiles Include = "tower1.lua"/>
+    <Luafiles Include = "tower2.lua"/>
+    <Luafiles Include = "tower3.lua"/>
+    <Luafiles Include = "tut-1.lua"/>
+    <Luafiles Include = "tut-2.lua"/>
+    <Luafiles Include = "Val-fila.lua"/>
+    <Luafiles Include = "Val-filb.lua"/>
+    <Luafiles Include = "Val-goal.lua"/>
+    <Luafiles Include = "Val-loca.lua"/>
+    <Luafiles Include = "Val-strt.lua"/>
+    <Luafiles Include = "valley.lua"/>
+    <Luafiles Include = "water.lua"/>
+    <Luafiles Include = "Wiz-fila.lua"/>
+    <Luafiles Include = "Wiz-filb.lua"/>
+    <Luafiles Include = "Wiz-goal.lua"/>
+    <Luafiles Include = "Wiz-loca.lua"/>
+    <Luafiles Include = "Wiz-strt.lua"/>
+    <Luafiles Include = "wizard1.lua"/>
+    <Luafiles Include = "wizard2.lua"/>
+    <Luafiles Include = "wizard3.lua"/>
+  </ItemGroup>
+  <ItemGroup>
+    <UUFiles Include = "$(SysWindDir)nhico.uu"/>
+    <UUFiles Include = "$(WinWin32Dir)mnsel.uu"/>
+    <UUFiles Include = "$(WinWin32Dir)mnselcnt.uu"/>
+    <UUFiles Include = "$(WinWin32Dir)mnunsel.uu"/>
+    <UUFiles Include = "$(WinWin32Dir)petmark.uu"/>
+    <UUFiles Include = "$(WinWin32Dir)pilemark.uu"/>
+    <UUFiles Include = "$(WinWin32Dir)splash.uu"/>
+    <UUFiles Include = "$(WinWin32Dir)rip.uu"/>
+    <UUFiles Include = "$(WinWin32Dir)record.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_A.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_B.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_B_flat.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_C.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_D.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_D_flat.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_E.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_E_flat.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_F.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_F_sharp.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_G.uu"/>
+    <UUFiles Include = "$(SndWavDir)se_squeak_G_sharp.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Bell.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Bugle_A.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Bugle_B.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Bugle_C.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Bugle_D.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Bugle_E.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Bugle_F.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Bugle_G.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Drum_Of_Earthquake.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Fire_Horn.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Frost_Horn.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Leather_Drum.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Harp_A.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Harp_B.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Harp_C.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Harp_D.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Harp_E.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Harp_F.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Harp_G.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Flute_A.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Flute_B.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Flute_C.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Flute_D.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Flute_E.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Flute_F.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Magic_Flute_G.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Tooled_Horn_A.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Tooled_Horn_B.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Tooled_Horn_C.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Tooled_Horn_D.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Tooled_Horn_E.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Tooled_Horn_F.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Tooled_Horn_G.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Flute_A.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Flute_B.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Flute_C.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Flute_D.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Flute_E.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Flute_F.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Flute_G.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Harp_A.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Harp_B.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Harp_C.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Harp_D.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Harp_E.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Harp_F.uu"/>
+    <UUFiles Include = "$(SndWavDir)sound_Wooden_Harp_G.uu"/>
+    <UUFiles Include = "$(SndWavDir)sa2_xpleveldown.uu"/>
+    <UUFiles Include = "$(SndWavDir)sa2_xplevelup.uu"/>
+  </ItemGroup>
+  <ItemGroup>
+    <IconFiles Include = "$(WinWin32Dir)nethack.ico"/>
+  </ItemGroup>
+  <ItemGroup>
+    <RecordFiles Include = "$(WinWin32Dir)record"/>
+  </ItemGroup>
+  <ItemGroup>
+    <BmpFiles Include = "$(WinWin32Dir)mnsel.bmp"/>
+    <BmpFiles Include = "$(WinWin32Dir)mnselcnt.bmp"/>
+    <BmpFiles Include = "$(WinWin32Dir)mnunsel.bmp"/>
+    <BmpFiles Include = "$(WinWin32Dir)petmark.bmp"/>
+    <BmpFiles Include = "$(WinWin32Dir)pilemark.bmp"/>
+    <BmpFiles Include = "$(WinWin32Dir)rip.bmp"/>
+    <BmpFiles Include = "$(WinWin32Dir)splash.bmp"/>
+  </ItemGroup>
+  <ItemGroup>
+    <DlbList Include = "$(DatDir)data"/>
+    <DlbList Include = "$(DatDir)oracles"/>
+    <DlbList Include = "$(DatDir)options" Condition="Exists('$(DatDir)options')"/>
+    <DlbList Include = "$(DatDir)ttyoptions" Condition="Exists('$(DatDir)ttyoptions')"/>
+    <DlbList Include = "$(DatDir)guioptions" Condition="Exists('$(DatDir)guioptions')"/>
+    <DlbList Include = "$(DatDir)rumors"/>
+    <DlbList Include = "$(DatDir)engrave"/>
+    <DlbList Include = "$(DatDir)epitaph"/>
+    <DlbList Include = "$(DatDir)bogusmon"/>
+    <DlbList Include = "$(DatDir)tribute"/>
+    <DlbList Include = "$(DatDir)help"/>
+    <DlbList Include = "$(DatDir)porthelp"/>
+    <DlbList Include = "$(DatDir)hh"/>
+    <DlbList Include = "$(DatDir)cmdhelp"/>
+    <DlbList Include = "$(DatDir)keyhelp"/>
+    <DlbList Include = "$(DatDir)history"/>
+    <DlbList Include = "$(DatDir)opthelp"/>
+    <DlbList Include = "$(DatDir)optmenu"/>
+    <DlbList Include = "$(DatDir)wizhelp"/>
+    <DlbList Include = "$(DatDir)license"/>
+    <DlbList Include = "$(DatDir)*.lua"/>
+  </ItemGroup>
+  <ItemGroup>
+    <Lua Include="$(LuaDir)lapi.c"/>
+    <Lua Include="$(LuaDir)lauxlib.c" />
+    <Lua Include="$(LuaDir)lbaselib.c" />
+    <Lua Include="$(LuaDir)lbitlib.c" Condition="'$(LUA_MAJOR_VERSION).$(LUA_MINOR_VERSION)'=='5.3'" />
+    <Lua Include="$(LuaDir)lcode.c" />
+    <Lua Include="$(LuaDir)lcorolib.c" />
+    <Lua Include="$(LuaDir)lctype.c" />
+    <Lua Include="$(LuaDir)ldblib.c" />
+    <Lua Include="$(LuaDir)ldebug.c" />
+    <Lua Include="$(LuaDir)ldo.c" />
+    <Lua Include="$(LuaDir)ldump.c" />
+    <Lua Include="$(LuaDir)lfunc.c" />
+    <Lua Include="$(LuaDir)lgc.c" />
+    <Lua Include="$(LuaDir)linit.c" />
+    <Lua Include="$(LuaDir)liolib.c" />
+    <Lua Include="$(LuaDir)llex.c" />
+    <Lua Include="$(LuaDir)lmathlib.c" />
+    <Lua Include="$(LuaDir)lmem.c" />
+    <Lua Include="$(LuaDir)loadlib.c" />
+    <Lua Include="$(LuaDir)lobject.c" />
+    <Lua Include="$(LuaDir)lopcodes.c" />
+    <Lua Include="$(LuaDir)loslib.c" />
+    <Lua Include="$(LuaDir)lparser.c" />
+    <Lua Include="$(LuaDir)lstate.c" />
+    <Lua Include="$(LuaDir)lstring.c" />
+    <Lua Include="$(LuaDir)lstrlib.c" />
+    <Lua Include="$(LuaDir)ltable.c" />
+    <Lua Include="$(LuaDir)ltablib.c" />
+    <Lua Include="$(LuaDir)ltm.c" />
+    <Lua Include="$(LuaDir)lundump.c" />
+    <Lua Include="$(LuaDir)lutf8lib.c" />
+    <Lua Include="$(LuaDir)lvm.c" />
+    <Lua Include="$(LuaDir)lzio.c" />
+  </ItemGroup>
+</Project>

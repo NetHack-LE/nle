@@ -1,4 +1,4 @@
-/* NetHack 3.6	pctiles.c	$NHDT-Date: 1432512791 2015/05/25 00:13:11 $  $NHDT-Branch: master $:$NHDT-Revision: 1.11 $ */
+/* NetHack 5.0	pctiles.c	$NHDT-Date: 1596498271 2020/08/03 23:44:31 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.13 $ */
 /*   Copyright (c) NetHack PC Development Team 1993, 1994           */
 /*   NetHack may be freely redistributed.  See license for details. */
 /*                                                                  */
@@ -12,7 +12,7 @@
 
 #include "hack.h"
 
-#ifdef USE_TILES
+#ifdef TILES_IN_GLYPHMAP
 
 #if defined(__GO32__) || defined(__DJGPP__)
 #include <unistd.h>
@@ -33,8 +33,8 @@
 #include "tile.h"
 #include "pctiles.h"
 
-STATIC_VAR FILE *tilefile;
-STATIC_VAR FILE *tilefile_O;
+static FILE *tilefile;
+static FILE *tilefile_O;
 extern short glyph2tile[]; /* in tile.c (made from tilemap.c) */
 
 #ifdef TILES_IN_RAM
@@ -54,9 +54,7 @@ extern int total_tiles_used; /* tile.c */
  *
  */
 int
-ReadTileFileHeader(tibhdr, filestyle)
-struct tibhdr_struct *tibhdr;
-boolean filestyle;
+ReadTileFileHeader(struct tibhdr_struct *tibhdr, boolean filestyle)
 {
     FILE *x;
     x = filestyle ? tilefile_O : tilefile;
@@ -85,9 +83,7 @@ boolean filestyle;
  *
  */
 int
-OpenTileFile(tilefilename, filestyle)
-char *tilefilename;
-boolean filestyle;
+OpenTileFile(char *tilefilename, boolean filestyle)
 {
 #ifdef TILES_IN_RAM
     int k;
@@ -150,8 +146,7 @@ boolean filestyle;
 }
 
 void
-CloseTileFile(filestyle)
-boolean filestyle;
+CloseTileFile(boolean filestyle)
 {
     fclose(filestyle ? tilefile_O : tilefile);
 #ifdef TILES_IN_RAM
@@ -191,9 +186,7 @@ struct overview_planar_cell_struct oplancell;
  */
 #ifdef PLANAR_FILE
 int
-ReadPlanarTileFile(tilenum, gp)
-int tilenum;
-struct planar_cell_struct **gp;
+ReadPlanarTileFile(int tilenum, struct planar_cell_struct **gp)
 {
     long fpos;
 
@@ -214,9 +207,7 @@ struct planar_cell_struct **gp;
     return 0;
 }
 int
-ReadPlanarTileFile_O(tilenum, gp)
-int tilenum;
-struct overview_planar_cell_struct **gp;
+ReadPlanarTileFile_O(int tilenum, struct overview_planar_cell_struct **gp)
 {
     long fpos;
 
@@ -242,9 +233,7 @@ struct overview_planar_cell_struct **gp;
 
 #ifdef PACKED_FILE
 int
-ReadPackedTileFile(tilenum, pta)
-int tilenum;
-char (*pta)[TILE_X];
+ReadPackedTileFile(int tilenum, char (*pta)[TILE_X])
 {
     long fpos;
 
@@ -258,6 +247,6 @@ char (*pta)[TILE_X];
     return 0;
 }
 #endif
-#endif /* USE_TILES */
+#endif /* TILES_IN_GLYPHMAP */
 
 /* pctiles.c */

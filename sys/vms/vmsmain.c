@@ -1,4 +1,4 @@
-/* NetHack 3.6	vmsmain.c	$NHDT-Date: 1449801742 2015/12/11 02:42:22 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.32 $ */
+/* NetHack 5.0	vmsmain.c	$NHDT-Date: 1693359633 2023/08/30 01:40:33 $  $NHDT-Branch: keni-crashweb2 $:$NHDT-Revision: 1.57 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Robert Patrick Rankin, 2011. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -7,34 +7,40 @@
 #include "hack.h"
 #include "dlb.h"
 
+#ifdef VMSVSI
+#include <descrip.h>
+#include <lib$routines.h>
+#include <starlet.h>
+#endif
+
 #include <signal.h>
 
-static void NDECL(whoami);
-static void FDECL(process_options, (int, char **));
-static void NDECL(byebye);
+static void whoami(void);
+static void process_options(int, char **);
+static void byebye(void);
 #ifndef SAVE_ON_FATAL_ERROR
 #ifndef __DECC
 #define vms_handler_type int
 #else
 #define vms_handler_type unsigned int
 #endif
-extern void FDECL(VAXC$ESTABLISH,
-                         (vms_handler_type (*) (genericptr_t, genericptr_t)));
-static vms_handler_type FDECL(vms_handler, (genericptr_t, genericptr_t));
+extern void VAXC$ESTABLISH(vms_handler_type (*) (genericptr_t,
+                           genericptr_t));
+static vms_handler_type vms_handler(genericptr_t, genericptr_t);
 #include <ssdef.h> /* system service status codes */
 #endif
 
-static void NDECL(wd_message);
+static void wd_message(void);
 static boolean wiz_error_flag = FALSE;
 
+static char *progname = (char *) 0;
+
 int
-main(argc, argv)
-int argc;
-char *argv[];
+main(int argc, char *argv[])
 {
-    register int fd;
+    NHFILE *nhfp;
 #ifdef CHDIR
-    register char *dir;
+    char *dir;
 #endif
     boolean resuming = FALSE; /* assume new game */
 
@@ -44,12 +50,15 @@ char *argv[];
     privon();
 #endif
 
-    sys_early_init();
+    early_init(argc, argv);
 
     atexit(byebye);
-    hname = argv[0];
-    hname = vms_basename(hname); /* name used in 'usage' type messages */
-    hackpid = getpid();
+    /* vms_basename(,FALSE) strips device, directory, suffix, and version;
+       the result is returned in a static buffer so we make a copy that
+       isn't at risk of getting clobbered by core's handling of DEBUGFILES */
+    progname = dupstr(vms_basename(argv[0], FALSE));
+    gh.hname = progname;
+    svh.hackpid = getpid();
     (void) umask(0);
 
     choose_windows(DEFAULT_WINDOW_SYS);
@@ -67,8 +76,19 @@ char *argv[];
         dir = nh_getenv("HACKDIR");
 #endif
     if (argc > 1) {
+        if (argcheck(argc, argv, ARG_VERSION) == 2)
+            exit(EXIT_SUCCESS);
+
+        if (argcheck(argc, argv, ARG_SHOWPATHS) == 2) {
+            gd.deferred_showpaths = TRUE;
+            return 0;
+        }
+        if (argcheck(argc, argv, ARG_DEBUG) == 1) {
+            argc--;
+            argv++;
+        }
 #ifdef CHDIR
-        if (!strncmp(argv[1], "-d", 2) && argv[1][2] != 'e') {
+        if (argc > 1 && !strncmp(argv[1], "-d", 2) && argv[1][2] != 'e') {
             /* avoid matching "-dec" for DECgraphics; since the man page
              * says -d directory, hope nobody's using -desomething_else
              */
@@ -141,7 +161,7 @@ char *argv[];
 
     if (wizard) {
         /* use character name rather than lock letter for file names */
-        locknum = 0;
+        gl.locknum = 0;
     } else {
         /* suppress interrupts while processing lock file */
         (void) signal(SIGQUIT, SIG_IGN);
@@ -149,14 +169,14 @@ char *argv[];
     }
     /*
      * getlock() complains and quits if there is already a game
-     * in progress for current character name (when locknum == 0)
-     * or if there are too many active games (when locknum > 0).
+     * in progress for current character name (when gl.locknum == 0)
+     * or if there are too many active games (when gl.locknum > 0).
      * When proceeding, it creates an empty <lockname>.0 file to
      * designate the current game.
      * getlock() constructs <lockname> based on the character
-     * name (for !locknum) or on first available of alock, block,
+     * name (for !gl.locknum) or on first available of alock, block,
      * clock, &c not currently in use in the playground directory
-     * (for locknum > 0).
+     * (for gl.locknum > 0).
      */
     getlock();
 
@@ -168,15 +188,15 @@ char *argv[];
      */
     vision_init();
 
-    display_gamewindows();
+    init_sound_disp_gamewindows();
 
 /*
  * First, try to find and restore a save file for specified character.
  * We'll return here if new game player_selection() renames the hero.
  */
 attempt_restore:
-    if ((fd = restore_saved_game()) >= 0) {
-        const char *fq_save = fqname(SAVEF, SAVEPREFIX, 1);
+    if ((nhfp = restore_saved_game()) != 0) {
+        const char *fq_save = fqname(gs.SAVEF, SAVEPREFIX, 1);
 
         (void) chmod(fq_save, 0); /* disallow parallel restores */
         (void) signal(SIGINT, (SIG_RET_TYPE) done1);
@@ -188,11 +208,11 @@ attempt_restore:
 #endif
         pline("Restoring save file...");
         mark_synch(); /* flush output */
-        if (dorecover(fd)) {
+        if (dorecover(nhfp)) {
             resuming = TRUE; /* not starting new game */
             wd_message();
             if (discover || wizard) {
-                if (yn("Do you want to keep the save file?") == 'n')
+                if (y_n("Do you want to keep the save file?") == 'n')
                     (void) delete_savefile();
                 else
                     (void) chmod(fq_save, FCMASK); /* back to readable */
@@ -212,7 +232,7 @@ attempt_restore:
                    if locking alphabetically, the existing lock file
                    can still be used; otherwise, discard current one
                    and create another for the new character name */
-                if (!locknum) {
+                if (!gl.locknum) {
                     delete_levelfile(0); /* remove empty lock file */
                     getlock();
                 }
@@ -230,9 +250,7 @@ attempt_restore:
 }
 
 static void
-process_options(argc, argv)
-int argc;
-char *argv[];
+process_options(int argc, char *argv[])
 {
     int i;
 
@@ -257,18 +275,18 @@ char *argv[];
 #endif
         case 'u':
             if (argv[0][2])
-                (void) strncpy(plname, argv[0] + 2, sizeof(plname) - 1);
+                (void) strncpy(svp.plname, argv[0] + 2, sizeof(svp.plname) - 1);
             else if (argc > 1) {
                 argc--;
                 argv++;
-                (void) strncpy(plname, argv[0], sizeof(plname) - 1);
+                (void) strncpy(svp.plname, argv[0], sizeof(svp.plname) - 1);
             } else
                 raw_print("Player name expected after -u");
             break;
         case 'I':
         case 'i':
             if (!strncmpi(argv[0] + 1, "IBM", 3)) {
-                load_symset("IBMGraphics", PRIMARY);
+                load_symset("IBMGraphics", PRIMARYSET);
                 load_symset("RogueIBM", ROGUESET);
                 switch_symbols(TRUE);
             }
@@ -276,7 +294,7 @@ char *argv[];
         /*  case 'D': */
         case 'd':
             if (!strncmpi(argv[0] + 1, "DEC", 3)) {
-                load_symset("DECGraphics", PRIMARY);
+                load_symset("DECGraphics", PRIMARYSET);
                 switch_symbols(TRUE);
             }
             break;
@@ -315,18 +333,16 @@ char *argv[];
     }
 
     if (argc > 1)
-        locknum = atoi(argv[1]);
+        gl.locknum = atoi(argv[1]);
 #ifdef MAX_NR_OF_PLAYERS
-    if (!locknum || locknum > MAX_NR_OF_PLAYERS)
-        locknum = MAX_NR_OF_PLAYERS;
+    if (!gl.locknum || gl.locknum > MAX_NR_OF_PLAYERS)
+        gl.locknum = MAX_NR_OF_PLAYERS;
 #endif
 }
 
 #ifdef CHDIR
 void
-chdirx(dir, wr)
-const char *dir;
-boolean wr;
+chdirx(const char *dir, boolean wr)
 {
 #ifndef HACKDIR
     static const char *defdir = ".";
@@ -355,7 +371,7 @@ boolean wr;
 #endif /* CHDIR */
 
 static void
-whoami()
+whoami(void)
 {
     /*
      * Who am i? Algorithm: 1. Use name as specified in NETHACKOPTIONS;
@@ -366,20 +382,21 @@ whoami()
      * Note that we trust the user here; it is possible to play under
      * somebody else's name.
      */
-    register char *s;
+    char *s;
 
-    if (!*plname && (s = nh_getenv("USER")))
-        (void) lcase(strncpy(plname, s, sizeof(plname) - 1));
+    if (!*svp.plname && (s = nh_getenv("USER")))
+        (void) lcase(strncpy(svp.plname, s, sizeof(svp.plname) - 1));
 }
 
 static void
-byebye()
+byebye(void)
 {
-    void FDECL((*hup), (int) );
+    void (*hup)(int);
 #ifdef SHELL
     extern unsigned long dosh_pid, mail_pid;
-    extern unsigned long FDECL(sys$delprc,
-                               (unsigned long *, const genericptr_t));
+#ifndef VMSVSI
+    extern unsigned long sys$delprc(unsigned long *, const genericptr_t);
+#endif
 
     /* clean up any subprocess we've spawned that may still be hanging around
      */
@@ -388,11 +405,19 @@ byebye()
     if (mail_pid)
         (void) sys$delprc(&mail_pid, (genericptr_t) 0), mail_pid = 0;
 #endif
+#ifdef FREE_ALL_MEMORY
+    if (progname && !program_state.panicking) {
+        if (gh.hname == progname)
+            gh.hname = (char *) 0;
+        free((genericptr_t) progname), progname = (char *) 0;
+    }
+#endif
 
     /* SIGHUP doesn't seem to do anything on VMS, so we fudge it here... */
-    hup = (void FDECL((*), (int) )) signal(SIGHUP, SIG_IGN);
-    if (!program_state.exiting++ && hup != (void FDECL((*), (int) )) SIG_DFL
-        && hup != (void FDECL((*), (int) )) SIG_IGN) {
+    hup = (void (*)(int)) signal(SIGHUP, SIG_IGN);
+    if (!program_state.exiting++
+        && hup != (void (*)(int)) SIG_DFL
+        && hup != (void (*)(int)) SIG_IGN) {
         (*hup)(SIGHUP);
     }
 
@@ -406,8 +431,9 @@ byebye()
    from saving the game after a fatal error has occurred.  */
 /*ARGSUSED*/
 static vms_handler_type         /* should be `unsigned long', but the -*/
-vms_handler(sigargs, mechargs)  /*+ prototype in <signal.h> is screwed */
-genericptr_t sigargs, mechargs; /* [0] is argc, [1..argc] are the real args */
+vms_handler(                    /*+ prototype in <signal.h> is screwed */
+genericptr_t sigargs,
+genericptr_t mechargs)     /* [0] is argc, [1..argc] are the real args */
 {
     unsigned long condition = ((unsigned long *) sigargs)[1];
 
@@ -425,15 +451,14 @@ genericptr_t sigargs, mechargs; /* [0] is argc, [1..argc] are the real args */
 #endif
 
 void
-sethanguphandler(handler)
-void FDECL((*handler), (int));
+sethanguphandler(void (*handler)(int))
 {
     (void) signal(SIGHUP, (SIG_RET_TYPE) handler);
 }
 
 #ifdef PORT_HELP
 void
-port_help()
+port_help(void)
 {
     /*
      * Display VMS-specific help.   Just show contents of the helpfile
@@ -445,7 +470,7 @@ port_help()
 
 /* validate wizard mode if player has requested access to it */
 boolean
-authorize_wizard_mode()
+authorize_wizard_mode(void)
 {
     if (!strcmpi(nh_getenv("USER"), WIZARD_NAME))
         return TRUE;
@@ -453,8 +478,15 @@ authorize_wizard_mode()
     return FALSE;
 }
 
+/* similar to above, validate explore mode access */
+boolean
+authorize_explore_mode(void)
+{
+    return TRUE; /* no restrictions on explore mode */
+}
+
 static void
-wd_message()
+wd_message(void)
 {
     if (wiz_error_flag) {
         pline("Only user \"%s\" may access debug (wizard) mode.",
@@ -466,7 +498,7 @@ wd_message()
 }
 
 unsigned long
-sys_random_seed()
+sys_random_seed(void)
 {
     unsigned long seed;
     unsigned long pid = (unsigned long) getpid();
@@ -479,6 +511,30 @@ sys_random_seed()
         seed *= pid;
     }
     return seed;
+}
+
+void
+get_nhuuid(void)
+{
+    unsigned char stmp[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+    if (svn.nhuuid[0])
+        return;
+
+    /* FIXME: fill in a useful valie UUID somehow */
+    Snprintf(svn.nhuuid, sizeof svn.nhuuid, "%s", (char *) stmp);
+}
+
+void
+free_nhuuid(void)
+{
+    int i;
+
+    for (i = 0; i < SIZE(svn.nhuuid); i++) {
+        svn.nhuuid[i] = 0;
+    }
 }
 
 /*vmsmain.c*/

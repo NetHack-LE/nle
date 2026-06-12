@@ -8,10 +8,9 @@ void EditClipping(void);
 void DrawCol(struct Window *w, int idx, UWORD *colors);
 void DispCol(struct Window *w, int idx, UWORD *colors);
 void amii_change_color(int, long, int);
-char *amii_get_color_string();
+char *amii_get_color_string(void);
 void amii_getlin(const char *prompt, char *bufp);
 void getlind(const char *prompt, char *bufp, const char *dflt);
-char *amii_get_color_string(void);
 int filecopy(char *from, char *to);
 char *basename(char *str);
 char *dirname(char *str);
@@ -33,17 +32,17 @@ void amii_scrollmsg(register struct Window *w,
                     register struct amii_WinDesc *cw);
 
 /* winkey.c */
-int amii_nh_poskey(int *x, int *y, int *mod);
+int amii_nh_poskey(coordxy *x, coordxy *y, int *mod);
 int amii_nhgetch(void);
 void amii_get_nh_event(void);
 void amii_getret(void);
 
 /* winmenu.c */
-void amii_start_menu(winid window);
-void FDECL(amii_add_menu, (winid, int, const anything *, CHAR_P, CHAR_P, int,
-                           const char *, BOOLEAN_P));
-void FDECL(amii_end_menu, (winid, const char *));
-int FDECL(amii_select_menu, (winid, int, menu_item **));
+void amii_start_menu(winid window, unsigned long);
+void amii_add_menu(winid, const glyph_info *, const anything *, CHAR_P, CHAR_P,
+                   int, int, const char *, unsigned int);
+void amii_end_menu(winid, const char *);
+int amii_select_menu(winid, int, menu_item **);
 int DoMenuScroll(int win, int blocking, int how, menu_item **);
 void ReDisplayData(winid win);
 void DisplayData(winid win, int start);
@@ -55,7 +54,6 @@ struct Window *OpenShWindow(struct NewWindow *nw);
 void CloseShWindow(struct Window *win);
 int ConvertKey(struct IntuiMessage *message);
 int kbhit(void);
-int kbhit(void);
 int amikbhit(void);
 int WindowGetchar(void);
 WETYPE WindowGetevent(void);
@@ -65,7 +63,7 @@ void Abort(long rc);
 #endif
 void CleanUp(void);
 void flush_glyph_buffer(struct Window *w);
-void amiga_print_glyph(winid window, int color_index, int glyph, int bkglyph);
+void amiga_print_glyph(winid window, int color_index, int glyph);
 void start_glyphout(winid window);
 void amii_end_glyphout(winid window);
 struct NewWindow *DupNewWindow(struct NewWindow *win);
@@ -101,19 +99,19 @@ void amii_resume_nhwindows(void);
 void amii_bell(void);
 void removetopl(int cnt);
 void port_help(void);
-void amii_print_glyph(winid win, xchar x, xchar y, int glyph, int bkglyph);
+void amii_print_glyph(winid win, coordxy x, coordxy y, const glyph_info *glyphinfo, const glyph_info *bkglyphinfo);
 void amii_raw_print(const char *s);
 void amii_raw_print_bold(const char *s);
-void amii_update_inventory(void);
+void amii_update_inventory(int);
 void amii_mark_synch(void);
 void amii_wait_synch(void);
 void amii_setclipped(void);
 void amii_cliparound(int x, int y);
 void amii_set_text_font(char *font, int size);
-BitMapHeader ReadImageFiles(char **, struct BitMap **, char **);
+BitMapHeader ReadImageFile(const char *, struct BitMap **);
+void FreeImageFile(struct BitMap **);
 BitMapHeader ReadTileImageFiles(void);
-void FreeImageFiles(char **, struct BitMap **);
-void FreeTileImageFiles();
+void FreeTileImageFiles(void);
 
 /* winami.c */
 #ifdef SHAREDLIB
@@ -124,12 +122,10 @@ void amii_askname(void);
 void amii_player_selection(void);
 void RandomWindow(char *name);
 int amii_get_ext_cmd(void);
-char amii_yn_function(const char *prompt, const char *resp, char def);
 char amii_yn_function(const char *query, const char *resp, char def);
 void amii_display_file(const char *fn, boolean complain);
 void SetBorder(struct Gadget *gd);
-void *malloc(register unsigned size);
-void free(void *q);
+/* malloc/free provided by stdlib.h */
 
 #ifdef SHAREDLIB
 /* amilib.c */
@@ -141,8 +137,10 @@ void setup_librefs(WinamiBASE *base);
 void Abort(long rc);
 #endif
 
+win_request_info *amii_ctrl_nhwindow(winid, int, win_request_info *);
+
 /* amirip.c */
-void FDECL(amii_outrip, (winid tmpwin, int how, time_t when));
+void amii_outrip(winid tmpwin, int how, time_t when);
 
 /* winchar.c */
 void SetMazeType(MazeType);
@@ -151,4 +149,3 @@ int GlyphToIcon(int glyph);
 void dispmap_sanity(void);
 int dispmap_sanity1(int);
 #endif
-void FreeTileImageFiles(void);

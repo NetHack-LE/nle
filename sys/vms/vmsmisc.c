@@ -1,24 +1,33 @@
-/* NetHack 3.6	vmsmisc.c	$NHDT-Date: 1524689429 2018/04/25 20:50:29 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.11 $ */
+/* NetHack 5.0	vmsmisc.c	$NHDT-Date: 1685522049 2023/05/31 08:34:09 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.18 $ */
 /*      Copyright (c) 2011 by Robert Patrick Rankin              */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "config.h"
 #undef exit
+
+#ifdef VMSVSI
+#include <descrip.h>
+#include <lib$routines.h>
+#include <starlet.h>
+#endif
+
 #include <ssdef.h>
 #include <stsdef.h>
 
 int debuggable = 0; /* 1 if we can debug or show a call trace */
 
-void FDECL(vms_exit, (int));
-void NDECL(vms_abort);
+ATTRNORETURN void vms_exit(int) NORETURN;
+ATTRNORETURN void vms_abort(void) NORETURN;
 
 /* first arg should be unsigned long but <lib$routines.h> has unsigned int */
-extern void VDECL(lib$signal, (unsigned, ...));
+
+#ifndef VMSVSI
+extern void lib$signal(unsigned, ...);
+#endif
 
 /* terminate, converting Unix-style exit code into VMS status code */
-void
-vms_exit(status)
-int status;
+ATTRNORETURN void
+vms_exit(int status)
 {
     /* convert non-zero to failure, zero to success */
     exit(status ? (SS$_ABORT | STS$M_INHIB_MSG) : SS$_NORMAL);
@@ -26,8 +35,8 @@ int status;
 }
 
 /* put the user into the debugger; used for abort() when in wizard mode */
-void
-vms_abort()
+ATTRNORETURN void
+vms_abort(void)
 {
     if (debuggable)
         lib$signal(SS$_DEBUG);

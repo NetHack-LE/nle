@@ -1,4 +1,4 @@
-/* NetHack 3.6	ioctl.c	$NHDT-Date: 1520099308 2018/03/03 17:48:28 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.13 $ */
+/* NetHack 5.0	ioctl.c	$NHDT-Date: 1596498280 2020/08/03 23:44:40 $  $NHDT-Branch: NetHack-5.0 $:$NHDT-Revision: 1.15 $ */
 /* Copyright (c) Stichting Mathematisch Centrum, Amsterdam, 1985. */
 /*-Copyright (c) Kenneth Lorber, Kensington, Maryland, 2015. */
 /* NetHack may be freely redistributed.  See license for details. */
@@ -75,17 +75,17 @@ struct termio termio;
 #endif
 
 #ifdef _M_UNIX
-extern void NDECL(sco_mapon);
-extern void NDECL(sco_mapoff);
+extern void sco_mapon(void);
+extern void sco_mapoff(void);
 #endif
 #ifdef __linux__
-extern void NDECL(linux_mapon);
-extern void NDECL(linux_mapoff);
+extern void linux_mapon(void);
+extern void linux_mapoff(void);
 #endif
 
 #ifdef AUX
 void
-catch_stp()
+catch_stp(void)
 {
     signal(SIGTSTP, SIG_DFL);
     dosuspend();
@@ -93,7 +93,7 @@ catch_stp()
 #endif /* AUX */
 
 void
-getwindowsz()
+getwindowsz(void)
 {
 #ifdef USE_WIN_IOCTL
     /*
@@ -116,7 +116,7 @@ getwindowsz()
 }
 
 void
-getioctls()
+getioctls(void)
 {
 #ifdef BSD_JOB_CONTROL
     (void) ioctl(fileno(stdin), (int) TIOCGLTC, (char *) &ltchars);
@@ -139,7 +139,7 @@ getioctls()
 }
 
 void
-setioctls()
+setioctls(void)
 {
 #ifdef BSD_JOB_CONTROL
     (void) ioctl(fileno(stdin), (int) TIOCSLTC, (char *) &ltchars);
@@ -158,7 +158,7 @@ setioctls()
 
 #ifdef SUSPEND /* No longer implies BSD */
 int
-dosuspend()
+dosuspend(void)
 {
 #ifdef SYSCF
     /* NB: check_user_string() is port-specific. */
