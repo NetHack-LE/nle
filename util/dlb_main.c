@@ -1,4 +1,4 @@
-/* NetHack 3.6	dlb_main.c	$NHDT-Date: 1570258542 2019/10/05 06:55:42 $  $NHDT-Branch: NetHack-3.6 $:$NHDT-Revision: 1.13 $ */
+/* NetHack 5.0	dlb_main.c	$NHDT-Date: 1706213798 2024/01/25 20:16:38 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.27 $ */
 /* Copyright (c) Kenneth Lorber, Bethesda, Maryland, 1993. */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -7,33 +7,34 @@
 
 #include "config.h"
 #include "dlb.h"
-#if !defined(O_WRONLY) && !defined(MAC) && !defined(AZTEC_C)
+#include "hacklib.h"
+
+#if !defined(O_WRONLY) && !defined(MACOS9) && !defined(AZTEC_C)
 #include <fcntl.h>
 #endif
 #if defined(__DJGPP__)
 #include <string.h>
 #endif
 
-static void FDECL(grow_ld, (libdir **, int *, int));
-static void FDECL(xexit, (int)) NORETURN;
+ATTRNORETURN static void xexit(int) NORETURN;
+ATTRNORETURN extern void panic(const char *, ...) NORETURN;
+FILE *fopen_datafile(const char *, const char *, int);
 
 #ifdef DLB
 #ifdef DLBLIB
+static void grow_ld(libdir **, int *, int);
 
 #define DLB_DIRECTORY "Directory" /* name of lib directory */
 #define LIBLISTFILE "dlb.lst"     /* default list file */
 
 /* library functions (from dlb.c) */
-extern boolean FDECL(open_library, (const char *, library *));
-extern void FDECL(close_library, (library *));
+extern boolean open_library(const char *, library *);
+extern void close_library(library *);
 
-char *FDECL(eos, (char *)); /* also used by dlb.c */
-FILE *FDECL(fopen_datafile, (const char *, const char *));
-
-static void FDECL(Write, (int, char *, long));
-static void NDECL(usage) NORETURN;
-static void NDECL(verbose_help) NORETURN;
-static void FDECL(write_dlb_directory, (int, int, libdir *, long, long, long));
+static void Write(int, char *, long);
+ATTRNORETURN static void usage(void) NORETURN;
+ATTRNORETURN static void verbose_help(void) NORETURN;
+static void write_dlb_directory(int, int, libdir *, long, long, long);
 
 static char default_progname[] = "dlb";
 static char *progname = default_progname;
@@ -66,18 +67,18 @@ static char origdir[255] = "";
  *
  * dlb COMMANDoptions arg... files...
  * commands:
- *  dlb x	extract all files
- *  dlb c	build the archive
- *  dlb t	list the archive
+ *  dlb x       extract all files
+ *  dlb c       build the archive
+ *  dlb t       list the archive
  * options:
- *  v		verbose
- *  f file	specify archive file (default DLBFILE)
- *  I file	specify file for list of files (default LIBLISTFILE)
- *  C dir	chdir to dir (used ONCE, not like tar's -C)
+ *  v           verbose
+ *  f file      specify archive file (default DLBFILE)
+ *  I file      specify file for list of files (default LIBLISTFILE)
+ *  C dir       chdir to dir (used ONCE, not like tar's -C)
  */
 
-static void
-usage()
+ATTRNORETURN static void
+usage(void)
 {
     (void) printf("Usage: %s [ctxCIfv] arguments... [files...]\n", progname);
     (void) printf("  default library is %s\n", library_file);
@@ -86,8 +87,8 @@ usage()
     /*NOTREACHED*/
 }
 
-static void
-verbose_help()
+ATTRNORETURN static void
+verbose_help(void)
 {
     static const char *const long_help[] = {
         "", "dlb COMMANDoptions args... files...", "  commands:",
@@ -109,10 +110,7 @@ verbose_help()
 }
 
 static void
-Write(out, buf, len)
-int out;
-char *buf;
-long len;
+Write(int out, char *buf, long len)
 {
 #if defined(MSDOS) && !defined(__DJGPP__)
     unsigned short slen;
@@ -131,31 +129,26 @@ long len;
         xexit(EXIT_FAILURE);
     }
 }
-
-char *
-eos(s)
-char *s;
-{
-    while (*s)
-        s++;
-    return s;
-}
+#endif /* DLBLIB */
+#endif /* DLB */
 
 /* open_library(dlb.c) needs this (which normally comes from src/files.c) */
 FILE *
-fopen_datafile(filename, mode)
-const char *filename, *mode;
+fopen_datafile(const char *filename, const char *mode, int prefix UNUSED)
 {
     return fopen(filename, mode);
 }
 
-#endif /* DLBLIB */
-#endif /* DLB */
+#ifdef DLB
+#define UNUSED_if_no_DLB /*empty*/
+#else
+#define UNUSED_if_no_DLB UNUSED
+#endif
+
+DISABLE_WARNING_UNREACHABLE_CODE
 
 int
-main(argc, argv)
-int argc;
-char **argv;
+main(int argc UNUSED_if_no_DLB, char **argv UNUSED_if_no_DLB)
 {
 #ifdef DLB
 #ifdef DLBLIB
@@ -166,10 +159,12 @@ char **argv;
     char action = ' ';
     library lib;
 
-    if (argc > 0 && argv[0] && *argv[0])
+    if (argc > 0)
         progname = argv[0];
+    if (!progname || !*progname)
+        progname = default_progname;
 #ifdef VMS
-    progname = vms_basename(progname);
+    progname = vms_basename(progname, FALSE);
 #endif
 
     if (argc < 2) {
@@ -316,9 +311,9 @@ char **argv;
                 if (remainder > (long) sizeof(buf))
                     r = (int) sizeof(buf);
                 else
-                    r = remainder;
+                    r = (int) remainder;
 
-                n = fread(buf, 1, r, lib.fdata);
+                n = (int) fread(buf, 1, r, lib.fdata);
                 if (n != r) {
                     printf("Read Error in '%s'\n", lib.dir[i].fname);
                     xexit(EXIT_FAILURE);
@@ -363,8 +358,7 @@ char **argv;
             for (; ap < argc; ap++, nfiles++) {
                 if (nfiles == ldlimit)
                     grow_ld(&ld, &ldlimit, DLB_FILES_ALLOC / 5);
-                ld[nfiles].fname = (char *) alloc(strlen(argv[ap]) + 1);
-                Strcpy(ld[nfiles].fname, argv[ap]);
+                ld[nfiles].fname = dupstr(argv[ap]);
             }
         }
 
@@ -381,8 +375,7 @@ char **argv;
                 if (nfiles == ldlimit)
                     grow_ld(&ld, &ldlimit, DLB_FILES_ALLOC / 5);
                 *(eos(buf) - 1) = '\0'; /* strip newline */
-                ld[nfiles].fname = (char *) alloc(strlen(buf) + 1);
-                Strcpy(ld[nfiles].fname, buf);
+                ld[nfiles].fname = dupstr(buf);
             }
             fclose(list);
         }
@@ -405,7 +398,7 @@ char **argv;
             ld[i].fsize = lseek(fd, 0, SEEK_END);
             ld[i].foffset = flen;
 
-            slen += strlen(ld[i].fname); /* don't add null (yet) */
+            slen += (long) strlen(ld[i].fname); /* don't add null (yet) */
             flen += ld[i].fsize;
             close(fd);
         }
@@ -418,10 +411,10 @@ char **argv;
             xexit(EXIT_FAILURE);
         }
 
-        /* caculate directory size */
+        /* calculate directory size */
         dir_size = 40                    /* header line (see below) */
                    + ((nfiles + 1) * 11) /* handling+file offset+SP+newline */
-                   + slen + strlen(DLB_DIRECTORY); /* file names */
+                   + slen + (long) strlen(DLB_DIRECTORY); /* file names */
 
         /* write directory */
         write_dlb_directory(out, nfiles, ld, slen, dir_size, flen);
@@ -438,7 +431,7 @@ char **argv;
                 printf("%s\n", ld[i].fname);
 
             fsiz = 0L;
-            while ((r = read(fd, buf, sizeof buf)) != 0) {
+            while ((r = (int) read(fd, buf, sizeof buf)) != 0) {
                 if (r == -1) {
                     printf("Read Error in '%s'\n", ld[i].fname);
                     xexit(EXIT_FAILURE);
@@ -482,14 +475,13 @@ char **argv;
     return 0;
 }
 
+RESTORE_WARNING_UNREACHABLE_CODE
+
 #ifdef DLB
 #ifdef DLBLIB
 
 static void
-grow_ld(ld_p, ldlimit_p, alloc_incr)
-libdir **ld_p;
-int *ldlimit_p;
-int alloc_incr;
+grow_ld(libdir **ld_p, int *ldlimit_p, int alloc_incr)
 {
     static libdir zerolibdir;
     int i = 0, newlimit = *ldlimit_p + alloc_incr;
@@ -506,10 +498,8 @@ int alloc_incr;
 }
 
 static void
-write_dlb_directory(out, nfiles, ld, slen, dir_size, flen)
-int out, nfiles;
-libdir *ld;
-long slen, dir_size, flen;
+write_dlb_directory(int out, int nfiles, libdir *ld,
+                    long slen, long dir_size, long flen)
 {
     char buf[BUFSIZ];
     int i;
@@ -538,9 +528,8 @@ long slen, dir_size, flen;
 #endif /* DLBLIB */
 #endif /* DLB */
 
-static void
-xexit(retcd)
-int retcd;
+ATTRNORETURN static void
+xexit(int retcd)
 {
 #ifdef DLB
 #ifdef AMIGA
@@ -551,10 +540,5 @@ int retcd;
     exit(retcd);
     /*NOTREACHED*/
 }
-
-#ifdef AMIGA
-#include "date.h"
-const char amiga_version_string[] = AMIGA_VERSION_STRING;
-#endif
 
 /*dlb_main.c*/
