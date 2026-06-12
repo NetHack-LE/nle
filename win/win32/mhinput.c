@@ -1,5 +1,5 @@
-/* NetHack 3.6	mhinput.c	$NHDT-Date: 1432512810 2015/05/25 00:13:30 $  $NHDT-Branch: master $:$NHDT-Revision: 1.11 $ */
-/* Copyright (C) 2001 by Alex Kompel 	 */
+/* NetHack 5.0	mhinput.c	$NHDT-Date: 1596498350 2020/08/03 23:45:50 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.13 $ */
+/* Copyright (C) 2001 by Alex Kompel */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include <assert.h>
@@ -34,7 +34,7 @@ mswin_nh_input_init(void)
 
 /* check for input */
 int
-mswin_have_input()
+mswin_have_input(void)
 {
     return
 #ifdef SAFERHANGUP
@@ -63,7 +63,7 @@ mswin_input_push(PMSNHEvent event)
 
 /* get event from the queue and delete it */
 PMSNHEvent
-mswin_input_pop()
+mswin_input_pop(void)
 {
     PMSNHEvent retval;
 
@@ -72,7 +72,7 @@ mswin_input_pop()
     if (program_state.done_hup) {
         static MSNHEvent hangup_event;
         hangup_event.type = NHEVENT_CHAR;
-        hangup_event.kbd.ch = '\033';
+        hangup_event.ei.kbd.ch = '\033';
         return &hangup_event;
     }
 #endif
@@ -92,7 +92,7 @@ mswin_input_pop()
 
 /* get event from the queue but leave it there */
 PMSNHEvent
-mswin_input_peek()
+mswin_input_peek(void)
 {
     PMSNHEvent retval;
 
@@ -101,7 +101,7 @@ mswin_input_peek()
     if (program_state.done_hup) {
         static MSNHEvent hangup_event;
         hangup_event.type = NHEVENT_CHAR;
-        hangup_event.kbd.ch = '\033';
+        hangup_event.ei.kbd.ch = '\033';
         return &hangup_event;
     }
 #endif

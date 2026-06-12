@@ -1,4 +1,4 @@
-/* NetHack 3.6	mhinput.h	$NHDT-Date: 1432512812 2015/05/25 00:13:32 $  $NHDT-Branch: master $:$NHDT-Revision: 1.10 $ */
+/* NetHack 5.0	mhinput.h	$NHDT-Date: 1596498351 2020/08/03 23:45:51 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.11 $ */
 /* Copyright (C) 2001 by Alex Kompel 	 */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -10,34 +10,37 @@
 
 #define NHEVENT_CHAR 1
 #define NHEVENT_MOUSE 2
+
+union event_innards {
+    struct {
+        int ch;
+    } kbd;
+
+    struct {
+       int mod;
+       int x, y;
+    } ms;
+};
+
 typedef struct mswin_event {
     int type;
-    union {
-        struct {
-            int ch;
-        } kbd;
-
-        struct {
-            int mod;
-            int x, y;
-        } ms;
-    };
+    union event_innards ei;
 } MSNHEvent, *PMSNHEvent;
 
 #define NHEVENT_KBD(c)         \
     {                          \
         MSNHEvent e;           \
         e.type = NHEVENT_CHAR; \
-        e.kbd.ch = (c);        \
+        e.ei.kbd.ch = (c);        \
         mswin_input_push(&e);  \
     }
 #define NHEVENT_MS(_mod, _x, _y) \
     {                            \
         MSNHEvent e;             \
         e.type = NHEVENT_MOUSE;  \
-        e.ms.mod = (_mod);       \
-        e.ms.x = (_x);           \
-        e.ms.y = (_y);           \
+        e.ei.ms.mod = (_mod);       \
+        e.ei.ms.x = (_x);           \
+        e.ei.ms.y = (_y);           \
         mswin_input_push(&e);    \
     }
 

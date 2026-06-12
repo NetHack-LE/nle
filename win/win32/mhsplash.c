@@ -1,5 +1,5 @@
-/* NetHack 3.6	mhsplash.c	$NHDT-Date: 1449751714 2015/12/10 12:48:34 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.27 $ */
-/* Copyright (C) 2001 by Alex Kompel 	 */
+/* NetHack 5.0	mhsplash.c	$NHDT-Date: 1596498360 2020/08/03 23:46:00 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.36 $ */
+/* Copyright (C) 2001 by Alex Kompel */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "win10.h"
@@ -8,8 +8,10 @@
 #include "mhsplash.h"
 #include "mhmsg.h"
 #include "mhfont.h"
-#include "date.h"
+#include "config.h"
+#if !defined(VERSION_MAJOR)
 #include "patchlevel.h"
+#endif
 #include "dlb.h"
 
 #define LLEN 128
@@ -133,6 +135,8 @@ mswin_display_splash_window(BOOL show_ver)
     mswin_set_splash_data(hWnd, &splashData, monitorInfo.scale);
  
     SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR) &splashData);
+    windowdata[NHW_SPLASH].address = (genericptr_t) &splashData;
+    windowdata[NHW_SPLASH].isstatic = 1;
     
     GetNHApp()->hPopupWnd = hWnd;
 
@@ -143,15 +147,15 @@ mswin_display_splash_window(BOOL show_ver)
     /* Fill the text control */
     strbuf_reserve(&strbuf, BUFSIZ);
     Sprintf(strbuf.str, "%s\n%s\n%s\n%s\n\n", COPYRIGHT_BANNER_A,
-            COPYRIGHT_BANNER_B, COPYRIGHT_BANNER_C, COPYRIGHT_BANNER_D);
+            COPYRIGHT_BANNER_B, nomakedefs.copyright_banner_c, COPYRIGHT_BANNER_D);
 
     if (show_ver) {
         /* Show complete version information */
         dlb *f;
         char verbuf[BUFSZ];
-        int verstrsize = 0;
- 
-        getversionstring(verbuf);
+        /* int verstrsize = 0; */
+
+        getversionstring(verbuf, sizeof verbuf);
         strbuf_append(&strbuf, verbuf);
         strbuf_append(&strbuf, "\n\n");
             
@@ -255,6 +259,7 @@ NHSplashWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         DrawText(hdc, VersionString, strlen(VersionString), &rt,
                  DT_LEFT | DT_NOPREFIX);
         EndPaint(hWnd, &ps);
+        nhUse(OldFont);
     } break;
 
     case WM_COMMAND:

@@ -1,5 +1,5 @@
-/* NetHack 3.6	mhtext.c	$NHDT-Date: 1432512813 2015/05/25 00:13:33 $  $NHDT-Branch: master $:$NHDT-Revision: 1.25 $ */
-/* Copyright (C) 2001 by Alex Kompel 	 */
+/* NetHack 5.0	mhtext.c	$NHDT-Date: 1596498362 2020/08/03 23:46:02 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.31 $ */
+/* Copyright (C) 2001 by Alex Kompel */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "winMS.h"
@@ -24,7 +24,7 @@ static void onMSNHCommand(HWND hWnd, WPARAM wParam, LPARAM lParam);
 static void LayoutText(HWND hwnd);
 
 HWND
-mswin_init_text_window()
+mswin_init_text_window(void)
 {
     HWND ret;
     RECT rt;
@@ -36,7 +36,7 @@ mswin_init_text_window()
         mswin_get_window_placement(NHW_TEXT, &rt);
     }
 
-    /* create text widnow object */
+    /* create text window object */
     ret = CreateDialog(GetNHApp()->hApp, MAKEINTRESOURCE(IDD_NHTEXT),
                        GetNHApp()->hMainWnd, NHTextWndProc);
     if (!ret)
@@ -83,8 +83,10 @@ NHTextWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         data = (PNHTextWindow)malloc(sizeof(NHTextWindow));
         if (!data)
             panic("out of memory");
+
         ZeroMemory(data, sizeof(NHTextWindow));
         SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)data);
+        windowdata[NHW_TEXT].address = (genericptr_t) data; // for cleanup at the end
 
         HWND control = GetDlgItem(hWnd, IDC_TEXT_CONTROL);
         HDC hdc = GetDC(control);
@@ -173,6 +175,7 @@ NHTextWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 free(data->window_text);
             free(data);
             SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR) 0);
+            windowdata[NHW_TEXT].address = 0;
         }
         break;
 
@@ -198,13 +201,20 @@ onMSNHCommand(HWND hWnd, WPARAM wParam, LPARAM lParam)
             text_size = strlen(msg_data->text) + 4;
             data->window_text =
                 (TCHAR *) malloc(text_size * sizeof(data->window_text[0]));
-            ZeroMemory(data->window_text,
-                       text_size * sizeof(data->window_text[0]));
+            if (data->window_text) {
+                ZeroMemory(data->window_text,
+                           text_size * sizeof(data->window_text[0]));
+            }
         } else {
+            TCHAR *was = data->window_text;
+
             text_size =
                 _tcslen(data->window_text) + strlen(msg_data->text) + 4;
             data->window_text = (TCHAR *) realloc(
                 data->window_text, text_size * sizeof(data->window_text[0]));
+            if (!data->window_text) {
+                free(was);
+            }
         }
         if (!data->window_text)
             break;
@@ -214,11 +224,11 @@ onMSNHCommand(HWND hWnd, WPARAM wParam, LPARAM lParam)
         break;
     }
 
-	case MSNH_MSG_RANDOM_INPUT: {
-        PostMessage(GetDlgItem(hWnd, IDC_TEXT_CONTROL), 
+        case MSNH_MSG_RANDOM_INPUT: {
+            PostMessage(GetDlgItem(hWnd, IDC_TEXT_CONTROL), 
             WM_MSNH_COMMAND, MSNH_MSG_RANDOM_INPUT, 0);
-	}
-	break;
+        }
+        break;
 
     }
 }

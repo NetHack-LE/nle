@@ -1,5 +1,5 @@
-/* NetHack 3.6	mhdlg.c	$NHDT-Date: 1544695946 2018/12/13 10:12:26 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.30 $ */
-/* Copyright (C) 2001 by Alex Kompel 	 */
+/* NetHack 5.0	mhdlg.c	$NHDT-Date: 1596498347 2020/08/03 23:45:47 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.36 $ */
+/* Copyright (C) 2001 by Alex Kompel */
 /* NetHack may be freely redistributed.  See license for details. */
 
 /* various dialog boxes are defined here */
@@ -12,7 +12,10 @@
 #include "mhdlg.h"
 
 #include <assert.h>
-
+int list_view_height(HWND hWnd, int count);
+void get_rect_size(RECT *rect, SIZE *size);
+void center_dialog(HWND dialog);
+void size_dialog(HWND dialog, SIZE new_client_size);
 
 /*---------------------------------------------------------------*/
 /* data for getlin dialog */
@@ -38,7 +41,7 @@ mswin_getlin_window(const char *question, char *result, size_t result_size)
     INT_PTR ret;
     struct getlin_data data;
 
-    /* initilize dialog data */
+    /* initialize dialog data */
     ZeroMemory(&data, sizeof(data));
     data.question = question;
     data.result = result;
@@ -134,18 +137,20 @@ GetlinDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_COMMAND: {
-        TCHAR wbuf[BUFSZ];
+        TCHAR wbuf2[BUFSZ];
 
+        wbuf2[BUFSZ - 1] = '\0';
         switch (LOWORD(wParam)) {
         /* OK button was pressed */
         case IDOK:
             data =
                 (struct getlin_data *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
             SendDlgItemMessage(hWnd, IDC_GETLIN_EDIT, WM_GETTEXT,
-                               (WPARAM) sizeof(wbuf), (LPARAM) wbuf);
-            NH_W2A(wbuf, data->result, data->result_size);
+                               (WPARAM) sizeof(wbuf2), (LPARAM) wbuf2);
+            NH_W2A(wbuf2, data->result, data->result_size);
 
-        /* Fall through. */
+        FALLTHROUGH;
+        /* FALLTHRU */
 
         /* cancel button was pressed */
         case IDCANCEL:
@@ -245,7 +250,8 @@ ExtCmdDlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 hWnd, IDC_EXTCMD_LIST, LB_GETCURSEL, (WPARAM) 0, (LPARAM) 0);
             if (*data->selection == LB_ERR)
                 *data->selection = -1;
-        /* Fall through. */
+            FALLTHROUGH;
+            /* FALLTHRU */
 
         /* CANCEL button ws clicked */
         case IDCANCEL:
@@ -300,7 +306,7 @@ enum player_selector_control {
     psc_control_count
 };
 
-static const s_psc_id[psc_control_count] = {
+static const int s_psc_id[psc_control_count] = {
     IDC_PLSEL_NAME_GROUP,
     IDC_PLSEL_ROLE_GROUP,
     IDC_PLSEL_RACE_GROUP,
@@ -343,9 +349,14 @@ INT_PTR CALLBACK PlayerSelectorDlgProc(HWND, UINT, WPARAM, LPARAM);
 static void plselAdjustSelections(HWND hWnd);
 static boolean plselRandomize(plsel_data_t * data);
 static BOOL plselDrawItem(HWND hWnd, WPARAM wParam, LPARAM lParam);
+void  calculate_player_selector_layout(plsel_data_t * data);
+void move_controls(control_t * controls, int count);
+void do_player_selector_layout(plsel_data_t * data);
+void plselInitDialog(struct plsel_data * data);
+int plselFinalSelection(HWND hWnd);
 
 boolean
-mswin_player_selection_window()
+mswin_player_selection_window(void)
 {
     INT_PTR ret;
     plsel_data_t data;
@@ -401,7 +412,7 @@ calculate_player_selector_layout(plsel_data_t * data)
     name_box->size.cy = (int) (24 * scale);
 
     control_t * role_list = &data->controls[psc_role_list];
-    /* NOTE: we dont' scale the list view reported height as it appears these
+    /* NOTE: we don't scale the list view reported height as it appears these
              values are the actual size the control will be drawn at using the
              existing DPI value */
     role_list->size.cy = list_view_height(role_list->hWnd, data->role_count);
@@ -574,6 +585,7 @@ plselInitDialog(struct plsel_data * data)
 {
     TCHAR wbuf[BUFSZ];
     LVCOLUMN lvcol;
+    control_t *control;
 
     SetWindowLongPtr(data->dialog, GWLP_USERDATA, (LONG_PTR) data);
 
@@ -646,7 +658,7 @@ plselInitDialog(struct plsel_data * data)
 
     /* set player name */
     control_t * name_box = &data->controls[psc_name_box];
-    SetDlgItemText(data->dialog, name_box->id, NH_A2W(plname, wbuf, sizeof(wbuf)));
+    SetDlgItemText(data->dialog, name_box->id, NH_A2W(svp.plname, wbuf, sizeof(wbuf)));
 
     plselRandomize(data);
 
@@ -654,10 +666,12 @@ plselInitDialog(struct plsel_data * data)
     plselAdjustSelections(data->dialog);
 
     /* set tab order */
-    control_t * control = &data->controls[psc_quit_button];
-    for(int i = psc_quit_button; i >= psc_name_box; i--, control++)
-        SetWindowPos(control->hWnd, NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 
+    for (int i = psc_quit_button; i >= psc_name_box; i--) {
+        control = &data->controls[i];
+        SetWindowPos(control->hWnd, NULL, 0, 0, 0, 0,
+                     SWP_NOMOVE | SWP_NOSIZE);
+    }
     do_player_selector_layout(data);
 
     center_dialog(data->dialog);
@@ -868,13 +882,18 @@ plselAdjustSelections(HWND hWnd)
 
 /* player made up his mind - get final selection here */
 int
-plselFinalSelection(HWND hWnd)
+plselFinalSelection(HWND hWnd UNUSED)
 {
-    int role = flags.initrole;
-    int race = flags.initrace;
-    int gender = flags.initgend;
-    int alignment = flags.initalign;
+    int role, race, gender, alignment;
 
+    nhUse(role);
+    nhUse(race);
+    nhUse(gender);
+    nhUse(alignment);
+    role = flags.initrole;
+    race = flags.initrace;
+    gender = flags.initgend;
+    alignment = flags.initalign;
     assert(role != ROLE_RANDOM && role != ROLE_NONE);
     assert(race != ROLE_RANDOM && race != ROLE_NONE);
     assert(gender != ROLE_RANDOM && gender != ROLE_NONE);
@@ -889,6 +908,7 @@ plselFinalSelection(HWND hWnd)
 
 static boolean plselRandomize(plsel_data_t * data)
 {
+    int role, race, gender, alignment;
     boolean fully_specified = TRUE;
 
     // restore back to configuration settings
@@ -914,10 +934,10 @@ static boolean plselRandomize(plsel_data_t * data)
 
     rigid_role_checks();
 
-    int role = flags.initrole;
-    int race = flags.initrace;
-    int gender = flags.initgend;
-    int alignment = flags.initalign;
+    role = flags.initrole;
+    race = flags.initrace;
+    gender = flags.initgend;
+    alignment = flags.initalign;
 
     assert(role != ROLE_RANDOM && role != ROLE_NONE);
     assert(race != ROLE_RANDOM && race != ROLE_NONE);
@@ -972,7 +992,7 @@ plselDrawItem(HWND hWnd, WPARAM wParam, LPARAM lParam)
     struct plsel_data * data = (plsel_data_t *) GetWindowLongPtr(hWnd, GWLP_USERDATA);
 
     /* If there are no list box items, skip this message. */
-    if (lpdis->itemID < 0)
+    if (lpdis->itemID == (UINT) -1)
         return FALSE;
 
     HWND control = GetDlgItem(hWnd, (int) wParam);
