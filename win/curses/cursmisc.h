@@ -1,5 +1,5 @@
 /* vim:set cin ft=c sw=4 sts=4 ts=8 et ai cino=Ls\:0t0(0 : -*- mode:c;fill-column:80;tab-width:8;c-basic-offset:4;indent-tabs-mode:nil;c-file-style:"k&r" -*-*/
-/* NetHack 3.6 cursmisc.h */
+/* NetHack 5.0 cursmisc.h */
 /* Copyright (c) Karl Garrison, 2010. */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -8,6 +8,7 @@
 
 /* Global declarations */
 
+int curses_getch(void);
 int curses_read_char(void);
 void curses_toggle_color_attr(WINDOW *win, int color, int attr, int onoff);
 void curses_menu_color_attr(WINDOW *win, int color, int attr, int onoff);
@@ -21,16 +22,15 @@ boolean curses_is_menu(winid wid);
 boolean curses_is_text(winid wid);
 int curses_convert_glyph(int ch, int glyph);
 void curses_move_cursor(winid wid, int x, int y);
+void curses_update_stdscr_cursor(void);
 void curses_prehousekeeping(void);
 void curses_posthousekeeping(void);
 void curses_view_file(const char *filename, boolean must_exist);
 void curses_rtrim(char *str);
-int curses_get_count(int first_digit);
-int curses_convert_attr(int attr);
-int curses_read_attrs(const char *attrs);
-char *curses_fmt_attrs(char *);
+long curses_get_count(int first_digit);
+attr_t curses_convert_attr(int attr);
 int curses_convert_keys(int key);
-int curses_get_mouse(int *mousex, int *mousey, int *mod);
+int curses_get_mouse(coordxy *mousex, coordxy *mousey, int *mod);
 void curses_mouse_support(int);
 
 #endif /* CURSMISC_H */

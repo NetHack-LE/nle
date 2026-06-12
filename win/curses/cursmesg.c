@@ -1,5 +1,5 @@
 /* vim:set cin ft=c sw=4 sts=4 ts=8 et ai cino=Ls\:0t0(0 : -*- mode:c;fill-column:80;tab-width:8;c-basic-offset:4;indent-tabs-mode:nil;c-file-style:"k&r" -*-*/
-/* NetHack 3.6 cursmesg.c */
+/* NetHack 5.0 cursmesg.c */
 /* Copyright (c) Karl Garrison, 2010. */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -7,7 +7,7 @@
 #include "hack.h"
 #include "wincurs.h"
 #include "cursmesg.h"
-#include <ctype.h>
+#include "curswins.h"
 
 /* defined in sys/<foo>/<foo>tty.c or cursmain.c as last resort;
    set up by curses_init_nhwindows() */
@@ -20,11 +20,33 @@ extern char erase_char, kill_char;
 /* player can type ESC at More>> prompt to avoid seeing more messages
    for the current move; but hero might get more than one move per turn,
    so the input routines need to be able to cancel this */
-long curs_mesg_suppress_turn = -1;
+long curs_mesg_suppress_seq = -1L;
+/* if a message is marked urgent, existing suppression will be overridden
+   so that messages resume being shown; this is used in case the urgent
+   message triggers More>> for the previous message and the player responds
+   with ESC; we need to avoid initiating suppression in that situation */
+boolean curs_mesg_no_suppress = FALSE;
+/* curses_putmixed() will place information in these next two */
+int mesg_mixed = 0;
+glyph_info mesg_gi;
+
+#ifndef CURSES_GENL_PUTMIXED
+#if defined(PDC_WIDE) || defined(NCURSES_WIDECHAR)
+#define USE_CURSES_PUTMIXED
+#else  /* WIDE */
+#ifdef NH_PRAGMA_MESSAGE
+#ifdef _MSC_VER
+#pragma message("Curses wide support not defined so NetHack curses message window functionality reduced")
+#else
+#pragma message "Curses wide support not defined so NetHack curses message window functionality reduced"
+#endif /* _MSC_VER */
+#endif /* NH_PRAGMA_MESSAGE */
+#endif /* WIDE */
+#endif /* CURSES_GENL_PUTMIXED */
 
 /* Message window routines for curses interface */
 
-/* Private declatations */
+/* Private declarations */
 
 typedef struct nhpm {
     char *str;                  /* Message text */
@@ -38,6 +60,9 @@ static void unscroll_window(winid wid);
 static void directional_scroll(winid wid, int nlines);
 static void mesg_add_line(const char *mline);
 static nhprev_mesg *get_msg_line(boolean reverse, int mindex);
+#ifdef USE_CURSES_PUTMIXED
+static int curscolor(int nhcolor, boolean *boldon);
+#endif
 
 static int turn_lines = 0;
 static int mx = 0;
@@ -56,8 +81,13 @@ curses_message_win_puts(const char *message, boolean recursed)
     int height, width, border_space, linespace;
     char *tmpstr;
     WINDOW *win = curses_get_nhwin(MESSAGE_WIN);
-    boolean bold, border = curses_window_has_border(MESSAGE_WIN);
+    boolean bold, border = curses_window_has_border(MESSAGE_WIN),
+                  adjustbold = FALSE;
     int message_length = (int) strlen(message);
+#ifdef USE_CURSES_PUTMIXED
+    boolean have_mixed_leadin = FALSE;
+    cchar_t mixed_leadin_cchar[2];
+#endif
 
 #if 0
     /*
@@ -72,10 +102,11 @@ curses_message_win_puts(const char *message, boolean recursed)
     }
 #endif
 
-    if (curs_mesg_suppress_turn == moves) {
+    if (curs_mesg_suppress_seq == gh.hero_seq) {
         return; /* user has typed ESC to avoid seeing remaining messages. */
     }
 
+    curses_set_wid_colors(MESSAGE_WIN, NULL);
     curses_get_window_size(MESSAGE_WIN, &height, &width);
     border_space = (border ? 1 : 0);
     if (mx < border_space)
@@ -84,35 +115,70 @@ curses_message_win_puts(const char *message, boolean recursed)
         my = border_space;
 
     if (strcmp(message, "#") == 0) {    /* Extended command or Count: */
-        if ((strcmp(toplines, "#") != 0)
+        if ((strcmp(gt.toplines, "#") != 0)
             /* Bottom of message window */
             && (my >= (height - 1 + border_space)) && (height != 1)) {
             scroll_window(MESSAGE_WIN);
             mx = width;
             my--;
-            Strcpy(toplines, message);
+            Strcpy(gt.toplines, message);
         }
         return;
     }
 
     if (!recursed) {
-        strcpy(toplines, message);
+        strcpy(gt.toplines, message);
         mesg_add_line(message);
     }
 
-    /* -2: room for trailing ">>" (if More>> is needed) or leading "  "
-       (if combining this message with preceding one) */
-    linespace = (width - 1) - 2 - (mx - border_space);
+    /* -3: room for trailing ">> " (in case More>> is needed) */
+    linespace = width - 3 - (mx - border_space);
+    /* -2: for leading "  " (if combining this message with preceding one) */
+    if (mx > border_space)
+        linespace -= 2;
+    bold = (height > 1 && !last_messages);
+
+#ifdef USE_CURSES_PUTMIXED
+    if (mesg_mixed) {
+        wchar_t w[2];
+        int leadin_color;
+
+        leadin_color = curscolor(mesg_gi.gm.sym.color, &adjustbold);
+        /*
+         * curses_putmixed() skipped past the \GNNNNNNNN encoding
+         * in the string, and filled in the mesg_gi glyphinfo. It
+         * flagged that to us by setting mesg_mixed.
+         */
+
+        w[0] = (wchar_t) mesg_gi.ttychar;
+#ifdef ENHANCED_SYMBOLS
+        if ((windowprocs.wincap2 & WC2_U_UTF8STR) && SYMHANDLING(H_UTF8)
+            && mesg_gi.gm.u) {
+            /* FIXME: this won't work with all unicode values (32 bits -> 16
+             * bits on Windows) */
+            w[0] = (wchar_t) mesg_gi.gm.u->utf32ch;
+        }
+#endif
+        w[1] = L'\0';
+        if (setcchar(mixed_leadin_cchar, w,
+                     (bold || adjustbold) ? A_BOLD : A_NORMAL,
+                     leadin_color, 0) == OK) {
+            have_mixed_leadin = TRUE;
+            message_length++; /* account for that additional column */
+        }
+    }
+#endif  /* USE_CURSES_PUTMIXED */
 
     if (linespace < message_length) {
         if (my - border_space >= height - 1) {
             /* bottom of message win */
             if (++turn_lines > height
                 || (turn_lines == height && mx > border_space)) {
-                /* Pause until key is hit - Esc suppresses any further
-                   messages that turn */
-                if (curses_more() == '\033') {
-                    curs_mesg_suppress_turn = moves;
+                 /* pause until key is hit - ESC suppresses further messages
+                    this turn unless an urgent message is being delivered */
+                if (curses_more() == '\033'
+                    && !curs_mesg_no_suppress) {
+                    curs_mesg_suppress_seq = gh.hero_seq;
                     return;
                 }
                 /* turn_lines reset to 0 by more()->block()->got_input() */
@@ -135,38 +201,87 @@ curses_message_win_puts(const char *message, boolean recursed)
         }
     }
 
-    bold = (height > 1 && !last_messages);
-    if (bold)
+    if (bold || adjustbold)
         curses_toggle_color_attr(win, NONE, A_BOLD, ON);
 
     /* will this message fit as-is or do we need to split it? */
-    if (mx == border_space && message_length > width - 2) {
+    if (mx == border_space && message_length > width - 3) {
         /* split needed */
-        tmpstr = curses_break_str(message, (width - 2), 1);
+        tmpstr = curses_break_str(message, (width - 3), 1);
+#ifdef USE_CURSES_PUTMIXED
+        if (have_mixed_leadin) {
+            mvwadd_wch(win, my, mx, mixed_leadin_cchar);
+            ++mx;
+            message_length--;
+            mesg_mixed = 0;
+            have_mixed_leadin = FALSE;
+            nhUse(have_mixed_leadin);
+        }
+#endif
         mvwprintw(win, my, mx, "%s", tmpstr), mx += (int) strlen(tmpstr);
         /* one space to separate first part of message from rest [is this
            actually useful?] */
-        if (mx < width - 2)
+        if (mx < width)
             ++mx;
         free(tmpstr);
-        if (bold)
+        if (bold || adjustbold)
             curses_toggle_color_attr(win, NONE, A_BOLD, OFF);
-        tmpstr = curses_str_remainder(message, (width - 2), 1);
+        tmpstr = curses_str_remainder(message, (width - 3), 1);
         curses_message_win_puts(tmpstr, TRUE);
         free(tmpstr);
     } else {
+#ifdef USE_CURSES_PUTMIXED
+        if (have_mixed_leadin) {
+            mvwadd_wch(win, my, mx, mixed_leadin_cchar);
+            ++mx;
+            message_length--;
+            mesg_mixed = 0;
+            have_mixed_leadin = FALSE;
+            nhUse(have_mixed_leadin);
+        }
+#endif
         mvwprintw(win, my, mx, "%s", message), mx += message_length;
-        if (bold)
+        if (bold || adjustbold)
             curses_toggle_color_attr(win, NONE, A_BOLD, OFF);
     }
     wrefresh(win);
 }
 
+#ifdef USE_CURSES_PUTMIXED
+static int
+curscolor(int nhcolor, boolean *boldon)
+{
+    int curses_color;
+
+    *boldon = FALSE;
+    if (nhcolor == 0) { /* make black fg visible */
+#ifdef USE_DARKGRAY
+        if (iflags.wc2_darkgray) {
+            if (COLORS > 16) {
+                /* colorpair for black is already darkgray */
+            } else { /* Use bold for a bright black */
+                *boldon = TRUE;
+            }
+        } else
+#endif /* USE_DARKGRAY */
+            nhcolor = CLR_BLUE;
+    }
+    curses_color = nhcolor + 1;
+    if (COLORS < 16) {
+        if (curses_color > 8 && curses_color < 17)
+            curses_color -= 8;
+        else if (curses_color > (17 + 16))
+            curses_color -= 16;
+    }
+    return curses_color;
+}
+#endif
+
 void
 curses_got_input(void)
 {
     /* if messages are being suppressed, reenable them */
-    curs_mesg_suppress_turn = -1;
+    curs_mesg_suppress_seq = -1L;
 
     /* misleadingly named; represents number of lines delivered since
        player was sure to have had a chance to read them; if player
@@ -176,9 +291,16 @@ curses_got_input(void)
 }
 
 int
-curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
-                                * = stop/alert else blocking because
-                                * window is full, so need to scroll after */
+curses_got_output(void)
+{
+    return turn_lines;
+}
+
+int
+curses_block(
+    boolean noscroll) /* noscroll - blocking because of MSGTYPE=STOP/ALERT
+                       * else blocking because window is full, so need to
+                       * scroll after */
 {
     static const char resp[] = " \r\n\033"; /* space, enter, esc */
     static int prev_x = -1, prev_y = -1, blink = 0;
@@ -204,6 +326,7 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
     }
     moreattr = !iflags.wc2_guicolor ? (int) A_REVERSE : NONE;
     curses_toggle_color_attr(win, MORECOLOR, moreattr, ON);
+    curses_set_wid_colors(MESSAGE_WIN, NULL);
     if (blink) {
         wattron(win, A_BLINK);
         mvwprintw(win, my, mx, ">"), mx += 1;
@@ -213,6 +336,7 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
         mvwprintw(win, my, mx, ">>"), mx += 2;
     }
     curses_toggle_color_attr(win, MORECOLOR, moreattr, OFF);
+    curses_set_wid_colors(MESSAGE_WIN, NULL);
     wrefresh(win);
 
     /* cancel mesg suppression; all messages will have had chance to be read */
@@ -220,12 +344,17 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
 
     oldcrsr = curs_set(1);
     do {
-        ret = wgetch(win);
+        if (iflags.debug_fuzzer)
+            ret = '\n';
+        else
+            ret = curses_read_char();
+        if (ret == ERR)
+            iflags.term_gone = 1;
         if (ret == ERR || ret == '\0')
             ret = '\n';
         /* msgtype=stop should require space/enter rather than any key,
            as we want to prevent YASD from direction keys. */
-    } while (!index(resp, (char) ret));
+    } while (!strchr(resp, (char) ret));
     if (oldcrsr >= 0)
         (void) curs_set(oldcrsr);
 
@@ -242,7 +371,7 @@ curses_block(boolean noscroll) /* noscroll - blocking because of msgtype
 }
 
 int
-curses_more()
+curses_more(void)
 {
     return curses_block(FALSE);
 }
@@ -251,13 +380,14 @@ curses_more()
 /* Clear the message window if one line; otherwise unhighlight old messages */
 
 void
-curses_clear_unhighlight_message_window()
+curses_clear_unhighlight_message_window(void)
 {
-    int mh, mw, count,
+    int mh, mw, rx, ry,
         brdroffset = curses_window_has_border(MESSAGE_WIN) ? 1 : 0;
     WINDOW *win = curses_get_nhwin(MESSAGE_WIN);
 
     turn_lines = 0;
+    curses_set_wid_colors(MESSAGE_WIN, NULL);
     curses_get_window_size(MESSAGE_WIN, &mh, &mw);
 
     if (mh == 1) {
@@ -266,9 +396,14 @@ curses_clear_unhighlight_message_window()
     } else {
         mx = mw + brdroffset; /* Force new line on new turn */
 
-        for (count = 0; count < mh; count++)
-            mvwchgat(win, count + brdroffset, brdroffset,
-                     mw, COLOR_PAIR(8), A_NORMAL, NULL);
+        for (ry = brdroffset; ry < mh; ry++) {
+            for (rx = brdroffset; rx < mw; rx++) {
+                chtype cht = mvwinch(win, ry, rx);
+
+                mvwchgat(win, ry, rx, 1, A_NORMAL, PAIR_NUMBER(cht), NULL);
+            }
+        }
+
         wnoutrefresh(win);
     }
     wmove(win, my, mx);
@@ -279,13 +414,14 @@ curses_clear_unhighlight_message_window()
    recent messages. */
 
 void
-curses_last_messages()
+curses_last_messages(void)
 {
     nhprev_mesg *mesg;
     int i, height, width;
     int border = curses_window_has_border(MESSAGE_WIN) ? 1 : 0;
     WINDOW *win = curses_get_nhwin(MESSAGE_WIN);
 
+    curses_set_wid_colors(MESSAGE_WIN, NULL);
     curses_get_window_size(MESSAGE_WIN, &height, &width);
     werase(win);
     mx = my = border;
@@ -312,7 +448,7 @@ curses_last_messages()
         if (mesg && mesg->str && *mesg->str)
             curses_message_win_puts(mesg->str, TRUE);
     }
-    curses_message_win_puts(toplines, TRUE);
+    curses_message_win_puts(gt.toplines, TRUE);
     --last_messages;
 
     if (border)
@@ -324,7 +460,7 @@ curses_last_messages()
 /* Initialize list for message history */
 
 void
-curses_init_mesg_history()
+curses_init_mesg_history(void)
 {
     max_messages = iflags.msg_history;
 
@@ -332,8 +468,8 @@ curses_init_mesg_history()
         max_messages = 1;
     }
 
-    if (max_messages > MESG_HISTORY_MAX) {
-        max_messages = MESG_HISTORY_MAX;
+    if (max_messages > MAX_MSG_HISTORY) {
+        max_messages = MAX_MSG_HISTORY;
     }
 }
 
@@ -356,7 +492,7 @@ curses_teardown_messages(void)
 /* Display previous messages in a popup (via menu so can scroll backwards) */
 
 void
-curses_prev_mesg()
+curses_prev_mesg(void)
 {
     int count;
     winid wid;
@@ -365,22 +501,47 @@ curses_prev_mesg()
     nhprev_mesg *mesg;
     menu_item *selected = NULL;
     boolean do_lifo = (iflags.prevmsg_window != 'f');
+#ifdef DEBUG
+    static int showturn = 0; /* 1: show hero_seq value in separators */
+    int clr = NO_COLOR;
+
+    /*
+     * Set DEBUGFILES=MesgTurn in environment or sysconf to decorate
+     * separator line between blocks of messages with the turn they
+     * were issued.
+     */
+    if (!showturn)
+        showturn = (wizard && explicitdebug("MesgTurn")) ? 1 : -1;
+#endif
 
     wid = curses_get_wid(NHW_MENU);
-    curses_create_nhmenu(wid);
-    Id = zeroany;
+    curses_create_nhmenu(wid, 0UL);
+    Id = cg.zeroany;
 
     for (count = 0; count < num_messages; ++count) {
         mesg = get_msg_line(do_lifo, count);
-        if (turn != mesg->turn && count != 0) {
-            curses_add_menu(wid, NO_GLYPH, &Id, 0, 0, A_NORMAL, "---", FALSE);
+        if (mesg->turn != turn) {
+            if (count > 0) { /* skip separator for first line */
+                char sepbuf[50];
+
+                Strcpy(sepbuf, "---");
+#ifdef DEBUG
+                if (showturn == 1)
+                    Sprintf(sepbuf, "- %ld+%ld",
+                            (mesg->turn >> 3), (mesg->turn & 7L));
+#endif
+                curses_add_menu(wid, &nul_glyphinfo, &Id, 0, 0,
+                                A_NORMAL, clr, sepbuf, MENU_ITEMFLAGS_NONE);
+            }
+            turn = mesg->turn;
         }
-        curses_add_menu(wid, NO_GLYPH, &Id, 0, 0, A_NORMAL, mesg->str, FALSE);
-        turn = mesg->turn;
+        curses_add_menu(wid, &nul_glyphinfo, &Id, 0, 0,
+                        A_NORMAL, clr, mesg->str, MENU_ITEMFLAGS_NONE);
     }
     if (!count)
-        curses_add_menu(wid, NO_GLYPH, &Id, 0, 0, A_NORMAL,
-                        "[No past messages available.]", FALSE);
+        curses_add_menu(wid, &nul_glyphinfo, &Id, 0, 0,
+                        A_NORMAL, clr, "[No past messages available.]",
+                        MENU_ITEMFLAGS_NONE);
 
     curses_end_menu(wid, "");
     if (!do_lifo)
@@ -453,10 +614,15 @@ curses_count_window(const char *count_text)
        but not for dolook's autodescribe when it refers to a named monster */
     if (!countwin)
         countwin = newwin(1, messagew, winy, winx);
+    curses_set_wid_colors(MESSAGE_WIN, NULL);
     werase(countwin);
 
     mvwprintw(countwin, 0, 0, "%s", count_text);
     wrefresh(countwin);
+    if (activemenu) {
+        touchwin(activemenu);
+        wrefresh(activemenu);
+    }
 }
 
 /* Gets a "line" (buffer) of input. */
@@ -594,7 +760,7 @@ curses_message_win_getline(const char *prompt, char *answer, int buffer)
 #ifdef PDCURSES
         ch = wgetch(win);
 #else
-        ch = getch();
+        ch = curses_read_char();
 #endif
         curs_set(0);
 
@@ -611,6 +777,7 @@ curses_message_win_getline(const char *prompt, char *answer, int buffer)
 
         switch (ch) {
         case ERR: /* should not happen */
+            iflags.term_gone = 1;
             *answer = '\0';
             goto alldone;
         case '\033': /* DOESCAPE */
@@ -643,7 +810,7 @@ curses_message_win_getline(const char *prompt, char *answer, int buffer)
         case '\n':
             (void) strncpy(answer, p_answer, buffer);
             answer[buffer - 1] = '\0';
-            Strcpy(toplines, tmpbuf);
+            Strcpy(gt.toplines, tmpbuf);
             mesg_add_line(tmpbuf);
 #if 1
             /* position at end of current line so next message will be
@@ -724,6 +891,7 @@ directional_scroll(winid wid, int nlines)
     boolean border = curses_window_has_border(wid);
     WINDOW *win = curses_get_nhwin(wid);
 
+    curses_set_wid_colors(wid, NULL);
     curses_get_window_size(wid, &wh, &ww);
     if (wh == 1) {
         curses_clear_nhwin(wid);
@@ -769,6 +937,8 @@ mesg_add_line(const char *mline)
     } else {
         /* instead of discarding list element being forced out, reuse it */
         current_mesg = first_mesg;
+        assert(current_mesg != NULL);
+        assert(current_mesg->str != NULL);
         /* whenever new 'mline' is shorter, extra allocation size of the
            original element will be frittered away, until eventually we'll
            discard this 'str' and dupstr() a replacement; we could easily
@@ -780,7 +950,7 @@ mesg_add_line(const char *mline)
             current_mesg->str = dupstr(mline);
         }
     }
-    current_mesg->turn = moves;
+    current_mesg->turn = gh.hero_seq;
 
     if (num_messages == 0) {
         /* very first message; set up head */
@@ -797,8 +967,8 @@ mesg_add_line(const char *mline)
         ++num_messages;
     } else {
         /* at capacity; old head is being removed */
-        first_mesg = first_mesg->next_mesg; /* new head */
-        first_mesg->prev_mesg = NULL; /* head has no prev_mesg */
+        if ((first_mesg = first_mesg->next_mesg) != 0) /* new head */
+            first_mesg->prev_mesg = NULL; /* head has no prev_mesg */
     }
     /* since 'current_mesg' might be reusing 'first_mesg' and has now
        become 'last_mesg', this update must be after head replacement */
@@ -836,8 +1006,7 @@ get_msg_line(boolean reverse, int mindex)
    puts it into save file; if any new messages are added to the list while
    that is taking place, the results are likely to be scrambled */
 char *
-curses_getmsghistory(init)
-boolean init;
+curses_getmsghistory(boolean init)
 {
     static int nxtidx;
     nhprev_mesg *mesg;
@@ -880,16 +1049,12 @@ boolean init;
  * into message history for ^P recall without having displayed it.
  */
 void
-curses_putmsghistory(msg, restoring_msghist)
-const char *msg;
-boolean restoring_msghist;
+curses_putmsghistory(const char *msg, boolean restoring_msghist)
 {
+    /* FIXME: these should be moved to struct instance_globals g */
     static boolean initd = FALSE;
     static int stash_count;
     static nhprev_mesg *stash_head = 0;
-#ifdef DUMPLOG
-    extern unsigned saved_pline_index; /* pline.c */
-#endif
 
     if (restoring_msghist && !initd) {
         /* hide any messages we've gathered since starting current session
@@ -899,19 +1064,24 @@ boolean restoring_msghist;
         stash_head = first_mesg, first_mesg = (nhprev_mesg *) 0;
         last_mesg = (nhprev_mesg *) 0; /* no need to remember the tail */
         initd = TRUE;
-#ifdef DUMPLOG
-        /* this suffices; there's no need to scrub saved_pline[] pointers */
-        saved_pline_index = 0;
+#ifdef DUMPLOG_CORE
+        /* this suffices; there's no need to scrub g.saved_pline[] pointers */
+        gs.saved_pline_index = 0;
 #endif
     }
 
     if (msg) {
         mesg_add_line(msg);
-        /* treat all saved and restored messages as turn #1 */
-        last_mesg->turn = 1L;
-#ifdef DUMPLOG
-        dumplogmsg(last_mesg->str);
+        /* treat all saved and restored messages as turn #1;
+           however, we aren't only called when restoring history;
+           core uses putmsghistory() for other stuff during play
+           and those messages should have a normal turn value */
+        if (last_mesg) { /* appease static analyzer */
+            last_mesg->turn = restoring_msghist ? (1L << 3) : gh.hero_seq;
+#ifdef DUMPLOG_CORE
+            dumplogmsg(last_mesg->str);
 #endif
+        }
     } else if (stash_count) {
         nhprev_mesg *mesg;
         long mesg_turn;
@@ -924,21 +1094,32 @@ boolean restoring_msghist;
                stashed messages as newly occurring ones is much simpler;
                we ignore the backlinks because the list is destroyed as it
                gets processed hence there can't be any other traversals */
-            mesg = stash_head;
-            stash_head = mesg->next_mesg;
-            --stash_count;
-            mesg_turn = mesg->turn;
-            mesg_add_line(mesg->str);
-            /* added line became new tail */
-            last_mesg->turn = mesg_turn;
-#ifdef DUMPLOG
-            dumplogmsg(mesg->str);
+            if ((mesg = stash_head) != 0) {
+                stash_head = mesg->next_mesg;
+                --stash_count;
+                mesg_turn = mesg->turn;
+                mesg_add_line(mesg->str);
+                /* added line became new tail */
+                if (last_mesg) /* appease static analyzer */
+                    last_mesg->turn = mesg_turn;
+#ifdef DUMPLOG_CORE
+                dumplogmsg(mesg->str);
 #endif
-            free((genericptr_t) mesg->str);
-            free((genericptr_t) mesg);
+                free((genericptr_t) mesg->str);
+                free((genericptr_t) mesg);
+            }
         }
         initd = FALSE; /* reset */
     }
+
+    /*
+     * Restoring a game with window borders on and align_status:left
+     * (which pushes the starting column of the message window to the
+     * right) brings up an initial display where the border around
+     * the message window is missing.  This draws it.
+     */
+    if (restoring_msghist && !msg)
+        curses_last_messages();
 }
 
 /*cursmesg.c*/
