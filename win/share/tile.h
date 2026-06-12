@@ -1,4 +1,4 @@
-/* NetHack 3.6  tile.h       $NHDT-Date: 1524689272 2018/04/25 20:47:52 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.13 $ */
+/* NetHack 5.0  tile.h       $NHDT-Date: 1596498339 2020/08/03 23:45:39 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.14 $ */
 /*      Copyright (c) 2016 by Michael Allison             */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -33,18 +33,18 @@ extern int colorsinmainmap;
 
 #define Fprintf (void) fprintf
 
-extern boolean FDECL(fopen_text_file, (const char *, const char *));
-extern boolean FDECL(read_text_tile, (pixel(*) [TILE_X]));
-extern boolean FDECL(write_text_tile, (pixel(*) [TILE_X]));
-extern int NDECL(fclose_text_file);
+extern boolean fopen_text_file(const char *, const char *);
+extern boolean read_text_tile(pixel(*) [TILE_X]);
+extern boolean write_text_tile(pixel(*) [TILE_X]);
+extern int fclose_text_file(void);
 
-extern void FDECL(set_grayscale, (int));
-extern void NDECL(init_colormap);
-extern void NDECL(merge_colormap);
+extern void set_grayscale(int);
+extern void init_colormap(void);
+extern void merge_colormap(void);
 
 #if defined(MICRO) || defined(WIN32)
 #undef exit
 #if !defined(MSDOS) && !defined(WIN32)
-extern void FDECL(exit, (int));
+extern void exit(int);
 #endif
 #endif

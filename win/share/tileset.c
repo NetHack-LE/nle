@@ -1,13 +1,16 @@
-/* NetHack 3.6    tileset.c    $NHDT-Date: 1501463811 2017/07/31 01:16:51 $ $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.0 $ */
+/* NetHack 5.0    tileset.c    $NHDT-Date: 1596498341 2020/08/03 23:45:41 $ $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.3 $ */
 /* Copyright (c) Ray Chason, 2016. */
 /* NetHack may be freely redistributed.  See license for details. */
 
-#include "hack.h"
+#include "config.h"
+#include "objclass.h"
+#include "flag.h"
 #include "tileset.h"
 
-static void FDECL(get_tile_map, (const char *));
-static void FDECL(split_tiles, (const struct TileSetImage *));
-static void FDECL(free_image, (struct TileSetImage *));
+static void get_tile_map(const char *);
+static unsigned gcd(unsigned, unsigned);
+static void split_tiles(const struct TileSetImage *);
+static void free_image(struct TileSetImage *);
 
 static struct TileImage *tiles;
 static unsigned num_tiles;
@@ -17,9 +20,7 @@ static boolean have_palette;
 static struct Pixel palette[256];
 
 boolean
-read_tiles(filename, true_color)
-const char *filename;
-boolean true_color;
+read_tiles(const char *filename, boolean true_color)
 {
     static const unsigned char png_sig[] = {
         0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
@@ -100,22 +101,43 @@ error:
     return FALSE;
 }
 
+/* Free tile memory not required by the chosen display mode */
+void
+set_tile_type(boolean true_color)
+{
+    unsigned i;
+
+    if (tiles) {
+        if (true_color) {
+            for (i = 0; i < num_tiles; ++i) {
+                free((genericptr_t) tiles[i].indexes);
+                tiles[i].indexes = NULL;
+            }
+            have_palette = FALSE;
+        } else {
+            for (i = 0; i < num_tiles; ++i) {
+                free((genericptr_t) tiles[i].pixels);
+                tiles[i].pixels = NULL;
+            }
+        }
+    }
+}
+
 const struct Pixel *
-get_palette()
+get_palette(void)
 {
     return have_palette ? palette : NULL;
 }
 
 /* TODO: derive tile_map from image_desc */
 static void
-get_tile_map(image_desc)
-const char *image_desc;
+get_tile_map(const char *image_desc UNUSED)
 {
     return;
 }
 
 void
-free_tiles()
+free_tiles(void)
 {
     unsigned i;
 
@@ -135,8 +157,7 @@ free_tiles()
 }
 
 static void
-free_image(image)
-struct TileSetImage *image;
+free_image(struct TileSetImage *image)
 {
     if (image->pixels)
         free((genericptr_t) image->pixels), image->pixels = NULL;
@@ -147,17 +168,118 @@ struct TileSetImage *image;
 }
 
 const struct TileImage *
-get_tile(tile_index)
-unsigned tile_index;
+get_tile(unsigned tile_index)
 {
     if (tile_index >= num_tiles)
         return &blank_tile;
     return &tiles[tile_index];
 }
 
+/* Note that any tile returned by this function must be freed */
+struct TileImage *
+stretch_tile(const struct TileImage *inp_tile,
+             unsigned out_width, unsigned out_height)
+{
+    unsigned x_scale_inp, x_scale_out, y_scale_inp, y_scale_out;
+    unsigned divisor;
+    unsigned size;
+    struct TileImage *out_tile;
+    unsigned x_inp, y_inp, x2, y2, x_out, y_out;
+    unsigned pos;
+
+    /* Derive the scale factors */
+    divisor = gcd(out_width, inp_tile->width);
+    x_scale_inp = inp_tile->width / divisor;
+    x_scale_out = out_width / divisor;
+    divisor = gcd(out_height, inp_tile->height);
+    y_scale_inp = inp_tile->height / divisor;
+    y_scale_out = out_height / divisor;
+
+    /* Derive the stretched tile */
+    out_tile = (struct TileImage *) alloc(sizeof(struct TileImage));
+    out_tile->width = out_width;
+    out_tile->height = out_height;
+    size = out_width * out_height;
+    if (inp_tile->pixels != NULL) {
+        out_tile->pixels = (struct Pixel *) alloc(size * sizeof(struct Pixel));
+        divisor = x_scale_inp * y_scale_inp;
+        for (y_out = 0; y_out < out_height; ++y_out) {
+            for (x_out = 0; x_out < out_width; ++x_out) {
+                unsigned r, g, b, a;
+
+                /* Derive output pixels by blending input pixels */
+                r = 0;
+                g = 0;
+                b = 0;
+                a = 0;
+                for (y2 = 0; y2 < y_scale_inp; ++y2) {
+                    y_inp = (y_out * y_scale_inp + y2) / y_scale_out;
+                    for (x2 = 0; x2 < x_scale_inp; ++x2) {
+                        x_inp = (x_out * x_scale_inp + x2) / x_scale_out;
+                        pos = y_inp * inp_tile->width + x_inp;
+                        r += inp_tile->pixels[pos].r;
+                        g += inp_tile->pixels[pos].g;
+                        b += inp_tile->pixels[pos].b;
+                        a += inp_tile->pixels[pos].a;
+                    }
+                }
+
+                pos = y_out * out_width + x_out;
+                out_tile->pixels[pos].r = r / divisor;
+                out_tile->pixels[pos].g = g / divisor;
+                out_tile->pixels[pos].b = b / divisor;
+                out_tile->pixels[pos].a = a / divisor;
+            }
+        }
+    } else {
+        out_tile->pixels = NULL;
+    }
+
+    /* If the output device uses a palette, we can't blend; just pick
+       a subset of the pixels */
+    if (inp_tile->indexes != NULL) {
+        out_tile->indexes = (unsigned char *) alloc(size);
+        for (y_out = 0; y_out < out_height; ++y_out) {
+            for (x_out = 0; x_out < out_width; ++x_out) {
+                pos = y_out * out_width + x_out;
+                x_inp = x_out * x_scale_inp / x_scale_out;
+                y_inp = y_out * y_scale_inp / y_scale_out;
+                out_tile->indexes[pos] =
+                        inp_tile->indexes[y_inp * inp_tile->width + x_inp];
+            }
+        }
+    } else {
+        out_tile->indexes = NULL;
+    }
+    return out_tile;
+}
+
+/* Free a tile returned by stretch_tile */
+/* Do NOT use this with tiles returned by get_tile */
+void
+free_tile(struct TileImage *tile)
+{
+    if (tile != NULL) {
+        free(tile->indexes);
+        free(tile->pixels);
+        free(tile);
+    }
+}
+
+/* Return the greatest common divisor */
+static unsigned
+gcd(unsigned a, unsigned b)
+{
+    while (TRUE) {
+        if (b == 0) return a;
+        a %= b;
+        if (a == 0) return b;
+        b %= a;
+    }
+}
+
 static void
-split_tiles(image)
-const struct TileSetImage *image;
+split_tiles(const struct TileSetImage *image)
 {
     unsigned tile_rows, tile_cols;
     size_t tile_size, i, j;
@@ -185,8 +307,8 @@ const struct TileSetImage *image;
             if (image->indexes != NULL) {
                 tile->indexes = (unsigned char *) alloc(tile_size);
             }
-            for (y2 = 0; y2 < iflags.wc_tile_height; ++y2) {
-                for (x2 = 0; x2 < iflags.wc_tile_width; ++x2) {
+            for (y2 = 0; y2 < (unsigned) iflags.wc_tile_height; ++y2) {
+                for (x2 = 0; x2 < (unsigned) iflags.wc_tile_width; ++x2) {
                     unsigned x = x1 * iflags.wc_tile_width + x2;
                     unsigned y = y1 * iflags.wc_tile_height + y2;
 
@@ -219,9 +341,7 @@ const struct TileSetImage *image;
 }
 
 boolean
-read_png_tiles(filename, image)
-const char *filename;
-struct TileSetImage *image;
+read_png_tiles(const char *filename UNUSED, struct TileSetImage *image UNUSED)
 {
     /* stub */
     return FALSE;

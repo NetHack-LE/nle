@@ -1,4 +1,4 @@
-/* NetHack 3.6  ppmwrite.c	$NHDT-Date: 1432512803 2015/05/25 00:13:23 $  $NHDT-Branch: master $:$NHDT-Revision: 1.6 $ */
+/* NetHack 5.0  ppmwrite.c	$NHDT-Date: 1596498336 2020/08/03 23:45:36 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.7 $ */
 /* this produces a raw ppm file, with a 15-character header of
  * "P6 3-digit-width 3-digit-height 255\n"
  */
@@ -7,7 +7,7 @@
 #include "tile.h"
 
 #ifndef MONITOR_HEAP
-extern long *FDECL(alloc, (unsigned int));
+extern long *alloc(unsigned int);
 #endif
 
 FILE *ppm_file;
@@ -20,18 +20,18 @@ struct ppmscreen {
 static int tiles_across, tiles_down, curr_tiles_across;
 static pixel **image;
 
-static void NDECL(write_header);
-static void NDECL(WriteTileStrip);
+static void write_header(void);
+static void WriteTileStrip(void);
 
 static void
-write_header()
+write_header(void)
 {
     (void) fprintf(ppm_file, "P6 %03d %03d 255\n", PpmScreen.Width,
                    PpmScreen.Height);
 }
 
 static void
-WriteTileStrip()
+WriteTileStrip(void)
 {
     int i, j;
 
@@ -45,9 +45,7 @@ WriteTileStrip()
 }
 
 boolean
-fopen_ppm_file(filename, type)
-const char *filename;
-const char *type;
+fopen_ppm_file(const char *filename, const char *type)
 {
     int i;
 
@@ -84,8 +82,7 @@ const char *type;
 }
 
 boolean
-write_ppm_tile(pixels)
-pixel (*pixels)[TILE_X];
+write_ppm_tile(pixel (*pixels)[TILE_X]) 
 {
     int i, j;
 
@@ -104,7 +101,7 @@ pixel (*pixels)[TILE_X];
 }
 
 int
-fclose_ppm_file()
+fclose_ppm_file(void)
 {
     int i, j;
 
@@ -139,9 +136,7 @@ fclose_ppm_file()
 }
 
 int
-main(argc, argv)
-int argc;
-char *argv[];
+main(int argc, char *argv[])
 {
     pixel pixels[TILE_Y][TILE_X];
 
