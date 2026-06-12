@@ -146,6 +146,10 @@ static struct win_information window_opts[] = {
     { "amii", "Amiga Intuition (text)", TRUE },
     { "amiv", "Amiga Intuition (tiles)", TRUE },
 #endif
+/* NLE: add definition for reinforcement learning graphics */
+#ifdef RL_GRAPHICS
+    { "rl", "Reinforcement learning 'graphics'", TRUE },
+#endif
 
 #if 0  /* remainder have been retired */
 #ifdef GNOME_GRAPHICS /* unmaintained/defunct */
