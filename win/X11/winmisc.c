@@ -1,4 +1,4 @@
-/* NetHack 3.6	winmisc.c	$NHDT-Date: 1554135506 2019/04/01 16:18:26 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.44 $ */
+/* NetHack 5.0	winmisc.c	$NHDT-Date: 1596498374 2020/08/03 23:46:14 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.49 $ */
 /* Copyright (c) Dean Luick, 1992                                 */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -24,7 +24,7 @@
 #include <X11/Xaw/Viewport.h>
 #include <X11/Xaw/Cardinals.h>
 #include <X11/Xaw/List.h>
-#include <X11/Xos.h> /* for index() */
+#include <X11/Xos.h> /* for strchr() */
 #include <X11/Xatom.h>
 
 #ifdef PRESERVE_NO_SYSV
@@ -34,7 +34,10 @@
 #undef PRESERVE_NO_SYSV
 #endif
 
+#define X11_BUILD
 #include "hack.h"
+#undef X11_BUILD
+
 #include "func_tab.h"
 #include "winX.h"
 
@@ -91,35 +94,44 @@ static const char popup_entry_translations[] = "#override\n\
      <Btn4Down>: scroll(8)\n\
      <Btn5Down>: scroll(2)";
 
-static void FDECL(ps_quit, (Widget, XtPointer, XtPointer));
-static void FDECL(ps_random, (Widget, XtPointer, XtPointer));
-static void FDECL(ps_select, (Widget, XtPointer, XtPointer));
-static void FDECL(extend_select, (Widget, XtPointer, XtPointer));
-static void FDECL(extend_dismiss, (Widget, XtPointer, XtPointer));
-static void FDECL(extend_help, (Widget, XtPointer, XtPointer));
-static void FDECL(popup_delete, (Widget, XEvent *, String *, Cardinal *));
-static void NDECL(ec_dismiss);
-static void FDECL(ec_scroll_to_view, (int));
-static void NDECL(init_extended_commands_popup);
-static Widget FDECL(make_menu, (const char *, const char *, const char *,
-                                const char *, XtCallbackProc, const char *,
-                                XtCallbackProc, int, const char **,
-                                Widget **, XtCallbackProc, Widget *));
-
-void NDECL(X11_player_selection_setupOthers);
-void NDECL(X11_player_selection_randomize);
+static void plsel_dialog_acceptvalues(void);
+static void plsel_set_play_button(boolean);
+static void plsel_set_sensitivities(boolean);
+static void X11_player_selection_randomize(void);
+static void X11_player_selection_setupOthers(void);
+static void racetoggleCallback(Widget, XtPointer, XtPointer);
+static void roletoggleCallback(Widget, XtPointer, XtPointer);
+static void gendertoggleCallback(Widget, XtPointer, XtPointer);
+static void aligntoggleCallback(Widget, XtPointer, XtPointer);
+static void plsel_random_btn_callback(Widget, XtPointer, XtPointer);
+static void plsel_play_btn_callback(Widget, XtPointer, XtPointer);
+static void plsel_quit_btn_callback(Widget, XtPointer, XtPointer);
+static Widget X11_create_player_selection_name(Widget);
+static void X11_player_selection_dialog(void);
+static void X11_player_selection_prompts(void);
+static void ps_quit(Widget, XtPointer, XtPointer);
+static void ps_random(Widget, XtPointer, XtPointer);
+static void ps_select(Widget, XtPointer, XtPointer);
+static void extend_select(Widget, XtPointer, XtPointer);
+static void extend_dismiss(Widget, XtPointer, XtPointer);
+static void extend_help(Widget, XtPointer, XtPointer);
+static void popup_delete(Widget, XEvent *, String *, Cardinal *);
+static void ec_dismiss(void);
+static void ec_scroll_to_view(int);
+static void init_extended_commands_popup(void);
+static Widget make_menu(const char *, const char *, const char *, const char *,
+                        XtCallbackProc, const char *, XtCallbackProc, int,
+                        const char **, Widget **, XtCallbackProc, Widget *);
 
 /* Bad Hack alert. Using integers instead of XtPointers */
 XtPointer
-i2xtp(i)
-int i;
+i2xtp(int i)
 {
     return (XtPointer) (ptrdiff_t) i;
 }
 
 int
-xtp2i(x)
-XtPointer x;
+xtp2i(XtPointer x)
 {
     return (int) (ptrdiff_t) x;
 }
@@ -127,9 +139,7 @@ XtPointer x;
 /* Player Selection ------------------------------------------------------- */
 /* ARGSUSED */
 static void
-ps_quit(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+ps_quit(Widget w, XtPointer client_data, XtPointer call_data)
 {
     nhUse(w);
     nhUse(client_data);
@@ -141,9 +151,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-ps_random(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+ps_random(Widget w, XtPointer client_data, XtPointer call_data)
 {
     nhUse(w);
     nhUse(client_data);
@@ -155,9 +163,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-ps_select(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+ps_select(Widget w, XtPointer client_data, XtPointer call_data)
 {
     nhUse(w);
     nhUse(call_data);
@@ -168,11 +174,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 void
-ps_key(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+ps_key(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     char ch, *mark;
     char rolechars[QBUFSZ];
@@ -182,13 +184,13 @@ Cardinal *num_params;
     nhUse(params);
     nhUse(num_params);
 
-    (void) memset(rolechars, '\0', sizeof rolechars); /* for index() */
+    (void) memset(rolechars, '\0', sizeof rolechars); /* for strchr() */
     for (i = 0; roles[i].name.m; ++i) {
         ch = lowc(*roles[i].name.m);
         /* if (flags.female && roles[i].name.f) ch = lowc(*roles[i].name.f);
          */
         /* this supports at most two roles with the same first letter */
-        if (index(rolechars, ch))
+        if (strchr(rolechars, ch))
             ch = highc(ch);
         rolechars[i] = ch;
     }
@@ -197,15 +199,15 @@ Cardinal *num_params;
         /* don't beep */
         return;
     }
-    mark = index(rolechars, ch);
+    mark = strchr(rolechars, ch);
     if (!mark)
-        mark = index(rolechars, lowc(ch));
+        mark = strchr(rolechars, lowc(ch));
     if (!mark)
-        mark = index(rolechars, highc(ch));
+        mark = strchr(rolechars, highc(ch));
     if (!mark) {
-        if (index(ps_randchars, ch))
+        if (strchr(ps_randchars, ch))
             ps_selected = PS_RANDOM;
-        else if (index(ps_quitchars, ch))
+        else if (strchr(ps_quitchars, ch))
             ps_selected = PS_QUIT;
         else {
             X11_nhbell(); /* no such class */
@@ -218,11 +220,7 @@ Cardinal *num_params;
 
 /* ARGSUSED */
 void
-race_key(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+race_key(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     char ch, *mark;
     char racechars[QBUFSZ];
@@ -232,11 +230,11 @@ Cardinal *num_params;
     nhUse(params);
     nhUse(num_params);
 
-    (void) memset(racechars, '\0', sizeof racechars); /* for index() */
+    (void) memset(racechars, '\0', sizeof racechars); /* for strchr() */
     for (i = 0; races[i].noun; ++i) {
         ch = lowc(*races[i].noun);
         /* this supports at most two races with the same first letter */
-        if (index(racechars, ch))
+        if (strchr(racechars, ch))
             ch = highc(ch);
         racechars[i] = ch;
     }
@@ -245,15 +243,15 @@ Cardinal *num_params;
         /* don't beep */
         return;
     }
-    mark = index(racechars, ch);
+    mark = strchr(racechars, ch);
     if (!mark)
-        mark = index(racechars, lowc(ch));
+        mark = strchr(racechars, lowc(ch));
     if (!mark)
-        mark = index(racechars, highc(ch));
+        mark = strchr(racechars, highc(ch));
     if (!mark) {
-        if (index(ps_randchars, ch))
+        if (strchr(ps_randchars, ch))
             ps_selected = PS_RANDOM;
-        else if (index(ps_quitchars, ch))
+        else if (strchr(ps_quitchars, ch))
             ps_selected = PS_QUIT;
         else {
             X11_nhbell(); /* no such race */
@@ -266,11 +264,7 @@ Cardinal *num_params;
 
 /* ARGSUSED */
 void
-gend_key(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+gend_key(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     char ch, *mark;
     static char gendchars[] = "mf";
@@ -284,13 +278,13 @@ Cardinal *num_params;
         /* don't beep */
         return;
     }
-    mark = index(gendchars, ch);
+    mark = strchr(gendchars, ch);
     if (!mark)
-        mark = index(gendchars, lowc(ch));
+        mark = strchr(gendchars, lowc(ch));
     if (!mark) {
-        if (index(ps_randchars, ch))
+        if (strchr(ps_randchars, ch))
             ps_selected = PS_RANDOM;
-        else if (index(ps_quitchars, ch))
+        else if (strchr(ps_quitchars, ch))
             ps_selected = PS_QUIT;
         else {
             X11_nhbell(); /* no such gender */
@@ -303,11 +297,7 @@ Cardinal *num_params;
 
 /* ARGSUSED */
 void
-algn_key(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+algn_key(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     char ch, *mark;
     static char algnchars[] = "LNC";
@@ -321,13 +311,13 @@ Cardinal *num_params;
         /* don't beep */
         return;
     }
-    mark = index(algnchars, ch);
+    mark = strchr(algnchars, ch);
     if (!mark)
-        mark = index(algnchars, highc(ch));
+        mark = strchr(algnchars, highc(ch));
     if (!mark) {
-        if (index(ps_randchars, ch))
+        if (strchr(ps_randchars, ch))
             ps_selected = PS_RANDOM;
-        else if (index(ps_quitchars, ch))
+        else if (strchr(ps_quitchars, ch))
             ps_selected = PS_QUIT;
         else {
             X11_nhbell(); /* no such alignment */
@@ -348,8 +338,8 @@ Widget plsel_name_input;
 
 Widget plsel_btn_play;
 
-void
-plsel_dialog_acceptvalues()
+static void
+plsel_dialog_acceptvalues(void)
 {
     Arg args[2];
     String s;
@@ -362,21 +352,17 @@ plsel_dialog_acceptvalues()
     XtSetArg(args[0], nhStr(XtNstring), &s);
     XtGetValues(plsel_name_input, args, ONE);
 
-    (void) strncpy(plname, (char *) s, sizeof plname - 1);
-    plname[sizeof plname - 1] = '\0';
-    (void) mungspaces(plname);
-    if (strlen(plname) < 1)
-        (void) strcpy(plname, "Mumbles");
+    (void) strncpy(svp.plname, (char *) s, sizeof svp.plname - 1);
+    svp.plname[sizeof svp.plname - 1] = '\0';
+    (void) mungspaces(svp.plname);
+    if (strlen(svp.plname) < 1)
+        (void) strcpy(svp.plname, "Mumbles");
     iflags.renameinprogress = FALSE;
 }
 
 /* ARGSUSED */
 void
-plsel_quit(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+plsel_quit(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     nhUse(w);
     nhUse(event);
@@ -389,11 +375,7 @@ Cardinal *num_params;
 
 /* ARGSUSED */
 void
-plsel_play(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+plsel_play(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     Arg args[2];
     Boolean state;
@@ -416,11 +398,7 @@ Cardinal *num_params;
 
 /* ARGSUSED */
 void
-plsel_randomize(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+plsel_randomize(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     nhUse(w);
     nhUse(event);
@@ -431,9 +409,8 @@ Cardinal *num_params;
 }
 
 /* enable or disable the Play button */
-void
-plsel_set_play_button(state)
-boolean state;
+static void
+plsel_set_play_button(boolean state)
 {
     Arg args[2];
 
@@ -441,9 +418,8 @@ boolean state;
     XtSetValues(plsel_btn_play, args, ONE);
 }
 
-void
-plsel_set_sensitivities(setcurr)
-boolean setcurr;
+static void
+plsel_set_sensitivities(boolean setcurr)
 {
     Arg args[2];
     int j, valid;
@@ -495,13 +471,13 @@ boolean setcurr;
     X11_player_selection_setupOthers();
 }
 
-void
-X11_player_selection_randomize()
+static void
+X11_player_selection_randomize(void)
 {
     int nrole = plsel_n_roles;
     int nrace = plsel_n_races;
-    int ro, ra, a, g;
-    boolean fully_specified_role, choose_race_first;
+    int ro, ra, al, gend;
+    boolean choose_race_first;
     boolean picksomething = (flags.initrole == ROLE_NONE
                              || flags.initrace == ROLE_NONE
                              || flags.initgend == ROLE_NONE
@@ -524,15 +500,11 @@ X11_player_selection_randomize()
     ro = flags.initrole;
     if (ro == ROLE_NONE || ro == ROLE_RANDOM) {
         ro = rn2(nrole);
-        if (flags.initrole != ROLE_RANDOM) {
-            fully_specified_role = FALSE;
-        }
     }
     ra = flags.initrace;
     if (ra == ROLE_NONE || ra == ROLE_RANDOM) {
         ra = rn2(nrace);
         if (flags.initrace != ROLE_RANDOM) {
-            fully_specified_role = FALSE;
         }
     }
 
@@ -543,47 +515,39 @@ X11_player_selection_randomize()
         choose_race_first = TRUE;
     }
 
-    while (!validrace(ro,ra)) {
+    while (!validrace(ro, ra)) {
         if (choose_race_first) {
             ro = rn2(nrole);
-            if (flags.initrole != ROLE_RANDOM) {
-                fully_specified_role = FALSE;
-            }
         } else {
             ra = rn2(nrace);
-            if (flags.initrace != ROLE_RANDOM) {
-                fully_specified_role = FALSE;
-            }
         }
     }
 
-    g = flags.initgend;
-    if (g == ROLE_NONE) {
-        g = rn2(ROLE_GENDERS);
-        fully_specified_role = FALSE;
+    gend = flags.initgend;
+    if (gend == ROLE_NONE) {
+        gend = rn2(ROLE_GENDERS);
     }
-    while (!validgend(ro,ra,g)) {
-        g = rn2(ROLE_GENDERS);
-    }
-
-    a = flags.initalign;
-    if (a == ROLE_NONE) {
-        a = rn2(ROLE_ALIGNS);
-        fully_specified_role = FALSE;
-    }
-    while (!validalign(ro,ra,a)) {
-        a = rn2(ROLE_ALIGNS);
+    while (!validgend(ro, ra, gend)) {
+        gend = rn2(ROLE_GENDERS);
     }
 
-    XawToggleSetCurrent(plsel_gend_radios[0], i2xtp(g + 1));
-    XawToggleSetCurrent(plsel_align_radios[0], i2xtp(a + 1));
+    al = flags.initalign;
+    if (al == ROLE_NONE) {
+        al = rn2(ROLE_ALIGNS);
+    }
+    while (!validalign(ro, ra, al)) {
+        al = rn2(ROLE_ALIGNS);
+    }
+
+    XawToggleSetCurrent(plsel_gend_radios[0], i2xtp(gend + 1));
+    XawToggleSetCurrent(plsel_align_radios[0], i2xtp(al + 1));
     XawToggleSetCurrent(plsel_race_radios[0], i2xtp(ra + 1));
     XawToggleSetCurrent(plsel_role_radios[0], i2xtp(ro + 1));
     plsel_set_sensitivities(FALSE);
 }
 
-void
-X11_player_selection_setupOthers()
+static void
+X11_player_selection_setupOthers(void)
 {
     Arg args[2];
     int ra = xtp2i(XawToggleGetCurrent(plsel_race_radios[0])) - 1;
@@ -629,9 +593,7 @@ X11_player_selection_setupOthers()
 }
 
 static void
-racetoggleCallback(w, client, call)
-Widget w;
-XtPointer client, call;
+racetoggleCallback(Widget w, XtPointer client, XtPointer call)
 {
     Arg args[2];
     int j, valid;
@@ -670,9 +632,7 @@ XtPointer client, call;
 }
 
 static void
-roletoggleCallback(w, client, call)
-Widget w;
-XtPointer client, call;
+roletoggleCallback(Widget w, XtPointer client, XtPointer call)
 {
     Arg args[2];
     int j, valid;
@@ -711,9 +671,7 @@ XtPointer client, call;
 }
 
 static void
-gendertoggleCallback(w, client, call)
-Widget w;
-XtPointer client, call;
+gendertoggleCallback(Widget w, XtPointer client, XtPointer call)
 {
     int i, r = xtp2i(XawToggleGetCurrent(plsel_gend_radios[0])) - 1;
 
@@ -735,9 +693,7 @@ XtPointer client, call;
 }
 
 static void
-aligntoggleCallback(w, client, call)
-Widget w;
-XtPointer client, call;
+aligntoggleCallback(Widget w, XtPointer client, XtPointer call)
 {
     int r = xtp2i(XawToggleGetCurrent(plsel_align_radios[0])) - 1;
 
@@ -749,10 +705,7 @@ XtPointer client, call;
 }
 
 static void
-plsel_random_btn_callback(w, client, call)
-Widget w;
-XtPointer client;
-XtPointer call;
+plsel_random_btn_callback(Widget w, XtPointer client, XtPointer call)
 {
     nhUse(w);
     nhUse(client);
@@ -762,10 +715,7 @@ XtPointer call;
 }
 
 static void
-plsel_play_btn_callback(w, client, call)
-Widget w;
-XtPointer client;
-XtPointer call;
+plsel_play_btn_callback(Widget w, XtPointer client, XtPointer call)
 {
     nhUse(w);
     nhUse(client);
@@ -776,10 +726,7 @@ XtPointer call;
 }
 
 static void
-plsel_quit_btn_callback(w, client, call)
-Widget w;
-XtPointer client;
-XtPointer call;
+plsel_quit_btn_callback(Widget w, XtPointer client, XtPointer call)
 {
     nhUse(w);
     nhUse(client);
@@ -789,9 +736,8 @@ XtPointer call;
     exit_x_event = TRUE; /* leave event loop */
 }
 
-Widget
-X11_create_player_selection_name(form)
-Widget form;
+static Widget
+X11_create_player_selection_name(Widget form)
 {
     Widget namelabel, name_vp, name_form;
     Arg args[10];
@@ -833,8 +779,8 @@ Widget form;
     XtSetArg(args[num_args], nhStr(XtNeditType),
              !plsel_ask_name ? XawtextRead : XawtextEdit); num_args++;
     XtSetArg(args[num_args], nhStr(XtNresize), XawtextResizeWidth); num_args++;
-    XtSetArg(args[num_args], nhStr(XtNstring), plname); num_args++;
-    XtSetArg(args[num_args], XtNinsertPosition, strlen(plname)); num_args++;
+    XtSetArg(args[num_args], nhStr(XtNstring), svp.plname); num_args++;
+    XtSetArg(args[num_args], XtNinsertPosition, strlen(svp.plname)); num_args++;
     XtSetArg(args[num_args], nhStr(XtNaccelerators),
              XtParseAcceleratorTable(plsel_input_accelerators)); num_args++;
     plsel_name_input = XtCreateManagedWidget("name_input",
@@ -852,8 +798,8 @@ Widget form;
     return name_vp;
 }
 
-void
-X11_player_selection_dialog()
+static void
+X11_player_selection_dialog(void)
 {
     Widget popup, popup_vp;
     Widget form;
@@ -978,13 +924,15 @@ X11_player_selection_dialog()
         Widget racewidget;
 
         num_args = 0;
-        if (i > 0)
+        if (i > 0) {
             XtSetArg(args[num_args], nhStr(XtNfromVert),
                      tmpwidget); num_args++;
+        }
         XtSetArg(args[num_args], XtNwidth, cwid); num_args++;
-        if (i > 0)
+        if (i > 0) {
             XtSetArg(args[num_args], nhStr(XtNradioGroup),
                      plsel_race_radios[0]); num_args++;
+        }
         XtSetArg(args[num_args], nhStr(XtNradioData), (i + 1)); num_args++;
 
         racewidget = XtCreateManagedWidget(races[i].noun,
@@ -1040,13 +988,15 @@ X11_player_selection_dialog()
         Widget rolewidget;
 
         num_args = 0;
-        if (i > 0)
+        if (i > 0) {
             XtSetArg(args[num_args], nhStr(XtNfromVert),
                      tmpwidget); num_args++;
+        }
         XtSetArg(args[num_args], nhStr(XtNwidth), cwid); num_args++;
-        if (i > 0)
+        if (i > 0) {
             XtSetArg(args[num_args], nhStr(XtNradioGroup),
                      plsel_role_radios[0]); num_args++;
+        }
         XtSetArg(args[num_args], nhStr(XtNradioData), (i + 1)); num_args++;
 
         rolewidget = XtCreateManagedWidget(roles[i].name.m, toggleWidgetClass,
@@ -1270,16 +1220,19 @@ X11_player_selection_dialog()
     if (plsel_align_radios)
         free(plsel_align_radios);
 
-    if (ps_selected == PS_QUIT || program_state.done_hup) {
+    if (ps_selected == PS_QUIT
+#if defined(HANGUPHANDLING)
+        || program_state.done_hup
+#endif
+       ) {
         clearlocks();
         X11_exit_nhwindows((char *) 0);
         nh_terminate(0);
     }
 }
 
-/* Global functions ======================================================== */
-void
-X11_player_selection_prompts()
+static void
+X11_player_selection_prompts(void)
 {
     int num_roles, num_races, num_gends, num_algns, i, availcount, availindex;
     Widget popup, player_form;
@@ -1345,7 +1298,11 @@ X11_player_selection_prompts()
         XtDestroyWidget(popup);
         free((genericptr_t) choices), choices = 0;
 
-        if (ps_selected == PS_QUIT || program_state.done_hup) {
+        if (ps_selected == PS_QUIT
+#if defined(HANGUPHANDLING)
+            || program_state.done_hup
+#endif
+           ) {
             clearlocks();
             X11_exit_nhwindows((char *) 0);
             nh_terminate(0);
@@ -1414,7 +1371,11 @@ X11_player_selection_prompts()
             XtDestroyWidget(popup);
             free((genericptr_t) choices), choices = 0;
 
-            if (ps_selected == PS_QUIT || program_state.done_hup) {
+            if (ps_selected == PS_QUIT
+#if defined(HANGUPHANDLING)
+                || program_state.done_hup
+#endif
+               ) {
                 clearlocks();
                 X11_exit_nhwindows((char *) 0);
                 nh_terminate(0);
@@ -1482,7 +1443,11 @@ X11_player_selection_prompts()
             XtDestroyWidget(popup);
             free((genericptr_t) choices), choices = 0;
 
-            if (ps_selected == PS_QUIT || program_state.done_hup) {
+            if (ps_selected == PS_QUIT
+#if defined(HANGUPHANDLING)
+			    || program_state.done_hup
+#endif
+                ) {
                 clearlocks();
                 X11_exit_nhwindows((char *) 0);
                 nh_terminate(0);
@@ -1548,7 +1513,11 @@ X11_player_selection_prompts()
             XtDestroyWidget(popup);
             free((genericptr_t) choices), choices = 0;
 
-            if (ps_selected == PS_QUIT || program_state.done_hup) {
+            if (ps_selected == PS_QUIT
+#if defined(HANGUPHANDLING)
+		|| program_state.done_hup
+#endif
+               ) {
                 clearlocks();
                 X11_exit_nhwindows((char *) 0);
                 nh_terminate(0);
@@ -1564,19 +1533,21 @@ X11_player_selection_prompts()
     }
 }
 
+/* Global functions ======================================================== */
+
 void
-X11_player_selection()
+X11_player_selection(void)
 {
     if (iflags.wc_player_selection == VIA_DIALOG) {
-        if (!*plname) {
+        if (!*svp.plname) {
 #ifdef UNIX
             char *defplname = get_login_name();
 #else
             char *defplname = (char *)0;
 #endif
-            (void) strncpy(plname, defplname ? defplname : "Mumbles",
-                           sizeof plname - 1);
-            plname[sizeof plname - 1] = '\0';
+            (void) strncpy(svp.plname, defplname ? defplname : "Mumbles",
+                           sizeof svp.plname - 1);
+            svp.plname[sizeof svp.plname - 1] = '\0';
             iflags.renameinprogress = TRUE;
         }
         X11_player_selection_dialog();
@@ -1587,7 +1558,7 @@ X11_player_selection()
 
 /* called by core to have the player pick an extended command */
 int
-X11_get_ext_cmd()
+X11_get_ext_cmd(void)
 {
     if (iflags.extmenu != ec_full_list) {
         /* player has toggled the 'extmenu' option, toss the old widgets */
@@ -1608,13 +1579,14 @@ X11_get_ext_cmd()
     /* The callbacks will enable the event loop exit. */
     (void) x_event(EXIT_ON_EXIT);
 
-    if (extended_cmd_selected < 0)
+    if (extended_cmd_selected < 0) {
         return -1;
+    }
     return command_indx[extended_cmd_selected];
 }
 
 void
-release_extended_cmds()
+release_extended_cmds(void)
 {
     if (extended_commands) {
         XtDestroyWidget(extended_command_popup), extended_command_popup = 0;
@@ -1629,9 +1601,7 @@ release_extended_cmds()
 /* Extended Command ------------------------------------------------------- */
 /* ARGSUSED */
 static void
-extend_select(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+extend_select(Widget w, XtPointer client_data, XtPointer call_data)
 {
     int selected = (int) (ptrdiff_t) client_data;
 
@@ -1657,9 +1627,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-extend_dismiss(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+extend_dismiss(Widget w, XtPointer client_data, XtPointer call_data)
 {
     nhUse(w);
     nhUse(client_data);
@@ -1670,9 +1638,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-extend_help(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+extend_help(Widget w, XtPointer client_data, XtPointer call_data)
 {
     nhUse(w);
     nhUse(client_data);
@@ -1684,11 +1650,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 void
-ec_delete(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+ec_delete(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     if (w == extended_command_popup) {
         ec_dismiss();
@@ -1699,11 +1661,7 @@ Cardinal *num_params;
 
 /* ARGSUSED */
 static void
-popup_delete(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+popup_delete(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     nhUse(event);
     nhUse(params);
@@ -1715,7 +1673,7 @@ Cardinal *num_params;
 }
 
 static void
-ec_dismiss()
+ec_dismiss(void)
 {
     /* unselect while still visible */
     if (extended_cmd_selected >= 0)
@@ -1729,8 +1687,7 @@ ec_dismiss()
 /* scroll the extended command menu if necessary
    so that choices extended_cmd_selected through ec_indx will be visible */
 static void
-ec_scroll_to_view(ec_indx)
-int ec_indx; /* might be greater than extended_cmd_selected */
+ec_scroll_to_view(int ec_indx) /* might be greater than extended_cmd_selected */
 {
     Widget viewport, scrollbar, tmpw;
     Arg args[5];
@@ -1747,7 +1704,7 @@ int ec_indx; /* might be greater than extended_cmd_selected */
      * If the extended command menu needs to be scrolled in order to move
      * either the highlighted entry (extended_cmd_selected) or the target
      * entry (ec_indx) into view, we want to make both end up visible.
-     * [Highligthed one is the first matching entry when the user types
+     * [Highlighted one is the first matching entry when the user types
      * something, such as "adjust" after typing 'a', and will be chosen
      * by pressing <return>.  Target entry is one past the last matching
      * entry (or last matching entry itself if at end of command list),
@@ -1831,29 +1788,9 @@ int ec_indx; /* might be greater than extended_cmd_selected */
     }
 }
 
-/* decide whether extcmdlist[idx] should be part of extended commands menu */
-static boolean
-ignore_extcmd(idx)
-int idx;
-{
-    /* #shell or #suspect might not be available;
-       'extmenu' option controls whether we show full list
-       or just the traditional extended commands */
-    if ((extcmdlist[idx].flags & CMD_NOT_AVAILABLE) != 0
-        || ((extcmdlist[idx].flags & AUTOCOMPLETE) == 0 && !ec_full_list)
-        || strlen(extcmdlist[idx].ef_txt) < 2) /* ignore "#" and "?" */
-        return TRUE;
-
-    return FALSE;
-}
-
 /* ARGSUSED */
 void
-ec_key(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+ec_key(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     char ch;
     int i, pass;
@@ -1873,7 +1810,7 @@ Cardinal *num_params;
     } else if (ch == '?') {
         extend_help((Widget) 0, (XtPointer) 0, (XtPointer) 0);
         return;
-    } else if (index("\033\n\r", ch)) {
+    } else if (strchr("\033\n\r", ch)) {
         if (ch == '\033') {
             /* unselect while still visible */
             if (extended_cmd_selected >= 0)
@@ -1890,16 +1827,14 @@ Cardinal *num_params;
         ec_active = FALSE;
         return;
     } else if (ch == MENU_FIRST_PAGE || ch == MENU_LAST_PAGE) {
-        hbar = vbar = (Widget) 0;
-        find_scrollbars(w, &hbar, &vbar);
+        find_scrollbars(w, (Widget) 0, &hbar, &vbar);
         if (vbar) {
             top = (ch == MENU_FIRST_PAGE) ? 0.0 : 1.0;
             XtCallCallbacks(vbar, XtNjumpProc, &top);
         }
         return;
     } else if (ch == MENU_NEXT_PAGE || ch == MENU_PREVIOUS_PAGE) {
-        hbar = vbar = (Widget) 0;
-        find_scrollbars(w, &hbar, &vbar);
+        find_scrollbars(w, (Widget) 0, &hbar, &vbar);
         if (vbar) {
             XtSetArg(arg[0], nhStr(XtNshown), &shown);
             XtSetArg(arg[1], nhStr(XtNtopOfThumb), &top);
@@ -1951,7 +1886,7 @@ Cardinal *num_params;
                     swap_fg_bg(extended_commands[extended_cmd_selected]);
                 }
                 /* advance to one past last matching entry, so that all
-                   ambiguous choices, plus one to show thare aren't any
+                   ambiguous choices, plus one to show there aren't any
                    more such, will scroll into view */
                 do {
                     if (!command_list[i + 1])
@@ -1971,28 +1906,29 @@ Cardinal *num_params;
  * be used from a menubox.
  */
 static void
-init_extended_commands_popup()
+init_extended_commands_popup(void)
 {
-    int i, j, num_commands, ignore_cmds = 0;
+    int i, num_commands;
+    int *matches;
+    int ecmflags = ECM_NO1CHARCMD;
 
-    /* count commands */
-    for (num_commands = 0; extcmdlist[num_commands].ef_txt; num_commands++)
-        if (ignore_extcmd(num_commands))
-            ++ignore_cmds;
+    if (ec_full_list)
+        ecmflags |= ECM_IGNOREAC;
 
-    j = num_commands - ignore_cmds;
-    command_list = (const char **) alloc((unsigned) (j * sizeof (char *) + 1));
-    command_indx = (short *) alloc((unsigned) (j * sizeof (short) + 1));
+    num_commands = extcmds_match(NULL, ecmflags, &matches);
 
-    for (i = j = 0; i < num_commands; i++) {
-        if (ignore_extcmd(i))
-            continue;
-        command_indx[j] = (short) i;
-        command_list[j++] = extcmdlist[i].ef_txt;
+    i = num_commands + 1; /* room for each extcmd, plus terminator */
+    command_list = (const char **) alloc((unsigned) (i * sizeof(char *)));
+    command_indx = (short *) alloc((unsigned) (i * sizeof(short)));
+
+    for (i = 0; i < num_commands; i++) {
+        struct ext_func_tab *ec = extcmds_getentry(matches[i]);
+
+        command_indx[i] = matches[i];
+        command_list[i] = ec->ef_txt;
     }
-    command_list[j] = (char *) 0;
-    command_indx[j] = -1;
-    num_commands = j;
+    command_list[i] = (char *) 0;
+    command_indx[i] = -1;
 
     extended_command_popup =
         make_menu("extended_commands", "Extended Commands",
@@ -2023,21 +1959,13 @@ init_extended_commands_popup()
  *              ------------------------
  */
 static Widget
-make_menu(popup_name, popup_label, popup_translations, left_name,
-          left_callback, right_name, right_callback, num_names, widget_names,
-          command_widgets, name_callback, formp)
-const char *popup_name;
-const char *popup_label;
-const char *popup_translations;
-const char *left_name;
-XtCallbackProc left_callback;
-const char *right_name;
-XtCallbackProc right_callback;
-int num_names;
-const char **widget_names; /* return array of command widgets */
-Widget **command_widgets;
-XtCallbackProc name_callback;
-Widget *formp; /* return */
+make_menu(const char *popup_name, const char *popup_label,
+          const char *popup_translations, const char *left_name,
+          XtCallbackProc left_callback, const char *right_name,
+          XtCallbackProc right_callback, int num_names,
+          const char **widget_names, /* return array of command widgets */
+          Widget **command_widgets,
+          XtCallbackProc name_callback, Widget *formp) /* return */
 {
     Widget popup, popform, form, label, above, left, right, view;
     Widget *commands, *curr;
@@ -2286,7 +2214,7 @@ Widget *formp; /* return */
     XSetWMProtocols(XtDisplay(popup), XtWindow(popup), &wm_delete_window, 1);
 
     /* during role selection, highlight "random" as pre-selected choice */
-    if (right_callback == ps_random && index(ps_randchars, '\n'))
+    if (right_callback == ps_random && strchr(ps_randchars, '\n'))
         swap_fg_bg(right);
 
     return popup;

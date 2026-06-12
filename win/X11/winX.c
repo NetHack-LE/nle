@@ -1,10 +1,10 @@
-/* NetHack 3.6	winX.c	$NHDT-Date: 1552441031 2019/03/13 01:37:11 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.73 $ */
+/* NetHack 5.0	winX.c	$NHDT-Date: 1717967337 2024/06/09 21:08:57 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.136 $ */
 /* Copyright (c) Dean Luick, 1992                                 */
 /* NetHack may be freely redistributed.  See license for details. */
 
 /*
  * "Main" file for the X window-port.  This contains most of the interface
- * routines.  Please see doc/window.doc for an description of the window
+ * routines.  Please see doc/window.txt for an description of the window
  * interface.
  */
 
@@ -14,6 +14,14 @@
 
 #ifdef MSDOS /* from compiler */
 #define SHORT_FILENAMES
+#endif
+
+/* Can't use #ifdef LINUX because no header files have been processed yet.
+ * This is needed to ensure the prototype for seteuid() is picked up when
+ * the header files are processed.
+ */
+#ifdef __linux__
+#define _POSIX_C_SOURCE 200809
 #endif
 
 #include <X11/Intrinsic.h>
@@ -46,7 +54,10 @@
 #undef SHORT_FILENAMES /* hack.h will reset via global.h if necessary */
 #endif
 
+#define X11_BUILD
 #include "hack.h"
+#undef X11_BUILD
+
 #include "winX.h"
 #include "dlb.h"
 #include "xwindow.h"
@@ -71,43 +82,61 @@ static struct icon_info {
     const char *name;
     unsigned char *bits;
     unsigned width, height;
-} icon_data[] = { { "nh72", nh72icon_bits, nh72icon_width, nh72icon_height },
-                  { "nh56", nh56icon_bits, nh56icon_width, nh56icon_height },
-                  { "nh32", nh32icon_bits, nh32icon_width, nh32icon_height },
-                  { (const char *) 0, (unsigned char *) 0, 0, 0 } };
+} icon_data[] = {
+    { "nh72", nh72icon_bits, nh72icon_width, nh72icon_height },
+    { "nh56", nh56icon_bits, nh56icon_width, nh56icon_height },
+    { "nh32", nh32icon_bits, nh32icon_width, nh32icon_height },
+    { (const char *) 0, (unsigned char *) 0, 0, 0 }
+};
 
 /*
  * Private global variables (shared among the window port files).
  */
 struct xwindow window_list[MAX_WINDOWS];
 AppResources appResources;
-void FDECL((*input_func), (Widget, XEvent *, String *, Cardinal *));
+void (*input_func)(Widget, XEvent *, String *, Cardinal *);
 int click_x, click_y, click_button; /* Click position on a map window
                                      * (filled by set_button_values()). */
-int updated_inventory;
+int updated_inventory; /* used to indicate perm_invent updating */
+color_attr X11_menu_promptstyle = { NO_COLOR, ATR_NONE };
 
-static void FDECL(X11_error_handler, (String)) NORETURN;
-static int FDECL(X11_io_error_handler, (Display *));
+/* X11/Intrinsic.h prototype has an issue if [[NORETURN]] is used
+ * rather than the old __attribute((noreturn)) under c23 */
+#if defined(__GNUC__) || defined(__clang__)
+#define USE_GNUC_PROTO
+#endif
 
-static int FDECL((*old_error_handler), (Display *, XErrorEvent *));
+#ifdef USE_GNUC_PROTO
+static void X11_error_handler(String) __attribute__((noreturn));
+#else
+ATTRNORETURN static XtErrorHandler X11_error_handler(String);
+#endif
 
+static int X11_io_error_handler(Display *);
+
+static int (*old_error_handler)(Display *, XErrorEvent *);
+
+#if defined(HANGUPHANDLING)
 #if !defined(NO_SIGNAL) && defined(SAFERHANGUP)
 #if XtSpecificationRelease >= 6
 #define X11_HANGUP_SIGNAL
 static XtSignalId X11_sig_id;
 #endif
 #endif
+#endif
 
 /* Interface definition, for windows.c */
 struct window_procs X11_procs = {
-    "X11",
-    (WC_COLOR | WC_HILITE_PET | WC_ASCII_MAP | WC_TILED_MAP
-     | WC_PLAYER_SELECTION | WC_PERM_INVENT | WC_MOUSE_SUPPORT),
-#if defined(STATUS_HILITES)
-    WC2_FLUSH_STATUS | WC2_RESET_STATUS | WC2_HILITE_STATUS |
+    WPID(X11),
+    ( WC_COLOR | WC_INVERSE | WC_HILITE_PET | WC_ASCII_MAP | WC_TILED_MAP
+     | WC_PLAYER_SELECTION | WC_PERM_INVENT | WC_MOUSE_SUPPORT ),
+    /* status requires VIA_WINDOWPORT(); WC2_FLUSH_STATUS ensures that */
+    ( WC2_FLUSH_STATUS | WC2_SELECTSAVED
+#ifdef STATUS_HILITES
+      | WC2_RESET_STATUS | WC2_HILITE_STATUS
 #endif
-    0L,
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},   /* color availability */
+      | WC2_MENU_SHIFT ),
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, /* color availability */
     X11_init_nhwindows,
     X11_player_selection, X11_askname, X11_get_nh_event, X11_exit_nhwindows,
     X11_suspend_nhwindows, X11_resume_nhwindows, X11_create_nhwindow,
@@ -115,7 +144,7 @@ struct window_procs X11_procs = {
     X11_putstr, genl_putmixed, X11_display_file, X11_start_menu, X11_add_menu,
     X11_end_menu, X11_select_menu,
     genl_message_menu, /* no need for X-specific handling */
-    X11_update_inventory, X11_mark_synch, X11_wait_synch,
+    X11_mark_synch, X11_wait_synch,
 #ifdef CLIPPING
     X11_cliparound,
 #endif
@@ -128,8 +157,6 @@ struct window_procs X11_procs = {
 #ifdef CHANGE_COLOR /* only a Mac option currently */
     donull, donull,
 #endif
-    /* other defs that really should go away (they're tty specific) */
-    X11_start_screen, X11_end_screen,
 #ifdef GRAPHIC_TOMBSTONE
     X11_outrip,
 #else
@@ -139,38 +166,39 @@ struct window_procs X11_procs = {
     X11_status_init, X11_status_finish, X11_status_enablefield,
     X11_status_update,
     genl_can_suspend_no, /* XXX may not always be correct */
+    X11_update_inventory,
+    X11_ctrl_nhwindow,
 };
 
 /*
  * Local functions.
  */
-static winid NDECL(find_free_window);
-#ifdef TEXTCOLOR
-static void FDECL(nhFreePixel, (XtAppContext, XrmValuePtr, XtPointer,
-                                XrmValuePtr, Cardinal *));
-#endif
-static boolean FDECL(new_resource_macro, (String, unsigned));
-static void NDECL(load_default_resources);
-static void NDECL(release_default_resources);
-static int FDECL(panic_on_error, (Display *, XErrorEvent *));
+static winid find_free_window(void);
+static void nhFreePixel(XtAppContext, XrmValuePtr, XtPointer, XrmValuePtr,
+                        Cardinal *);
+static boolean new_resource_macro(String, unsigned);
+static void load_default_resources(void);
+static void release_default_resources(void);
+static int panic_on_error(Display *, XErrorEvent *);
 #ifdef X11_HANGUP_SIGNAL
-static void FDECL(X11_sig, (int));
-static void FDECL(X11_sig_cb, (XtPointer, XtSignalId *));
+static void X11_sig(int);
+static void X11_sig_cb(XtPointer, XtSignalId *);
 #endif
-static void FDECL(d_timeout, (XtPointer, XtIntervalId *));
-static void FDECL(X11_hangup, (Widget, XEvent *, String *, Cardinal *));
-static void FDECL(askname_delete, (Widget, XEvent *, String *, Cardinal *));
-static void FDECL(askname_done, (Widget, XtPointer, XtPointer));
-static void FDECL(done_button, (Widget, XtPointer, XtPointer));
-static void FDECL(getline_delete, (Widget, XEvent *, String *, Cardinal *));
-static void FDECL(abort_button, (Widget, XtPointer, XtPointer));
-static void NDECL(release_getline_widgets);
-static void FDECL(yn_delete, (Widget, XEvent *, String *, Cardinal *));
-static void FDECL(yn_key, (Widget, XEvent *, String *, Cardinal *));
-static void NDECL(release_yn_widgets);
-static int FDECL(input_event, (int));
-static void FDECL(win_visible, (Widget, XtPointer, XEvent *, Boolean *));
-static void NDECL(init_standard_windows);
+static void d_timeout(XtPointer, XtIntervalId *);
+static void X11_hangup(Widget, XEvent *, String *, Cardinal *);
+ATTRNORETURN static void X11_bail(const char *) NORETURN;
+static void askname_delete(Widget, XEvent *, String *, Cardinal *);
+static void askname_done(Widget, XtPointer, XtPointer);
+static void done_button(Widget, XtPointer, XtPointer);
+static void getline_delete(Widget, XEvent *, String *, Cardinal *);
+static void abort_button(Widget, XtPointer, XtPointer);
+static void release_getline_widgets(void);
+static void yn_delete(Widget, XEvent *, String *, Cardinal *);
+static void yn_key(Widget, XEvent *, String *, Cardinal *);
+static void release_yn_widgets(void);
+static int input_event(int);
+static void win_visible(Widget, XtPointer, XEvent *, Boolean *);
+static void init_standard_windows(void);
 
 /*
  * Local variables.
@@ -182,9 +210,7 @@ static winid message_win = WIN_ERR, /* These are the winids of the message, */
 static Pixmap icon_pixmap = None;   /* Pixmap for icon.                     */
 
 void
-X11_putmsghistory(msg, is_restoring)
-const char *msg;
-boolean is_restoring;
+X11_putmsghistory(const char *msg, boolean is_restoring)
 {
     if (WIN_MESSAGE != WIN_ERR) {
         struct xwindow *wp = &window_list[WIN_MESSAGE];
@@ -195,8 +221,7 @@ boolean is_restoring;
 }
 
 char *
-X11_getmsghistory(init)
-boolean init;
+X11_getmsghistory(boolean init)
 {
     if (WIN_MESSAGE != WIN_ERR) {
         static struct line_element *curr = (struct line_element *) 0;
@@ -226,8 +251,7 @@ boolean init;
  * that this is not the popup widget, nor the viewport, but the child.
  */
 struct xwindow *
-find_widget(w)
-Widget w;
+find_widget(Widget w)
 {
     int windex;
     struct xwindow *wp;
@@ -251,7 +275,7 @@ Widget w;
  * Find a free window slot for use.
  */
 static winid
-find_free_window()
+find_free_window(void)
 {
     int windex;
     struct xwindow *wp;
@@ -268,9 +292,7 @@ find_free_window()
 
 
 XColor
-get_nhcolor(wp, clr)
-struct xwindow *wp;
-int clr;
+get_nhcolor(struct xwindow *wp, int clr)
 {
     init_menu_nhcolors(wp);
     /* FIXME: init_menu_nhcolors may fail */
@@ -282,8 +304,7 @@ int clr;
 }
 
 void
-init_menu_nhcolors(wp)
-struct xwindow *wp;
+init_menu_nhcolors(struct xwindow *wp)
 {
     static const char *mapCLR_to_res[CLR_MAX] = {
         XtNblack,
@@ -303,6 +324,9 @@ struct xwindow *wp;
         XtNbright_cyan,
         XtNwhite,
     };
+    static const char *wintypenames[NHW_TEXT] = {
+        "message", "status", "map", "menu", "text"
+    };
     Display *dpy;
     Colormap screen_colormap;
     XrmDatabase rDB;
@@ -310,13 +334,8 @@ struct xwindow *wp;
     Status rc;
     int color;
     char *ret_type[32];
-    char clr_name[BUFSZ];
-    char clrclass[BUFSZ];
-    const char *wintypenames[NHW_TEXT] = {
-        "message", "status", "map", "menu", "text"
-    };
+    char wtn_up[20], clr_name[BUFSZ], clrclass[BUFSZ];
     const char *wtn;
-    char wtn_up[BUFSZ];
 
     if (wp->nh_colors_inited || !wp->type)
         return;
@@ -402,18 +421,18 @@ XtConvertArgRec const nhcolorConvertArgs[] = {
  * Return True if something close was found.
  */
 Boolean
-nhApproxColor(screen, colormap, str, color)
-Screen *screen;    /* screen to use */
-Colormap colormap; /* the colormap to use */
-char *str;         /* color name */
-XColor *color;     /* the X color structure; changed only if successful */
+nhApproxColor(
+    Screen *screen,    /* screen to use */
+    Colormap colormap, /* the colormap to use */
+    char *str,         /* color name */
+    XColor *color)     /* the X color structure; changed only if successful */
 {
     int ncells;
     long cdiff = 16777216; /* 2^24; hopefully our map is smaller */
     XColor tmp;
     static XColor *table = 0;
-    register int i, j;
-    register long tdiff;
+    int i, j;
+    long tdiff;
 
     /* if the screen doesn't have a big colormap, don't waste our time
        or if it's huge, and _some_ match should have been possible */
@@ -435,10 +454,10 @@ XColor *color;     /* the X color structure; changed only if successful */
         XQueryColors(DisplayOfScreen(screen), colormap, table, ncells);
     }
 
-/* go thru cells and look for the one with smallest diff        */
-/* diff is calculated abs(reddiff)+abs(greendiff)+abs(bluediff) */
-/* a more knowledgeable color person might improve this -dlc    */
-try_again:
+    /* go thru cells and look for the one with smallest diff;
+       diff is calculated abs(reddiff)+abs(greendiff)+abs(bluediff);
+       a more knowledgeable color person might improve this -dlc */
+ try_again:
     for (i = 0; i < ncells; i++) {
         if (table[i].flags == tmp.flags) {
             j = (int) table[i].red - (int) tmp.red;
@@ -478,13 +497,11 @@ try_again:
 }
 
 Boolean
-nhCvtStringToPixel(dpy, args, num_args, fromVal, toVal, closure_ret)
-Display *dpy;
-XrmValuePtr args;
-Cardinal *num_args;
-XrmValuePtr fromVal;
-XrmValuePtr toVal;
-XtPointer *closure_ret;
+nhCvtStringToPixel(
+    Display *dpy,
+    XrmValuePtr args, Cardinal *num_args,
+    XrmValuePtr fromVal, XrmValuePtr toVal,
+    XtPointer *closure_ret)
 {
     String str = (String) fromVal->addr;
     XColor screenColor;
@@ -573,9 +590,10 @@ XtPointer *closure_ret;
 
 /* Ask the WM for window frame size */
 void
-get_window_frame_extents(w, top, bottom, left, right)
-Widget w;
-long *top, *bottom, *left, *right;
+get_window_frame_extents(
+    Widget w,
+    long *top, long *bottom,
+    long *left, long *right)
 {
     XEvent event;
     Display *dpy = XtDisplay(w);
@@ -587,32 +605,56 @@ long *top, *bottom, *left, *right;
     unsigned char *data = 0;
     long *extents;
 
+    *top = *bottom = *left = *right = 0L;
+
     prop = XInternAtom(dpy, "_NET_FRAME_EXTENTS", True);
+    if (prop == None) {
+        /*
+         * FIXME!
+         */
+#ifdef MACOS
+        /*
+         * Default window manager doesn't support _NET_FRAME_EXTENTS.
+         * Without this position tweak, the persistent inventory window
+         * creeps downward by approximately the height of its title bar
+         * and also a smaller amount to the left every time it gets
+         * updated.  Caveat:  amount determined by trial and error and
+         * could change depending upon monitor resolution....
+         *
+         * This hack could be improved by implementing the anti-creep
+         * value as an X resource so that player can adjust it.
+         */
+        *top = 22L;
+#endif
+        return;
+    }
 
     while (XGetWindowProperty(dpy, win, prop,
                               0, 4, False, AnyPropertyType,
                               &retprop, &retfmt,
                               &nitems, &nbytes, &data) != Success
-           || nitems != 4 || nbytes != 0)
-        {
-            XNextEvent(dpy, &event);
-        }
+           || nitems != 4 || nbytes != 0) {
+        XNextEvent(dpy, &event);
+    }
 
     extents = (long *) data;
-
-    *left = extents[0];
-    *right = extents[1];
-    *top = extents[2];
-    *bottom = extents[3];
+    if (extents) {
+        *left = extents[0];
+        *right = extents[1];
+        *top = extents[2];
+        *bottom = extents[3];
+    }
 }
 
 void
-get_widget_window_geometry(w, x,y, width, height)
-Widget w;
-int *x, *y, *width, *height;
+get_widget_window_geometry(
+    Widget w,
+    int *x, int *y,
+    int *width, int *height)
 {
     long top, bottom, left, right;
     Arg args[5];
+
     XtSetArg(args[0], nhStr(XtNx), x);
     XtSetArg(args[1], nhStr(XtNy), y);
     XtSetArg(args[2], nhStr(XtNwidth), width);
@@ -625,8 +667,7 @@ int *x, *y, *width, *height;
 
 /* Change the full font name string so the weight is "bold" */
 char *
-fontname_boldify(fontname)
-const char *fontname;
+fontname_boldify(const char *fontname)
 {
     static char buf[BUFSZ];
     char *bufp = buf;
@@ -652,9 +693,7 @@ const char *fontname;
 }
 
 void
-load_boldfont(wp, w)
-struct xwindow *wp;
-Widget w;
+load_boldfont(struct xwindow *wp, Widget w)
 {
     Arg args[1];
     XFontStruct *fs;
@@ -676,15 +715,14 @@ Widget w;
     wp->boldfs = XLoadQueryFont(dpy, fontname);
 }
 
-#ifdef TEXTCOLOR
 /* ARGSUSED */
 static void
-nhFreePixel(app, toVal, closure, args, num_args)
-XtAppContext app;
-XrmValuePtr toVal;
-XtPointer closure;
-XrmValuePtr args;
-Cardinal *num_args;
+nhFreePixel(
+    XtAppContext app,
+    XrmValuePtr toVal,
+    XtPointer closure,
+    XrmValuePtr args,
+    Cardinal *num_args)
 {
     Screen *screen;
     Colormap colormap;
@@ -704,14 +742,12 @@ Cardinal *num_args;
                     (unsigned long *) toVal->addr, 1, (unsigned long) 0);
     }
 }
-#endif /*TEXTCOLOR*/
 
 /* [ALI] Utility function to ask Xaw for font height, since the previous
  * assumption of ascent + descent is not always valid.
  */
 Dimension
-nhFontHeight(w)
-Widget w;
+nhFontHeight(Widget w)
 {
 #ifdef _XawTextSink_h
     Widget sink;
@@ -742,9 +778,9 @@ static String *default_resource_data = 0, /* NULL-terminated arrays */
 
 /* caller found "#define"; parse into macro name and its expansion value */
 static boolean
-new_resource_macro(inbuf, numdefs)
-String inbuf; /* points past '#define' rather than to start of buffer */
-unsigned numdefs; /* array slot to fill */
+new_resource_macro(
+    String inbuf, /* points past '#define' rather than to start of buffer */
+    unsigned numdefs) /* array slot to fill */
 {
     String p, q;
 
@@ -769,7 +805,7 @@ unsigned numdefs; /* array slot to fill */
         ++q; /* skip whitespace between name and value */
     for (p = eos(q); --p > q && (*p == ' ' || *p == '\t'); )
         continue; /* discard trailing whitespace */
-    *++p = '\0'; /* q..p containes macro value */
+    *++p = '\0'; /* q..p contains macro value */
     def_rsrc_valu[numdefs] = dupstr(q);
     return TRUE;
 }
@@ -777,7 +813,7 @@ unsigned numdefs; /* array slot to fill */
 /* read the template NetHack.ad into default_resource_data[] to supply
    fallback resources to XtAppInitialize() */
 static void
-load_default_resources()
+load_default_resources(void)
 {
     FILE *fp;
     String inbuf;
@@ -815,7 +851,7 @@ load_default_resources()
             ++numdefs;
         }
         linelen += strlen(inbuf);
-        if (!index(inbuf, '\n'))
+        if (!strchr(inbuf, '\n'))
             continue;
         if (linelen > longlen)
             longlen = linelen;
@@ -886,7 +922,7 @@ load_default_resources()
 }
 
 static void
-release_default_resources()
+release_default_resources(void)
 {
     if (default_resource_data) {
         unsigned idx;
@@ -900,23 +936,19 @@ release_default_resources()
 
 /* Global Functions ======================================================= */
 void
-X11_raw_print(str)
-const char *str;
+X11_raw_print(const char *str)
 {
     (void) puts(str);
 }
 
 void
-X11_raw_print_bold(str)
-const char *str;
+X11_raw_print_bold(const char *str)
 {
     (void) puts(str);
 }
 
 void
-X11_curs(window, x, y)
-winid window;
-int x, y;
+X11_curs(winid window, int x, int y)
 {
     check_winid(window);
 
@@ -934,10 +966,7 @@ int x, y;
 }
 
 void
-X11_putstr(window, attr, str)
-winid window;
-int attr;
-const char *str;
+X11_putstr(winid window, int attr, const char *str)
 {
     winid new_win;
     struct xwindow *wp;
@@ -947,8 +976,8 @@ const char *str;
 
     switch (wp->type) {
     case NHW_MESSAGE:
-        (void) strncpy(toplines, str, TBUFSZ); /* for Norep(). */
-        toplines[TBUFSZ - 1] = 0;
+        (void) strncpy(gt.toplines, str, TBUFSZ); /* for Norep(). */
+        gt.toplines[TBUFSZ - 1] = 0;
         append_message(wp, str);
         break;
 #ifndef STATUS_HILITES
@@ -973,7 +1002,8 @@ const char *str;
         X11_destroy_nhwindow(window);
         *wp = window_list[new_win];
         window_list[new_win].type = NHW_NONE; /* allow re-use */
-    /* fall though to add text */
+        FALLTHROUGH;
+        /*FALLTHRU*/
     case NHW_TEXT:
         add_to_text_window(wp, attr, str);
         break;
@@ -984,20 +1014,19 @@ const char *str;
 
 /* We do event processing as a callback, so this is a null routine. */
 void
-X11_get_nh_event()
+X11_get_nh_event(void)
 {
     return;
 }
 
 int
-X11_nhgetch()
+X11_nhgetch(void)
 {
     return input_event(EXIT_ON_KEY_PRESS);
 }
 
 int
-X11_nh_poskey(x, y, mod)
-int *x, *y, *mod;
+X11_nh_poskey(coordxy *x, coordxy *y, int *mod)
 {
     int val = input_event(EXIT_ON_KEY_OR_BUTTON_PRESS);
 
@@ -1010,8 +1039,7 @@ int *x, *y, *mod;
 }
 
 winid
-X11_create_nhwindow(type)
-int type;
+X11_create_nhwindow(int type)
 {
     winid window;
     struct xwindow *wp;
@@ -1105,8 +1133,7 @@ int type;
 }
 
 void
-X11_clear_nhwindow(window)
-winid window;
+X11_clear_nhwindow(winid window)
 {
     struct xwindow *wp;
 
@@ -1132,9 +1159,7 @@ winid window;
 }
 
 void
-X11_display_nhwindow(window, blocking)
-winid window;
-boolean blocking;
+X11_display_nhwindow(winid window, boolean blocking)
 {
     struct xwindow *wp;
 
@@ -1196,8 +1221,7 @@ boolean blocking;
 }
 
 void
-X11_destroy_nhwindow(window)
-winid window;
+X11_destroy_nhwindow(winid window)
 {
     struct xwindow *wp;
 
@@ -1257,34 +1281,82 @@ winid window;
     }
 }
 
+/* display persistent inventory in its own window */
 void
-X11_update_inventory()
+X11_update_inventory(int arg)
 {
-    if (x_inited && window_list[WIN_INVEN].menu_information->is_up) {
-        updated_inventory = 1; /* hack to avoid mapping&raising window */
-        (void) display_inventory((char *) 0, FALSE);
-        updated_inventory = 0;
+    struct xwindow *wp = 0;
+
+    if (!x_inited)
+        return;
+
+    if (iflags.perm_invent) {
+        /* skip any calls to update_inventory() before in_moveloop starts */
+        if (program_state.in_moveloop || program_state.gameover) {
+            updated_inventory = 1; /* hack to avoid mapping&raising window */
+            if (!arg) {
+                repopulate_perminvent();
+            } else {
+                x11_scroll_perminv(arg);
+            }
+            updated_inventory = 0;
+        }
+    } else if ((wp = &window_list[WIN_INVEN]) != 0
+               && wp->type == NHW_MENU && wp->menu_information->is_up) {
+        /* persistent inventory is up but perm_invent is off, take it down */
+        x11_no_perminv(wp);
     }
+    return;
+}
+
+win_request_info *
+X11_ctrl_nhwindow(
+    winid window UNUSED,
+    int request UNUSED,
+    win_request_info *wri UNUSED)
+{
+    if (!wri)
+        return (win_request_info *) 0;
+
+    switch(request) {
+    case set_mode:
+    case request_settings:
+        break;
+    case set_menu_promptstyle:
+        X11_menu_promptstyle = wri->fromcore.menu_promptstyle;
+        break;
+    default:
+        break;
+    }
+    return wri;
 }
 
 /* The current implementation has all of the saved lines on the screen. */
 int
-X11_doprev_message()
+X11_doprev_message(void)
 {
     return 0;
 }
 
+/* issue a beep to alert the user about something */
 void
-X11_nhbell()
+X11_nhbell(void)
 {
-    /* We can't use XBell until toplevel has been initialized. */
-    if (x_inited)
-        XBell(XtDisplay(toplevel), 0);
-    /* else print ^G ?? */
+    if (!flags.silent) {
+        /* We can't use XBell until toplevel has been initialized. */
+        if (x_inited) {
+            XBell(XtDisplay(toplevel), 0);
+#if 0
+        } else {
+            /* raw_print() uses puts() so appends a newline */
+            X11_raw_print("\a"); /* '\a' == '\007' (^G), ascii BEL */
+#endif
+        }
+    }
 }
 
 void
-X11_mark_synch()
+X11_mark_synch(void)
 {
     if (x_inited) {
         /*
@@ -1301,22 +1373,23 @@ X11_mark_synch()
 }
 
 void
-X11_wait_synch()
+X11_wait_synch(void)
 {
-    if (x_inited)
+    if (x_inited) {
+        X11_mark_synch();
         XFlush(XtDisplay(toplevel));
+    }
 }
 
 /* Both resume_ and suspend_ are called from ioctl.c and unixunix.c. */
 void
-X11_resume_nhwindows()
+X11_resume_nhwindows(void)
 {
     return;
 }
 /* ARGSUSED */
 void
-X11_suspend_nhwindows(str)
-const char *str;
+X11_suspend_nhwindows(const char *str)
 {
     nhUse(str);
 
@@ -1326,34 +1399,16 @@ const char *str;
 /* Under X, we don't need to initialize the number pad. */
 /* ARGSUSED */
 void
-X11_number_pad(state) /* called from options.c */
-int state;
+X11_number_pad(int state) /* called from options.c */
 {
     nhUse(state);
 
     return;
 }
 
-/* called from setftty() in unixtty.c */
-void
-X11_start_screen()
-{
-    return;
-}
-
-/* called from settty() in unixtty.c */
-void
-X11_end_screen()
-{
-    return;
-}
-
 #ifdef GRAPHIC_TOMBSTONE
 void
-X11_outrip(window, how, when)
-winid window;
-int how;
-time_t when;
+X11_outrip(winid window, int how, time_t when)
 {
     struct xwindow *wp;
     FILE *rip_fp = 0;
@@ -1417,7 +1472,8 @@ static XtActionsRec actions[] = {
 static XtResource resources[] = {
     { nhStr("slow"), nhStr("Slow"), XtRBoolean, sizeof(Boolean),
       XtOffset(AppResources *, slow), XtRString, nhStr("True") },
-    { nhStr("fancy_status"), nhStr("Fancy_status"), XtRBoolean, sizeof(Boolean),
+    { nhStr("fancy_status"), nhStr("Fancy_status"),
+      XtRBoolean, sizeof(Boolean),
       XtOffset(AppResources *, fancy_status), XtRString, nhStr("True") },
     { nhStr("autofocus"), nhStr("AutoFocus"), XtRBoolean, sizeof(Boolean),
       XtOffset(AppResources *, autofocus), XtRString, nhStr("False") },
@@ -1466,51 +1522,48 @@ static XtResource resources[] = {
 };
 
 static int
-panic_on_error(display, error)
-Display *display;
-XErrorEvent *error;
+panic_on_error(Display *display, XErrorEvent *error)
 {
     char buf[BUFSZ];
     XGetErrorText(display, error->error_code, buf, BUFSZ);
-    fprintf(stderr, "X Error: code %i (%s), request %i, minor %i, serial %lu\n",
+    fprintf(stderr,
+            "X Error: code %i (%s), request %i, minor %i, serial %lu\n",
             error->error_code, buf,
-            error->request_code, error->minor_code,
-            error->serial);
+            error->request_code, error->minor_code, error->serial);
     panic("X Error");
     return 0;
 }
 
 static void
-X11_error_handler(str)
-String str;
+X11_error_handler(String str)
 {
     nhUse(str);
+#if defined(HANGUPHANDLING)
     hangup(1);
 #ifdef SAFERHANGUP /* keeps going after hangup() for '#if SAFERHANGUP' */
     end_of_input();
+#endif
 #endif
     /*NOTREACHED*/
     nh_terminate(EXIT_FAILURE);
 }
 
 static int
-X11_io_error_handler(display)
-Display *display;
+X11_io_error_handler(Display *display)
 {
     nhUse(display);
+#if defined(HANGUPHANDLING)
     hangup(1);
 #ifdef SAFERHANGUP /* keeps going after hangup() for '#if SAFERHANGUP' */
     end_of_input();
+#endif
 #endif
     /*NOREACHED*/ /* but not declared NORETURN */
     return 0;
 }
 
-
 void
-X11_init_nhwindows(argcp, argv)
-int *argcp;
-char **argv;
+X11_init_nhwindows(int *argcp, char **argv)
 {
     int i;
     Cardinal num_args;
@@ -1525,11 +1578,11 @@ char **argv;
        that to be toggled off via 'O' (note: 'nethack -s' won't reach here;
        its output goes to stdout and could be redirected into a file) */
     iflags.toptenwin = TRUE;
-    set_option_mod_status("toptenwin", SET_IN_FILE);
+    set_option_mod_status("toptenwin", set_in_config);
 
     /* add another option that can be set */
-    set_wc_option_mod_status(WC_TILED_MAP, SET_IN_GAME);
-    set_option_mod_status("mouse_support", SET_IN_GAME);
+    set_wc_option_mod_status(WC_TILED_MAP, set_in_game);
+    set_option_mod_status("mouse_support", set_in_game);
 
     load_default_resources(); /* create default_resource_data[] */
 
@@ -1538,12 +1591,12 @@ char **argv;
      * when opening X11 connections, in case the user is using xauth, since
      * the "games" or whatever user probably doesn't have permission to open
      * a window on the user's display.  This code is harmless if the binary
-     * is not installed setuid.  See include/system.h on compilation failures.
+     * is not installed setuid.
      */
     savuid = geteuid();
     (void) seteuid(getuid());
 
-    XSetIOErrorHandler(X11_io_error_handler);
+    XSetIOErrorHandler((XIOErrorHandler) X11_io_error_handler);
 
     num_args = 0;
     XtSetArg(args[num_args], XtNallowShellResize, True); num_args++;
@@ -1561,13 +1614,11 @@ char **argv;
 
     old_error_handler = XSetErrorHandler(panic_on_error);
 
-#ifdef TEXTCOLOR
     /* add new color converter to deal with overused colormaps */
     XtSetTypeConverter(XtRString, XtRPixel, nhCvtStringToPixel,
                        (XtConvertArgList) nhcolorConvertArgs,
                        XtNumber(nhcolorConvertArgs), XtCacheByDisplay,
                        nhFreePixel);
-#endif /* TEXTCOLOR */
 
     /* Register the actions mentioned in "actions". */
     XtAppAddActions(app_context, actions, XtNumber(actions));
@@ -1591,7 +1642,7 @@ char **argv;
                 if (icon_pixmap != None) {
                     XWMHints hints;
 
-                    (void) memset((genericptr_t) &hints, 0, sizeof(XWMHints));
+                    (void) memset((genericptr_t) &hints, 0, sizeof hints);
                     hints.flags = IconPixmapHint;
                     hints.icon_pixmap = icon_pixmap;
                     XSetWMHints(XtDisplay(toplevel), XtWindow(toplevel),
@@ -1619,8 +1670,7 @@ char **argv;
  */
 /* ARGSUSED */
 void
-X11_exit_nhwindows(dummy)
-const char *dummy;
+X11_exit_nhwindows(const char *dummy)
 {
     extern Pixmap tile_pixmap; /* from winmap.c */
 
@@ -1646,21 +1696,20 @@ const char *dummy;
 
     release_getline_widgets();
     release_yn_widgets();
+
+    x_inited = FALSE;
 }
 
 #ifdef X11_HANGUP_SIGNAL
 static void
-X11_sig(sig) /* Unix signal handler */
-int sig;
+X11_sig(int sig) /* Unix signal handler */
 {
     XtNoticeSignal(X11_sig_id);
     hangup(sig);
 }
 
 static void
-X11_sig_cb(not_used, id)
-XtPointer not_used;
-XtSignalId *id;
+X11_sig_cb(XtPointer not_used, XtSignalId *id)
 {
     XEvent event;
     XClientMessageEvent *mesg;
@@ -1680,17 +1729,15 @@ XtSignalId *id;
 }
 #endif
 
-/* delay_output ----------------------------------------------------------- */
+/* X11_delay_output ------------------------------------------------------- */
 
 /*
- * Timeout callback for delay_output().  Send a fake message to the map
+ * Timeout callback for X11_delay_output().  Send a fake message to the map
  * window.
  */
 /* ARGSUSED */
 static void
-d_timeout(client_data, id)
-XtPointer client_data;
-XtIntervalId *id;
+d_timeout(XtPointer client_data, XtIntervalId *id)
 {
     XEvent event;
     XClientMessageEvent *mesg;
@@ -1715,7 +1762,7 @@ XtIntervalId *id;
  * for a sent event.
  */
 void
-X11_delay_output()
+X11_delay_output(void)
 {
     if (!x_inited)
         return;
@@ -1729,46 +1776,49 @@ X11_delay_output()
 /* X11_hangup ------------------------------------------------------------- */
 /* ARGSUSED */
 static void
-X11_hangup(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+X11_hangup(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     nhUse(w);
     nhUse(event);
     nhUse(params);
     nhUse(num_params);
 
+#if defined(HANGUPHANDLING)
     hangup(1); /* 1 is commonly SIGHUP, but ignored anyway */
+#endif
     exit_x_event = TRUE;
+}
+
+/* X11_bail --------------------------------------------------------------- */
+/* clean up and quit */
+static void
+X11_bail(const char *mesg)
+{
+    program_state.something_worth_saving = 0;
+    clearlocks();
+    X11_exit_nhwindows(mesg);
+    nh_terminate(EXIT_SUCCESS);
+    /*NOTREACHED*/
 }
 
 /* askname ---------------------------------------------------------------- */
 /* ARGSUSED */
 static void
-askname_delete(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+askname_delete(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     nhUse(event);
     nhUse(params);
     nhUse(num_params);
 
     nh_XtPopdown(w);
-    (void) strcpy(plname, "Mumbles"); /* give them a name... ;-) */
+    (void) strcpy(svp.plname, "Mumbles"); /* give them a name... ;-) */
     exit_x_event = TRUE;
 }
 
 /* Callback for askname dialog widget. */
 /* ARGSUSED */
 static void
-askname_done(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+askname_done(Widget w, XtPointer client_data, XtPointer call_data)
 {
     unsigned len;
     char *s;
@@ -1786,11 +1836,11 @@ XtPointer call_data;
     }
 
     /* Truncate name if necessary */
-    if (len >= sizeof plname - 1)
-        len = sizeof plname - 1;
+    if (len >= sizeof svp.plname - 1)
+        len = sizeof svp.plname - 1;
 
-    (void) strncpy(plname, s, len);
-    plname[len] = '\0';
+    (void) strncpy(svp.plname, s, len);
+    svp.plname[len] = '\0';
     XtFree(s);
 
     nh_XtPopdown(XtParent(dialog));
@@ -1800,10 +1850,25 @@ XtPointer call_data;
 /* ask player for character's name to replace generic name "player" (or other
    values; see config.h) after 'nethack -u player' or OPTIONS=name:player */
 void
-X11_askname()
+X11_askname(void)
 {
     Widget popup, dialog;
     Arg args[1];
+
+#ifdef SELECTSAVED
+    if (iflags.wc2_selectsaved && !iflags.renameinprogress)
+        switch (restore_menu(WIN_MAP)) {
+        case -1: /* quit */
+            X11_bail("Until next time then...");
+            /*NOTREACHED*/
+        case 0: /* no game chosen; start new game */
+            break;
+        case 1: /* save game selected, plname[] has been set */
+            return;
+        }
+#else
+    nhUse(X11_bail);
+#endif /* SELECTSAVED */
 
     if (iflags.wc_player_selection == VIA_DIALOG) {
         /* X11_player_selection_dialog() handles name query */
@@ -1823,7 +1888,7 @@ X11_askname()
                           (XtCallbackProc) 0);
 
     SetDialogPrompt(dialog, nhStr("What is your name?")); /* set prompt */
-    SetDialogResponse(dialog, plname, PL_NSIZ); /* set default answer */
+    SetDialogResponse(dialog, svp.plname, PL_NSIZ); /* set default answer */
 
     XtRealizeWidget(popup);
     positionpopup(popup, TRUE); /* center,bottom */
@@ -1832,6 +1897,11 @@ X11_askname()
 
     /* The callback will enable the event loop exit. */
     (void) x_event(EXIT_ON_EXIT);
+
+    /* tty's character selection uses this; we might someday;
+       since we let user pick an arbitrary name now, he/she can
+       pick another one during role selection */
+    iflags.renameallowed = TRUE;
 
     XtDestroyWidget(dialog);
     XtDestroyWidget(popup);
@@ -1843,15 +1913,12 @@ X11_askname()
 static Widget getline_popup, getline_dialog;
 
 #define CANCEL_STR "\033"
-static char *getline_input;
+static char *getline_input; /* buffer to hold user input; getline's output */
 
 /* Callback for getline dialog widget. */
 /* ARGSUSED */
 static void
-done_button(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+done_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
     int len;
     char *s;
@@ -1877,11 +1944,7 @@ XtPointer call_data;
 
 /* ARGSUSED */
 static void
-getline_delete(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+getline_delete(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     nhUse(event);
     nhUse(params);
@@ -1895,10 +1958,7 @@ Cardinal *num_params;
 /* Callback for getline dialog widget. */
 /* ARGSUSED */
 static void
-abort_button(w, client_data, call_data)
-Widget w;
-XtPointer client_data;
-XtPointer call_data;
+abort_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
     Widget dialog = (Widget) client_data;
 
@@ -1911,7 +1971,7 @@ XtPointer call_data;
 }
 
 static void
-release_getline_widgets()
+release_getline_widgets(void)
 {
     if (getline_dialog)
         XtDestroyWidget(getline_dialog), getline_dialog = (Widget) 0;
@@ -1919,14 +1979,17 @@ release_getline_widgets()
         XtDestroyWidget(getline_popup), getline_popup = (Widget) 0;
 }
 
+/* ask user for a line of text */
 void
-X11_getlin(question, input)
-const char *question;
-char *input;
+X11_getlin(
+    const char *question, /* prompt */
+    char *input)          /* user's input, getlin's _output_ buffer */
 {
-    getline_input = input;
+    unsigned upromptlen;
 
-    flush_screen(1);
+    getline_input = input; /* used by popup actions */
+
+    flush_screen(1); /* tell core to make sure that map is up to date */
     if (!getline_popup) {
         Arg args[1];
 
@@ -1946,24 +2009,58 @@ char *input;
         XSetWMProtocols(XtDisplay(getline_popup), XtWindow(getline_popup),
                         &wm_delete_window, 1);
     }
-    SetDialogPrompt(getline_dialog, (String) question); /* set prompt */
-    /* 60:  make the answer widget be wide enough to hold 60 characters,
+
+    /* 64:  make the answer widget be wide enough to hold 64 characters,
        or the length of the prompt string, whichever is bigger.  User's
        response can be longer--when limit is reached, value-so-far will
        slide left hiding some chars at the beginning of the response but
        making room to type more.  [Prior to 3.6.1, width wasn't specifiable
        and answer box always got sized to match the width of the prompt.] */
+    upromptlen = (unsigned) strlen(question);
+    if (upromptlen < 64)
+        upromptlen = 64;
 #ifdef EDIT_GETLIN
-    SetDialogResponse(getline_dialog, input, 60); /* set default answer */
+    /* set default answer */
+    SetDialogResponse(getline_dialog, input, upromptlen);
 #else
-    SetDialogResponse(getline_dialog, nhStr(""), 60); /* set default answer */
+    /* no default answer */
+    SetDialogResponse(getline_dialog, nhStr(""), upromptlen);
 #endif
+    SetDialogPrompt(getline_dialog, (String) question); /* set prompt */
     positionpopup(getline_popup, TRUE);           /* center,bottom */
 
     nh_XtPopup(getline_popup, (int) XtGrabExclusive, getline_dialog);
 
     /* The callback will enable the event loop exit. */
     (void) x_event(EXIT_ON_EXIT);
+
+    /* we get here after the popup has exited;
+       put prompt and response into the message window (and into
+       core's dumplog history) unless play hasn't started yet */
+    if (program_state.in_moveloop || program_state.gameover) {
+        /* single space has meaning (to remove a previously applied name) so
+           show it clearly; don't care about legibility of multiple spaces */
+        const char *visanswer = !input[0] ? "<empty>"
+                                : (input[0] == ' ' && !input[1]) ? "<space>"
+                                  : (input[0] == '\033') ? "<esc>"
+                                    : input;
+        int promptlen = (int) strlen(question),
+            answerlen = (int) strlen(visanswer);
+
+        /* prompt should be limited to QBUFSZ-1 by caller; enforce that
+           here for the echoed value; answer could be up to BUFSZ-1 long;
+           pline() will truncate the whole message to that amount so we
+           truncate the answer for display; this only affects the echoed
+           response, not the actual response being returned to the core */
+        if (promptlen >= QBUFSZ)
+            promptlen = QBUFSZ - 1;
+        if (answerlen + 1 + promptlen >= BUFSZ) /* +1: separating space */
+            answerlen = BUFSZ - (1 + promptlen) - 1;
+        pline("%.*s %.*s", promptlen, question, answerlen, visanswer);
+    }
+
+    /* clear static pointer that's about to go stale */
+    getline_input = 0;
 }
 
 /* Display file ----------------------------------------------------------- */
@@ -1971,9 +2068,7 @@ char *input;
 /* uses a menu (with no selectors specified) rather than a text window
    to allow previous_page and first_menu actions to move backwards */
 void
-X11_display_file(str, complain)
-const char *str;
-boolean complain;
+X11_display_file(const char *str, boolean complain)
 {
     dlb *fp;
     winid newwin;
@@ -1982,6 +2077,7 @@ boolean complain;
     menu_item *menu_list;
 #define LLEN 128
     char line[LLEN];
+    int clr = 0;
 
     /* Use the port-independent file opener to see if the file exists. */
     fp = dlb_fopen(str, RDTMODE);
@@ -1993,12 +2089,12 @@ boolean complain;
 
     newwin = X11_create_nhwindow(NHW_MENU);
     wp = &window_list[newwin];
-    X11_start_menu(newwin);
+    X11_start_menu(newwin, MENU_BEHAVE_STANDARD);
 
-    any = zeroany;
+    any = cg.zeroany;
     while (dlb_fgets(line, LLEN, fp)) {
-        X11_add_menu(newwin, NO_GLYPH, &any, 0, 0, ATR_NONE,
-                     line, MENU_UNSELECTED);
+        X11_add_menu(newwin, &nul_glyphinfo, &any, 0, 0, ATR_NONE,
+                     clr, line, MENU_ITEMFLAGS_NONE);
     }
     (void) dlb_fclose(fp);
 
@@ -2020,10 +2116,11 @@ static const char *yn_choices; /* string of acceptable input */
 static char yn_def;
 static char yn_return;           /* return value */
 static char yn_esc_map;          /* ESC maps to this char. */
-static Widget yn_popup;          /* popup for the yn fuction (created once) */
+static Widget yn_popup;          /* popup for the yn function (created once) */
 static Widget yn_label;          /* label for yn function (created once) */
 static boolean yn_getting_num;   /* TRUE if accepting digits */
 static boolean yn_preserve_case; /* default is to force yn to lower case */
+static boolean yn_no_default;    /* don't convert ESC or quitchars to def */
 static int yn_ndigits;           /* digit count */
 static long yn_val;              /* accumulated value */
 
@@ -2036,8 +2133,7 @@ static const char yn_translations[] = "#override\n\
  * no conversion (i.e. just the CTRL key hit) a NUL is returned.
  */
 char
-key_event_to_char(key)
-XKeyEvent *key;
+key_event_to_char(XKeyEvent *key)
 {
     char keystring[MAX_KEY_STRING];
     int nbytes;
@@ -2046,7 +2142,7 @@ XKeyEvent *key;
     nbytes = XLookupString(key, keystring, MAX_KEY_STRING, (KeySym *) 0,
                            (XComposeStatus *) 0);
 
-    /* Modifier keys return a zero lengh string when pressed. */
+    /* Modifier keys return a zero length string when pressed. */
     if (nbytes == 0)
         return '\0';
 
@@ -2058,11 +2154,7 @@ XKeyEvent *key;
  */
 /* ARGSUSED */
 static void
-yn_delete(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+yn_delete(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     nhUse(w);
     nhUse(event);
@@ -2080,11 +2172,7 @@ Cardinal *num_params;
  */
 /* ARGSUSED */
 static void
-yn_key(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+yn_key(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     char ch;
 
@@ -2098,7 +2186,8 @@ Cardinal *num_params;
         return;
     }
 
-    if (!yn_choices) { /* accept any input */
+    if (!yn_choices /* accept any input */
+        || (yn_no_default && (ch == '\033' || strchr(yn_quitchars, ch)))) {
         yn_return = ch;
     } else {
         if (!yn_preserve_case)
@@ -2107,9 +2196,9 @@ Cardinal *num_params;
         if (ch == '\033') {
             yn_getting_num = FALSE;
             yn_return = yn_esc_map;
-        } else if (index(yn_quitchars, ch)) {
+        } else if (strchr(yn_quitchars, ch)) {
             yn_return = yn_def;
-        } else if (index(yn_choices, ch)) {
+        } else if (strchr(yn_choices, ch)) {
             if (ch == '#') {
                 if (yn_getting_num) { /* don't select again */
                     X11_nhbell();
@@ -2126,8 +2215,15 @@ Cardinal *num_params;
         } else {
             if (yn_getting_num) {
                 if (digit(ch)) {
+                    long dgt = (long) (ch - '0');
+
                     yn_ndigits++;
-                    yn_val = (yn_val * 10) + (long) (ch - '0');
+                    /* yn_val = (10 * yn_val) + (ch - '0'); */
+                    yn_val = AppendLongDigit(yn_val, dgt);
+                    if (yn_val < 0L) {
+                        yn_ndigits = 0;
+                        yn_val = 0;
+                    }
                     return; /* wait for more input */
                 }
                 if (yn_ndigits && (ch == '\b' || ch == 127 /*DEL*/)) {
@@ -2152,7 +2248,7 @@ Cardinal *num_params;
 
 /* called at exit time */
 static void
-release_yn_widgets()
+release_yn_widgets(void)
 {
     if (yn_label)
         XtDestroyWidget(yn_label), yn_label = (Widget) 0;
@@ -2160,22 +2256,28 @@ release_yn_widgets()
         XtDestroyWidget(yn_popup), yn_popup = (Widget) 0;
 }
 
-/* X11-specific edition of yn_function(), the routine called by the core
-   to show a prompt and get a single keystroke answer, often 'y' vs 'n' */
+/* guts of the X11_yn_function(), not to be confused with core code;
+   requires an extra argument: ynflags */
 char
-X11_yn_function(ques, choices, def)
-const char *ques;
-const char *choices; /* string of possible response chars; any char if Null */
-char def;            /* default response if user hits <space> or <return> */
+X11_yn_function_core(
+    const char *ques,     /* prompt text */
+    const char *choices,  /* allowed response chars; any char if Null */
+    char def,             /* default if user hits <space> or <return> */
+    unsigned ynflags)     /* flags; currently just log-it or not */
 {
-    char buf[BUFSZ];
+    static XFontStruct *yn_font = 0;
+    static Dimension yn_minwidth = 0;
+    char buf[BUFSZ], buf2[BUFSZ];
     Arg args[4];
     Cardinal num_args;
+    boolean suppress_logging = (ynflags & YN_NO_LOGMESG) != 0U,
+            no_default_cnvrt = (ynflags & YN_NO_DEFAULT) != 0U;
 
     yn_choices = choices; /* set up globals for callback to use */
     yn_def = def;
+    yn_no_default = no_default_cnvrt;
     yn_preserve_case = !choices; /* preserve case when an arbitrary
-                                    response is allowed */
+                                  * response is allowed */
 
     /*
      * This is sort of a kludge.  There are quite a few places in the main
@@ -2199,27 +2301,41 @@ char def;            /* default response if user hits <space> or <return> */
                 yn_preserve_case = TRUE;
                 break;
             }
-        if ((cb = index(choicebuf, '\033')) != 0)
+        if ((cb = strchr(choicebuf, '\033')) != 0)
             *cb = '\0';
         /* ques [choices] (def) */
-        if ((int) (1 + strlen(ques) + 2 + strlen(choicebuf) + 4) >= BUFSZ)
-            panic("X11_yn_function:  question too long");
-        (void) strncpy(buf, ques, QBUFSZ - 1);
-        buf[QBUFSZ - 1] = '\0';
-        Sprintf(eos(buf), " [%s]", choicebuf);
+        int ln = ((int) strlen(ques)        /* prompt text */
+                  + 3                       /* " []" */
+                  + (int) strlen(choicebuf) /* choices within "[]" */
+                  + 4                       /* " (c)" */
+                  + 1                       /* a trailing space */
+                  + 1);                     /* \0 terminator */
+        if (ln >= BUFSZ)
+            panic("X11_yn_function:  question too long (%d)", ln);
+        Snprintf(buf, sizeof buf, "%.*s [%s]", QBUFSZ - 1, ques, choicebuf);
         if (def)
             Sprintf(eos(buf), " (%c)", def);
         Strcat(buf, " ");
 
         /* escape maps to 'q' or 'n' or default, in that order */
-        yn_esc_map = (index(choices, 'q') ? 'q'
-                      : index(choices, 'n') ? 'n'
+        yn_esc_map = (strchr(choices, 'q') ? 'q'
+                      : strchr(choices, 'n') ? 'n'
                         : def);
     } else {
-        if ((int) (1 + strlen(ques) + 1) >= BUFSZ)
-            panic("X11_yn_function:  question too long");
+        int ln = ((int) strlen(ques)        /* prompt text */
+                  + 1                       /* a trailing space */
+                  + 1);                     /* \0 terminator */
+        if (ln >= BUFSZ)
+            panic("X11_yn_function:  question too long (%d)", ln);
         Strcpy(buf, ques);
         Strcat(buf, " ");
+    }
+    /* for popup-style, add some extra elbow room to the prompt to
+       enhance its visibility; there's no cursor shown, just the text */
+    if (!appResources.slow) {
+        /* insert one leading space and two extra trailing spaces */
+        Strcpy(buf2, buf);
+        Snprintf(buf, sizeof buf, " %s  ", buf2);
     }
 
     /*
@@ -2234,50 +2350,86 @@ char def;            /* default response if user hits <space> or <return> */
 
     if (appResources.slow) {
         /*
-         * 'slow':  the yn_label widget was created when the map and
-         * status widgets were, and is positioned between them.  It
+         * 'slow' is True:  the yn_label widget was created when the map
+         * and status widgets were, and is positioned between them.  It
          * will persist until end of game.  All we need to do for
          * yn_function is direct keystroke input to the yn response
          * handler and reset its label to be the prompt text (below).
          */
         input_func = yn_key;
         highlight_yn(FALSE); /* expose yn_label as separate from map */
-    } else if (!yn_label) {
+    } else {
         /*
-         * Not 'slow'; create a persistent widget that will be popped up
-         * as needed, then down again, and last until end of game.  The
+         * 'slow' is False; create a persistent widget that will be popped
+         * up as needed, then down again, and last until end of game.  The
          * associated yn_label widget is used to track whether it exists.
          */
-        XtSetArg(args[0], XtNallowShellResize, True);
-        yn_popup = XtCreatePopupShell("query", transientShellWidgetClass,
-                                      toplevel, args, ONE);
-        XtOverrideTranslations(yn_popup,
+        if (!yn_label) {
+            XtSetArg(args[0], XtNallowShellResize, True);
+            yn_popup = XtCreatePopupShell("query", transientShellWidgetClass,
+                                          toplevel, args, ONE);
+            XtOverrideTranslations(yn_popup,
                XtParseTranslationTable("<Message>WM_PROTOCOLS: yn_delete()"));
 
-        num_args = 0;
-        XtSetArg(args[num_args], XtNtranslations,
-                 XtParseTranslationTable(yn_translations)); num_args++;
-        yn_label = XtCreateManagedWidget("yn_label", labelWidgetClass,
-                                         yn_popup, args, num_args);
+            num_args = 0;
+            XtSetArg(args[num_args], nhStr(XtNjustify), XtJustifyLeft);
+                                                                   num_args++;
+            XtSetArg(args[num_args], XtNtranslations,
+                     XtParseTranslationTable(yn_translations)); num_args++;
+            yn_label = XtCreateManagedWidget("yn_label", labelWidgetClass,
+                                             yn_popup, args, num_args);
 
-        XtRealizeWidget(yn_popup);
-        XSetWMProtocols(XtDisplay(yn_popup), XtWindow(yn_popup),
-                        &wm_delete_window, 1);
+            XtRealizeWidget(yn_popup);
+            XSetWMProtocols(XtDisplay(yn_popup), XtWindow(yn_popup),
+                            &wm_delete_window, 1);
+
+            /* get font that will be used; we'll need it to measure text */
+            (void) memset((genericptr_t) args, 0, sizeof args);
+            XtSetArg(args[0], nhStr(XtNfont), &yn_font);
+            XtGetValues(yn_label, args, ONE);
+
+            /* set up minimum yn_label width; we don't actually set
+               the XtNminWidth attribute */
+            (void) memset(buf2, 'X', 25), buf2[25] = '\0'; /* 25 'X's */
+            yn_minwidth = (Dimension) XTextWidth(yn_font, buf2,
+                                                 (int) strlen(buf2));
+        }
     }
 
     /* set the label of the yn widget to be the prompt text */
+    (void) memset((genericptr_t) args, 0, sizeof args);
     num_args = 0;
     XtSetArg(args[num_args], XtNlabel, buf); num_args++;
     XtSetValues(yn_label, args, num_args);
 
+    /* for !slow, pop up the prompt+response widget */
     if (!appResources.slow) {
         /*
-         * Due to some kind of weird bug in the X11R4 and X11R5 shell, we
-         * need to set the label twice to get the size to change.
+         * Setting the text doesn't always perform a resize when it
+         * should.  We used to just set the text a second time, but that
+         * wasn't a reliable workaround, at least on OSX with XQuartz.
+         * This seems to work reliably.
+         *
+         * It also enforces a minimum prompt width, which wasn't being
+         * done before, so that really short prompts are more noticeable
+         * if they pop up where the pointer is parked and it happens to
+         * be sitting somewhere the player isn't looking.
          */
+        Dimension promptwidth, labelwidth = 0;
+
+        (void) memset((genericptr_t) args, 0, sizeof args);
         num_args = 0;
-        XtSetArg(args[num_args], XtNlabel, buf); num_args++;
-        XtSetValues(yn_label, args, num_args);
+        XtSetArg(args[num_args], XtNwidth, &labelwidth); num_args++;
+        XtGetValues(yn_label, args, num_args);
+
+        promptwidth = (Dimension) XTextWidth(yn_font, buf, (int) strlen(buf));
+        if (labelwidth != promptwidth || labelwidth < yn_minwidth) {
+            labelwidth = max(promptwidth, yn_minwidth);
+            (void) memset((genericptr_t) args, 0, sizeof args);
+            num_args = 0;
+            XtSetArg(args[num_args], XtNwidth, labelwidth); num_args++;
+            XtSetValues(yn_label, args, num_args);
+        }
 
         positionpopup(yn_popup, TRUE);
         nh_XtPopup(yn_popup, (int) XtGrabExclusive, yn_label);
@@ -2286,32 +2438,51 @@ char def;            /* default response if user hits <space> or <return> */
     yn_getting_num = FALSE;
     (void) x_event(EXIT_ON_EXIT); /* get keystroke(s) */
 
+    /* erase or remove the prompt */
     if (appResources.slow) {
-        /* keystrokes now belong to the map */
-        input_func = 0;
-        /* erase the prompt */
+        (void) memset((genericptr_t) args, 0, sizeof args);
         num_args = 0;
         XtSetArg(args[num_args], XtNlabel, " "); num_args++;
         XtSetValues(yn_label, args, num_args);
+
+        input_func = 0; /* keystrokes now belong to the map */
         highlight_yn(FALSE); /* disguise yn_label as part of map */
     } else {
         nh_XtPopdown(yn_popup); /* this removes the event grab */
     }
 
-    pline("%s%c", buf, (yn_return != '\033') ? yn_return : '\0');
+    if (!suppress_logging) {
+        char *p = trimspaces(buf); /* remove !slow's extra whitespace */
+
+        pline("%s %s", p, (yn_return == '\033') ? "ESC" : visctrl(yn_return));
+    }
 
     return yn_return;
+}
+
+/* X11-specific edition of yn_function(), the routine called by the core
+   to show a prompt and get a single key answer, often 'y' vs 'n' */
+char
+X11_yn_function(
+    const char *ques,     /* prompt text */
+    const char *choices,  /* allowed response chars; any char if Null */
+    char def)             /* default if user hits <space> or <return> */
+{
+    char res = X11_yn_function_core(ques, choices, def, YN_NORMAL);
+
+    return res;
 }
 
 /* used when processing window-capability-specific run-time options;
    we support toggling tiles on and off via iflags.wc_tiled_map */
 void
-X11_preference_update(pref)
-const char *pref;
+X11_preference_update(const char *pref)
 {
     if (!strcmp(pref, "tiled_map")) {
         if (WIN_MAP != WIN_ERR)
             display_map_window(&window_list[WIN_MAP]);
+    } else if (!strcmp(pref, "perm_invent")) {
+        ; /* TODO... */
     }
 }
 
@@ -2322,11 +2493,10 @@ const char *pref;
  * do some pre-processing.
  */
 static int
-input_event(exit_condition)
-int exit_condition;
+input_event(int exit_condition)
 {
-    if (appResources.fancy_status && WIN_STATUS != WIN_ERR) /* hilighting on the fancy status window */
-        check_turn_events();
+    if (appResources.fancy_status && WIN_STATUS != WIN_ERR)
+        check_turn_events(); /* hilighting on the fancy status window */
     if (WIN_MAP != WIN_ERR) /* make sure cursor is not clipped */
         check_cursor_visibility(&window_list[WIN_MAP]);
     if (WIN_MESSAGE != WIN_ERR) /* reset pause line */
@@ -2337,15 +2507,13 @@ int exit_condition;
 
 /*ARGSUSED*/
 void
-msgkey(w, data, event)
-Widget w;
-XtPointer data;
-XEvent *event;
+msgkey(Widget w, XtPointer data, XEvent *event, Boolean *continue_to_dispatch)
 {
     Cardinal num = 0;
 
     nhUse(w);
     nhUse(data);
+    nhUse(continue_to_dispatch);
 
     map_input(window_list[WIN_MAP].w, event, (String *) 0, &num);
 }
@@ -2353,11 +2521,9 @@ XEvent *event;
 /* only called for autofocus */
 /*ARGSUSED*/
 static void
-win_visible(w, data, event, flag)
-Widget w;
-XtPointer data; /* client_data not used */
-XEvent *event;
-Boolean *flag; /* continue_to_dispatch flag not used */
+win_visible(Widget w, XtPointer data, /* client_data not used */
+            XEvent *event,
+            Boolean *flag) /* continue_to_dispatch flag not used */
 {
     XVisibilityEvent *vis_event = (XVisibilityEvent *) event;
 
@@ -2377,15 +2543,14 @@ Boolean *flag; /* continue_to_dispatch flag not used */
    part of the map when idle or to invert background and foreground when
    a prompt is active */
 void
-highlight_yn(init)
-boolean init;
+highlight_yn(boolean init)
 {
     struct xwindow *xmap;
 
     if (!appResources.slow || !appResources.highlight_prompt)
         return;
 
-    /* first time through, WIN_MAP isn't fully initiialized yet */
+    /* first time through, WIN_MAP isn't fully initialized yet */
     xmap = ((map_win != WIN_ERR) ? &window_list[map_win]
                : (WIN_MAP != WIN_ERR) ? &window_list[WIN_MAP] : 0);
 
@@ -2393,12 +2558,12 @@ boolean init;
         Arg args[2];
         XGCValues vals;
         unsigned long fg_bg = (GCForeground | GCBackground);
-        GC gc = (xmap->map_information->is_tile
+        GC ggc = (xmap->map_information->is_tile
                     ? xmap->map_information->tile_map.white_gc
                     : xmap->map_information->text_map.copy_gc);
 
         (void) memset((genericptr_t) &vals, 0, sizeof vals);
-        if (XGetGCValues(XtDisplay(xmap->w), gc, fg_bg, &vals)) {
+        if (XGetGCValues(XtDisplay(xmap->w), ggc, fg_bg, &vals)) {
             XtSetArg(args[0], XtNforeground, vals.foreground);
             XtSetArg(args[1], XtNbackground, vals.background);
             XtSetValues(yn_label, args, TWO);
@@ -2417,7 +2582,7 @@ boolean init;
  * than using a popup.
  */
 static void
-init_standard_windows()
+init_standard_windows(void)
 {
     Widget form, message_viewport, map_viewport, status;
     Arg args[8];
@@ -2493,7 +2658,7 @@ init_standard_windows()
     XtSetArg(args[num_args], nhStr(XtNbottom), XtChainBottom); num_args++;
     XtSetValues(map_viewport, args, num_args);
 
-    /* Create the status window, with the form as it's parent. */
+    /* Create the status window, with the form as its parent. */
     status_win = find_free_window();
     wp = &window_list[status_win];
     wp->cursx = wp->cursy = wp->pixel_width = wp->pixel_height = 0;
@@ -2517,7 +2682,7 @@ init_standard_windows()
     XtSetValues(status, args, num_args);
 
     /*
-     * Realize the popup so that the status widget knows it's size.
+     * Realize the popup so that the status widget knows its size.
      *
      * If we unset MappedWhenManaged then the DECwindow driver doesn't
      * attach the nethack toplevel to the highest virtual root window.
@@ -2617,20 +2782,18 @@ init_standard_windows()
 }
 
 void
-nh_XtPopup(w, g, childwid)
-Widget w;        /* widget */
-int g;           /* type of grab */
-Widget childwid; /* child to receive focus (can be None) */
+nh_XtPopup(Widget w,        /* widget */
+           int grb,         /* type of grab */
+           Widget childwid) /* child to receive focus (can be None) */
 {
-    XtPopup(w, (XtGrabKind) g);
+    XtPopup(w, (XtGrabKind) grb);
     XSetWMProtocols(XtDisplay(w), XtWindow(w), &wm_delete_window, 1);
     if (appResources.autofocus)
         XtSetKeyboardFocus(toplevel, childwid);
 }
 
 void
-nh_XtPopdown(w)
-Widget w;
+nh_XtPopdown(Widget w)
 {
     XtPopdown(w);
     if (appResources.autofocus)
@@ -2638,39 +2801,33 @@ Widget w;
 }
 
 void
-win_X11_init(dir)
-int dir;
+win_X11_init(int dir)
 {
     if (dir != WININIT)
         return;
 
-#ifdef OPENWINBUG
-    /* With the OpenWindows 3.0 libraries and the SunOS 4.1.2 ld, these
-     * two routines will not be found when linking.  An apparently correct
-     * executable is produced, along with nasty messages and a failure code
-     * returned to make.  The routines are in the static libXmu.a and
-     * libXmu.sa.4.0, but not in libXmu.so.4.0.  Rather than fiddle with
-     * static linking, we do this.
-     */
-    if (rn2(2) > 2) { /* i.e., FALSE that an optimizer probably can't find */
-        get_wmShellWidgetClass();
-        get_applicationShellWidgetClass();
-    }
-#endif
     return;
 }
 
 void
-find_scrollbars(w, horiz, vert)
-Widget w;
-Widget *horiz, *vert;
+find_scrollbars(
+    Widget w,      /* widget of interest; scroll bars are probably attached
+                      to its parent or grandparent */
+    Widget last_w, /* if non-zero, don't search ancestry beyond this point */
+    Widget *horiz, /* output: horizontal scrollbar */
+    Widget *vert)  /* output: vertical scrollbar */
 {
+    *horiz = *vert = (Widget) 0;
+    /* for 3.6 this looked for an ancestor with both scrollbars but
+       menus might have only vertical */
     if (w) {
         do {
             *horiz = XtNameToWidget(w, "*horizontal");
             *vert = XtNameToWidget(w, "*vertical");
+            if (*horiz || *vert)
+                break;
             w = XtParent(w);
-        } while (!*horiz && !*vert && w);
+        } while (w && (!last_w || w != last_w));
     }
 }
 
@@ -2679,11 +2836,8 @@ Widget *horiz, *vert;
  */
 /*ARGSUSED*/
 void
-nh_keyscroll(viewport, event, params, num_params)
-Widget viewport;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+nh_keyscroll(Widget viewport, XEvent *event, String *params,
+             Cardinal *num_params)
 {
     Arg arg[2];
     Widget horiz_sb = (Widget) 0, vert_sb = (Widget) 0;
@@ -2699,7 +2853,7 @@ Cardinal *num_params;
 
     direction = atoi(params[0]);
 
-    find_scrollbars(viewport, &horiz_sb, &vert_sb);
+    find_scrollbars(viewport, (Widget) 0, &horiz_sb, &vert_sb);
 
 #define H_DELTA 0.25 /* distance of horiz shift */
     /* vert shift is half of curr distance */

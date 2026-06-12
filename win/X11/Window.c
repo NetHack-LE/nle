@@ -1,5 +1,5 @@
-/* NetHack 3.6	Window.c	$NHDT-Date: 1432512808 2015/05/25 00:13:28 $  $NHDT-Branch: master $:$NHDT-Revision: 1.9 $ */
-/* Copyright (c) Dean Luick, 1992				  */
+/* NetHack 5.0	Window.c	$NHDT-Date: 1596498371 2020/08/03 23:46:11 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.12 $ */
+/* Copyright (c) Dean Luick, 1992                                 */
 /* NetHack may be freely redistributed.  See license for details. */
 
 /*
@@ -31,8 +31,9 @@
 
 #include "xwindowp.h"
 
-#include "config.h"
-#include "lint.h"
+#include "config.h" /* #define for const for non __STDC__ compilers */
+#include "lint.h"   /* for nethack's nhStr() macro */
+#include "winX.h"   /* to make sure prototypes match corresponding functions */
 
 static XtResource resources[] = {
 #define offset(field) XtOffset(WindowWidget, window.field)
@@ -90,11 +91,10 @@ static XtResource resources[] = {
 
 /* ARGSUSED */
 static void
-no_op(w, event, params, num_params)
-Widget w;             /* unused */
-XEvent *event;        /* unused */
-String *params;       /* unused */
-Cardinal *num_params; /* unused */
+no_op(Widget w,             /* unused */
+      XEvent *event,        /* unused */
+      String *params,       /* unused */
+      Cardinal *num_params) /* unused */
 {
     nhUse(w);
     nhUse(event);
@@ -113,10 +113,7 @@ static char translations[] = "<BtnDown>:     input() \
 
 /* ARGSUSED */
 static void
-Redisplay(w, event, region)
-Widget w;
-XEvent *event;
-Region region; /* unused */
+Redisplay(Widget w, XEvent *event, Region region /* unused */)
 {
     nhUse(region);
 
@@ -126,62 +123,59 @@ Region region; /* unused */
 
 /* ARGSUSED */
 static void
-Resize(w)
-Widget w;
+Resize(Widget w)
 {
     XtCallCallbacks(w, XtNresizeCallback, (XtPointer) 0);
 }
 
 WindowClassRec windowClassRec = {
     { /* core fields */
-      /* superclass		*/ (WidgetClass) &widgetClassRec,
-      /* class_name		*/ nhStr("Window"),
-      /* widget_size		*/ sizeof(WindowRec),
-      /* class_initialize		*/ 0,
-      /* class_part_initialize	*/ 0,
-      /* class_inited		*/ FALSE,
-      /* initialize		*/ 0,
-      /* initialize_hook		*/ 0,
-      /* realize			*/ XtInheritRealize,
-      /* actions			*/ actions,
-      /* num_actions		*/ XtNumber(actions),
-      /* resources		*/ resources,
-      /* num_resources		*/ XtNumber(resources),
-      /* xrm_class		*/ NULLQUARK,
-      /* compress_motion		*/ TRUE,
-      /* compress_exposure	*/ TRUE,
-      /* compress_enterleave	*/ TRUE,
-      /* visible_interest		*/ FALSE,
-      /* destroy			*/ 0,
-      /* resize			*/ Resize,
-      /* expose			*/ Redisplay,
-      /* set_values		*/ 0,
-      /* set_values_hook		*/ 0,
-      /* set_values_almost	*/ XtInheritSetValuesAlmost,
-      /* get_values_hook		*/ 0,
-      /* accept_focus		*/ 0,
-      /* version			*/ XtVersion,
-      /* callback_private		*/ 0,
-      /* tm_table			*/ translations,
-      /* query_geometry		*/ XtInheritQueryGeometry,
-      /* display_accelerator	*/ XtInheritDisplayAccelerator,
-      /* extension		*/ 0 },
+      /* superclass             */ (WidgetClass) &widgetClassRec,
+      /* class_name             */ nhStr("Window"),
+      /* widget_size            */ sizeof(WindowRec),
+      /* class_initialize       */ 0,
+      /* class_part_initialize  */ 0,
+      /* class_inited           */ FALSE,
+      /* initialize             */ 0,
+      /* initialize_hook        */ 0,
+      /* realize                */ XtInheritRealize,
+      /* actions                */ actions,
+      /* num_actions            */ XtNumber(actions),
+      /* resources              */ resources,
+      /* num_resources          */ XtNumber(resources),
+      /* xrm_class              */ NULLQUARK,
+      /* compress_motion        */ TRUE,
+      /* compress_exposure      */ TRUE,
+      /* compress_enterleave    */ TRUE,
+      /* visible_interest       */ FALSE,
+      /* destroy                */ 0,
+      /* resize                 */ Resize,
+      /* expose                 */ Redisplay,
+      /* set_values             */ 0,
+      /* set_values_hook        */ 0,
+      /* set_values_almost      */ XtInheritSetValuesAlmost,
+      /* get_values_hook        */ 0,
+      /* accept_focus           */ 0,
+      /* version                */ XtVersion,
+      /* callback_private       */ 0,
+      /* tm_table               */ translations,
+      /* query_geometry         */ XtInheritQueryGeometry,
+      /* display_accelerator    */ XtInheritDisplayAccelerator,
+      /* extension              */ 0 },
     { /* window fields */
-      /* empty			*/ 0 }
+      /* empty                  */ 0 }
 };
 
 WidgetClass windowWidgetClass = (WidgetClass) &windowClassRec;
 
 Font
-WindowFont(w)
-Widget w;
+WindowFont(Widget w)
 {
     return ((WindowWidget) w)->window.font->fid;
 }
 
 XFontStruct *
-WindowFontStruct(w)
-Widget w;
+WindowFontStruct(Widget w)
 {
     return ((WindowWidget) w)->window.font;
 }
