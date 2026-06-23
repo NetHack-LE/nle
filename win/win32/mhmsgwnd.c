@@ -1,5 +1,5 @@
-/* NetHack 3.6	mhmsgwnd.c	$NHDT-Date: 1432512812 2015/05/25 00:13:32 $  $NHDT-Branch: master $:$NHDT-Revision: 1.32 $ */
-/* Copyright (C) 2001 by Alex Kompel 	 */
+/* NetHack 5.0	mhmsgwnd.c	$NHDT-Date: 1596498357 2020/08/03 23:45:57 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.40 $ */
+/* Copyright (C) 2001 by Alex Kompel */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "winMS.h"
@@ -10,8 +10,7 @@
 #define MSG_WRAP_TEXT
 
 #define MSG_VISIBLE_LINES max(iflags.wc_vary_msgcount, 1)
-#define MAX_MSG_LINES 128
-#define MSG_LINES (int) min(iflags.msg_history, MAX_MSG_LINES)
+#define MSG_LINES (int) min(iflags.msg_history, MAX_MSG_HISTORY)
 #define MAXWINDOWTEXT TBUFSZ
 
 #define DEFAULT_COLOR_BG_MSG COLOR_WINDOW
@@ -26,7 +25,7 @@ struct window_line {
 
 typedef struct mswin_nethack_message_window {
     size_t max_text;
-    struct window_line window_text[MAX_MSG_LINES];
+    struct window_line window_text[MAX_MSG_HISTORY];
     int lines_last_turn; /* lines added during the last turn */
     int lines_not_seen;  /* lines not yet seen by user after last turn or
                             --More-- */
@@ -66,7 +65,7 @@ extern void play_sound_for_message(const char *str);
 #endif
 
 HWND
-mswin_init_message_window()
+mswin_init_message_window(void)
 {
     static int run_once = 0;
     HWND ret;
@@ -116,7 +115,7 @@ mswin_init_message_window()
 }
 
 void
-register_message_window_class()
+register_message_window_class(void)
 {
     WNDCLASS wcex;
     ZeroMemory(&wcex, sizeof(wcex));
@@ -172,6 +171,7 @@ NHMessageWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         data = (PNHMessageWindow) GetWindowLongPtr(hWnd, GWLP_USERDATA);
         free(data);
         SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR) 0);
+        windowdata[NHW_MESSAGE].address = 0;
     } break;
 
     case WM_SIZE: {
@@ -294,7 +294,7 @@ onMSNHCommand(HWND hWnd, WPARAM wParam, LPARAM lParam)
                     int okkey = 0;
                     char tmptext[MAXWINDOWTEXT + 1];
 
-                    // @@@ Ok respnses
+                    // @@@ Ok responses
 
                     /* save original text */
                     strcpy(tmptext, data->window_text[MSG_LINES - 1].text);
@@ -416,9 +416,9 @@ onMSNHCommand(HWND hWnd, WPARAM wParam, LPARAM lParam)
             }
     } break;
 
-	case MSNH_MSG_RANDOM_INPUT:
-		nhassert(0); // unexpected
-		break;
+    case MSNH_MSG_RANDOM_INPUT:
+        nhassert(0); // unexpected
+        break;
 
     } /* switch( wParam ) */
 }
@@ -481,8 +481,8 @@ onMSNH_VScroll(HWND hWnd, WPARAM wParam, LPARAM lParam)
     // of the scroll box, and update the window. UpdateWindow
     // sends the WM_PAINT message.
 
-    if (yInc = max(MSG_VISIBLE_LINES - data->yPos,
-                   min(yInc, data->yMax - data->yPos))) {
+    if ((yInc = max(MSG_VISIBLE_LINES - data->yPos,
+                   min(yInc, data->yMax - data->yPos)))) {
         data->yPos += yInc;
         /* ScrollWindowEx(hWnd, 0, -data->yChar * yInc,
                 (CONST RECT *) NULL, (CONST RECT *) NULL,
@@ -647,6 +647,7 @@ onPaint(HWND hWnd)
             strcpy(tmptext, data->window_text[i].text);
             strip_newline(tmptext);
             NH_A2W(tmptext, wbuf, sizeof(wbuf));
+            wbuf[SIZE(wbuf) - 1] = '\0';
             wlen = _tcslen(wbuf);
             setMsgTextColor(hdc, i < (MSG_LINES - data->lines_last_turn));
 #ifdef MSG_WRAP_TEXT
@@ -664,7 +665,7 @@ onPaint(HWND hWnd)
             /* Find out the cursor (caret) position */
             if (i == MSG_LINES - 1) {
                 int nnum, numfit;
-                SIZE size;
+                SIZE size = {0};
                 TCHAR *nbuf;
                 int nlen;
 
@@ -729,6 +730,7 @@ onCreate(HWND hWnd, WPARAM wParam, LPARAM lParam)
     ZeroMemory(data, sizeof(NHMessageWindow));
     data->max_text = MAXWINDOWTEXT;
     SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR) data);
+    windowdata[NHW_MESSAGE].address = (genericptr_t) data;  // for cleanup at the end
 
     /* re-calculate window size (+ font size) */
     mswin_message_window_size(hWnd, &dummy);
@@ -769,7 +771,7 @@ mswin_message_window_size(HWND hWnd, LPSIZE sz)
     sz->cx = rt.right - rt.left;
     sz->cy = rt.bottom - rt.top;
 
-    /* set size to accomodate MSG_VISIBLE_LINES and
+    /* set size to accommodate MSG_VISIBLE_LINES and
        horizontal scroll bar (difference between window rect and client rect
        */
     GetClientRect(hWnd, &client_rt);
@@ -794,7 +796,7 @@ can_append_text(HWND hWnd, int attr, const char *text)
     if (data->lines_not_seen == 0)
         return FALSE;
 
-    /* cannot append text with different attrbutes */
+    /* cannot append text with different attributes */
     if (data->window_text[MSG_LINES - 1].attr != attr)
         return FALSE;
 
@@ -802,7 +804,7 @@ can_append_text(HWND hWnd, int attr, const char *text)
     if (str_end_is(data->window_text[MSG_LINES - 1].text, "\n"))
         return FALSE;
 
-    /* check if the maximum string langth will be exceeded */
+    /* check if the maximum string length will be exceeded */
     if (strlen(data->window_text[MSG_LINES - 1].text) + 2
             + /* space characters */
             strlen(text) + strlen(MORE)

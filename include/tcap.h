@@ -9,6 +9,7 @@
 #define TCAP_H
 
 #ifndef MICRO
+/* NLE: We use ANSI_DEFAULT for terminal handling*/
 #ifndef RL_GRAPHICS
 #define TERMLIB /* include termcap code */
 #endif

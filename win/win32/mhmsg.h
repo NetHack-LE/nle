@@ -1,4 +1,4 @@
-/* NetHack 3.6	mhmsg.h	$NHDT-Date: 1432512811 2015/05/25 00:13:31 $  $NHDT-Branch: master $:$NHDT-Revision: 1.15 $ */
+/* NetHack 5.0	mhmsg.h	$NHDT-Date: 1596498356 2020/08/03 23:45:56 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.21 $ */
 /* Copyright (C) 2001 by Alex Kompel 	 */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -22,6 +22,9 @@
 #define MSNH_MSG_GETTEXT 111
 #define MSNH_MSG_UPDATE_STATUS 112
 #define MSNH_MSG_RANDOM_INPUT 113
+#ifdef ENHANCED_SYMBOLS
+#define MSNH_MSG_GETWIDETEXT 114
+#endif
 
 typedef struct mswin_nhmsg_add_wnd {
     winid wid;
@@ -34,10 +37,10 @@ typedef struct mswin_nhmsg_putstr {
 } MSNHMsgPutstr, *PMSNHMsgPutstr;
 
 typedef struct mswin_nhmsg_print_glyph {
-    XCHAR_P x;
-    XCHAR_P y;
-    int glyph;
-    int bkglyph;
+    coordxy x;
+    coordxy y;
+    glyph_info glyphinfo;
+    glyph_info bkglyphinfo;
 } MSNHMsgPrintGlyph, *PMSNHMsgPrintGlyph;
 
 typedef struct mswin_nhmsg_cliparound {
@@ -46,13 +49,15 @@ typedef struct mswin_nhmsg_cliparound {
 } MSNHMsgClipAround, *PMSNHMsgClipAround;
 
 typedef struct mswin_nhmsg_add_menu {
-    int glyph;
+    glyph_info glyphinfo;
     const ANY_P *identifier;
-    CHAR_P accelerator;
-    CHAR_P group_accel;
+    char accelerator;
+    char group_accel;
     int attr;
+    int color;
     const char *str;
-    BOOLEAN_P presel;
+    boolean presel;
+    unsigned int itemflags;
 } MSNHMsgAddMenu, *PMSNHMsgAddMenu;
 
 typedef struct mswin_nhmsg_cursor {
@@ -66,8 +71,15 @@ typedef struct mswin_nhmsg_end_menu {
 
 typedef struct mswin_nhmsg_get_text {
     size_t max_size;
-    char buffer[];
+    char buffer[TEXT_BUFFER_SIZE];
 } MSNHMsgGetText, *PMSNHMsgGetText;
+
+#ifdef ENHANCED_SYMBOLS
+typedef struct mswin_nhmsg_get_wide_text {
+    size_t max_size;
+    WCHAR buffer[TEXT_BUFFER_SIZE];
+} MSNHMsgGetWideText, *PMSNHMsgGetWideText;
+#endif
 
 typedef struct mswin_nhmsg_update_status {
     struct mswin_status_lines * status_lines;

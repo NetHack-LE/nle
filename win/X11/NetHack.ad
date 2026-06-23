@@ -1,4 +1,4 @@
-! $NHDT-Date: 1542244983 2018/11/15 01:23:03 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.20 $
+! $NHDT-Date: 1750598195 2025/06/22 05:16:35 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.27 $
 ! Copyright (c) 2017 by Pasi Kallinen
 ! NetHack may be freely redistributed.  See license for details.
 
@@ -30,7 +30,9 @@ NetHack*text*borderWidth:  0
 ! tile_file names a file containing full-color tiles for the map.
 ! If you use a 100dpi (or greater) monitor you may wish to double the
 ! tile size so you can see the figures.  If NetHack was compiled to
-! use XPM (USE_XPM in config.h), the tile_file is a standard XPM file.
+! use XPM (via #define USE_XPM in config.h or via -DUSE_XPM in src/Makefile,
+! which happens when using WANT_WIN_X11=1 or WANT_WIN_ALL=1 with setup.sh
+! 'hints' that support such), the tile_file is a standard XPM file.
 ! Otherwise, it is a custom format.  double_tile_size only applies to
 ! the custom format - to enlarge an XPM file, use processing tools
 ! such as XV or preferably PBMplus.
@@ -54,7 +56,7 @@ NetHack.tile_file: x11tiles
 !NetHack.tombtext_y: 78
 !NetHack.tombtext_dx: 0
 !NetHack.tombtext_dy: 13
-! The color to use for the text on the hero's tombstone
+! The color to use for the text on the tombstone of the hero (end of game).
 NetHack*rip*foreground: black
 
 ! The icon to use; supported values are nh72, nh56, and nh32; nh72 is the
@@ -66,7 +68,7 @@ NetHack*rip*foreground: black
 ! questions is _not_ used.  Single-character prompts appear in a fixed
 ! position between the top of the map and the bottom of the messages.
 ! If False, popups appear near where the pointer is positioned so tend to
-! meander around the screen depending upon where the last click ocurred.
+! meander around the screen depending upon where the last click occurred.
 ! (The name 'slow' is misleading; this feature was originally necessitated
 ! by window managers which were slow putting up popup windows, but the
 ! fixed-position prompting can be just as useful for quick popups.)
@@ -78,7 +80,7 @@ NetHack*rip*foreground: black
 !NetHack*autofocus: True
 
 ! If 'slow' is True, setting 'highlight_prompt' to True will cause the line
-! between map and message display that's used for prompting to be "hidden"
+! between map and message display that is used for prompting to be "hidden"
 ! as part of the map when no prompt is active, then invert foreground and
 ! background to stand out when a prompt is issued and waiting for a response.
 ! If 'slow' is False, 'highlight_prompt' will have no effect.
@@ -87,7 +89,7 @@ NetHack*highlight_prompt: False
 ! The number of lines the message window will show without scrolling.
 !NetHack*message_lines: 12
 
-! If True, the message window has a line that seperates old and new messages.
+! If True, the message window has a line that separates old and new messages.
 !NetHack*message_line: True
 
 ! If True, the default, use a "fancy" style status area below the map.
@@ -114,8 +116,8 @@ NetHack*message*translations:	<KeyPress>: input()
 !				!<Key>Down: input(j)
 
 ! Specify the number of rows and columns of the map window.  The default
-! is the standard 80x21 window.  Note: this _does_not_ change nethack's
-! level size, only what you see of it.
+! is the standard 80x21 window.  Note: this _does_not_ change the size of
+! level maps, only what you see of them.
 !NetHack*map*rows:	21
 !NetHack*map*columns:	80
 
@@ -321,7 +323,7 @@ NetHack*map*orange:         orange
 NetHack*map*bright_green:   green
 NetHack*map*yellow:         yellow
 NetHack*map*bright_blue:    Royal blue
-NetHack*map*bright_magenta: Fuchsia
+NetHack*map*bright_magenta: magenta
 NetHack*map*bright_cyan:    cyan
 NetHack*map*white:          white
 !

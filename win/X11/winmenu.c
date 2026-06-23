@@ -1,17 +1,18 @@
-/* NetHack 3.6	winmenu.c	$NHDT-Date: 1542245161 2018/11/15 01:26:01 $  $NHDT-Branch: NetHack-3.6.2-beta01 $:$NHDT-Revision: 1.33 $ */
-/* Copyright (c) Dean Luick, 1992				  */
+/* NetHack 5.0	winmenu.c	$NHDT-Date: 1644531504 2022/02/10 22:18:24 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.50 $ */
+/* Copyright (c) Dean Luick, 1992                                 */
 /* NetHack may be freely redistributed.  See license for details. */
 
 /*
  * File for creating menus.
  *
- *	+ Global functions: start_menu, add_menu, end_menu, select_menu
+ *    + Global functions: start_menu, add_menu, end_menu, select_menu
  */
 
 #ifndef SYSV
 #define PRESERVE_NO_SYSV /* X11 include files may define SYSV */
 #endif
 
+#include <X11/Xlib.h>
 #include <X11/Xresource.h>
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -32,37 +33,42 @@
 #undef PRESERVE_NO_SYSV
 #endif
 
+#define X11_BUILD
 #include "hack.h"
+#undef X11_BUILD
+
 #include "winX.h"
 
-static void FDECL(menu_size_change_handler, (Widget, XtPointer,
-                                             XEvent *, Boolean *));
-static void FDECL(menu_select, (Widget, XtPointer, XtPointer));
-static void FDECL(invert_line, (struct xwindow *, x11_menu_item *, int, long));
-static void FDECL(menu_ok, (Widget, XtPointer, XtPointer));
-static void FDECL(menu_cancel, (Widget, XtPointer, XtPointer));
-static void FDECL(menu_all, (Widget, XtPointer, XtPointer));
-static void FDECL(menu_none, (Widget, XtPointer, XtPointer));
-static void FDECL(menu_invert, (Widget, XtPointer, XtPointer));
-static void FDECL(menu_search, (Widget, XtPointer, XtPointer));
-static void FDECL(search_menu, (struct xwindow *));
-static void FDECL(select_all, (struct xwindow *));
-static void FDECL(select_none, (struct xwindow *));
-static void FDECL(select_match, (struct xwindow *, char *));
-static void FDECL(invert_all, (struct xwindow *));
-static void FDECL(invert_match, (struct xwindow *, char *));
-static void FDECL(menu_popdown, (struct xwindow *));
-static Widget FDECL(menu_create_buttons, (struct xwindow *, Widget, Widget));
-static void FDECL(menu_create_entries, (struct xwindow *, struct menu *));
-static void FDECL(destroy_menu_entry_widgets, (struct xwindow *));
-static void NDECL(create_menu_translation_tables);
+static void menu_size_change_handler(Widget, XtPointer, XEvent *,
+                                     Boolean *);
+static void menu_select(Widget, XtPointer, XtPointer);
+static void invert_line(struct xwindow *, x11_menu_item *, int, long);
+static void menu_ok(Widget, XtPointer, XtPointer);
+static void menu_cancel(Widget, XtPointer, XtPointer);
+static void menu_all(Widget, XtPointer, XtPointer);
+static void menu_none(Widget, XtPointer, XtPointer);
+static void menu_invert(Widget, XtPointer, XtPointer);
+static void menu_search(Widget, XtPointer, XtPointer);
+static void search_menu(struct xwindow *);
+static void select_all(struct xwindow *);
+static void select_none(struct xwindow *);
+static void select_match(struct xwindow *, char *);
+static void invert_all(struct xwindow *);
+static void invert_match(struct xwindow *, char *);
+static void menu_popdown(struct xwindow *);
+static unsigned menu_scrollmask(struct xwindow *);
+static void menu_unscroll(struct xwindow *);
+static Widget menu_create_buttons(struct xwindow *, Widget, Widget);
+static void menu_create_entries(struct xwindow *, struct menu *);
+static void destroy_menu_entry_widgets(struct xwindow *);
+static void create_menu_translation_tables(void);
 
-static void FDECL(move_menu, (struct menu *, struct menu *));
-static void FDECL(free_menu_line_entries, (struct menu *));
-static void FDECL(free_menu, (struct menu *));
-static void FDECL(reset_menu_to_default, (struct menu *));
-static void FDECL(clear_old_menu, (struct xwindow *));
-static char *FDECL(copy_of, (const char *));
+static void move_menu(struct menu *, struct menu *);
+static void free_menu_line_entries(struct menu *);
+static void free_menu(struct menu *);
+static void reset_menu_to_default(struct menu *);
+static void clear_old_menu(struct xwindow *);
+static char *copy_of(const char *);
 
 #define reset_menu_count(mi) ((mi)->counting = FALSE, (mi)->menu_count = 0L)
 
@@ -84,7 +90,7 @@ XtTranslations menu_translation_table = (XtTranslations) 0;
 XtTranslations menu_del_translation_table = (XtTranslations) 0;
 
 static void
-create_menu_translation_tables()
+create_menu_translation_tables(void)
 {
     if (!menu_translation_table) {
         menu_translation_table = XtParseTranslationTable(menu_translations);
@@ -97,11 +103,7 @@ create_menu_translation_tables()
 
 /*ARGSUSED*/
 static void
-menu_size_change_handler(w, ptr, event, flag)
-Widget w;
-XtPointer ptr;
-XEvent *event;
-Boolean *flag;
+menu_size_change_handler(Widget w, XtPointer ptr, XEvent *event, Boolean *flag)
 {
     struct xwindow *wp = (struct xwindow *) ptr;
 
@@ -127,9 +129,7 @@ Boolean *flag;
  */
 /* ARGSUSED */
 static void
-menu_select(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+menu_select(Widget w, XtPointer client_data, XtPointer call_data)
 {
     struct menu_info_t *menu_info;
     long how_many;
@@ -178,11 +178,7 @@ XtPointer client_data, call_data;
  */
 /* ARGSUSED */
 void
-menu_delete(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+menu_delete(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     nhUse(event);
     nhUse(params);
@@ -196,11 +192,7 @@ Cardinal *num_params;
  */
 /*ARGSUSED*/
 static void
-invert_line(wp, curr, which, how_many)
-struct xwindow *wp;
-x11_menu_item *curr;
-int which;
-long how_many;
+invert_line(struct xwindow *wp, x11_menu_item *curr, int which, long how_many)
 {
     Arg args[2];
 
@@ -224,23 +216,23 @@ long how_many;
     }
 }
 
+static XEvent fake_perminv_event;
+
 /*
  * Called when we get a key press event on a menu window.
  */
 /* ARGSUSED */
 void
-menu_key(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+menu_key(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     struct menu_info_t *menu_info;
     x11_menu_item *curr;
     struct xwindow *wp;
+    Widget hbar, vbar;
     char ch;
     int count;
-    boolean selected_something;
+    boolean selected_something,
+            perminv_scrolling = (event == &fake_perminv_event);
 
     nhUse(params);
     nhUse(num_params);
@@ -248,7 +240,10 @@ Cardinal *num_params;
     wp = find_widget(w);
     menu_info = wp->menu_information;
 
-    ch = key_event_to_char((XKeyEvent *) event);
+    if (!perminv_scrolling)
+        ch = key_event_to_char((XKeyEvent *) event);
+    else
+        ch = (char) fake_perminv_event.type;
 
     if (ch == '\0') { /* don't accept nul char/modifier event */
         /* don't beep */
@@ -256,17 +251,19 @@ Cardinal *num_params;
     }
 
     /* don't exclude PICK_NONE menus; doing so disables scrolling via keys */
-    if (menu_info->is_active) { /* waiting for input */
+    if (menu_info->is_active || perminv_scrolling) { /* handle the input */
         /* first check for an explicit selector match, so that it won't be
            overridden if it happens to duplicate a mapped menu command (':'
-           to look inside a container vs ':' to select via search string) */
+           to look inside a container vs ':' to select via search string);
+           check for group accelerator match too */
         for (curr = menu_info->curr_menu.base; curr; curr = curr->next)
-            if (curr->identifier.a_void != 0 && curr->selector == ch)
+            if (curr->identifier.a_void != 0
+                && (curr->selector == ch || curr->gselector == ch))
                 goto make_selection;
 
         ch = map_menu_cmd(ch);
         if (ch == '\033') { /* quit */
-            if (menu_info->counting) {
+            if (menu_info->counting || perminv_scrolling) {
                 /* when there's a count in progress, ESC discards it
                    rather than dismissing the whole menu */
                 reset_menu_count(menu_info);
@@ -274,11 +271,17 @@ Cardinal *num_params;
             }
             select_none(wp);
         } else if (ch == '\n' || ch == '\r') {
+            if (perminv_scrolling) {
+                menu_unscroll(wp);
+                return; /* skip menu_popdown() */
+            }
             ; /* accept */
         } else if (digit(ch)) {
-            /* special case: '0' is also the default ball class */
-            if (ch == '0' && !menu_info->counting
-                && index(menu_info->curr_menu.gacc, ch))
+            /* special case: '0' is also the default ball class;
+               some menus use digits as potential group accelerators
+               but their entries don't rely on counts */
+            if (!menu_info->counting
+                && strchr(menu_info->curr_menu.gacc, ch))
                 goto group_accel;
             menu_info->menu_count *= 10L;
             menu_info->menu_count += (long) (ch - '0');
@@ -308,30 +311,41 @@ Cardinal *num_params;
                 X11_nhbell();
             return;
         } else if (ch == MENU_FIRST_PAGE || ch == MENU_LAST_PAGE) {
-            Widget hbar = (Widget) 0, vbar = (Widget) 0;
             float top = (ch == MENU_FIRST_PAGE) ? 0.0 : 1.0;
 
-            find_scrollbars(wp->w, &hbar, &vbar);
+            find_scrollbars(wp->w, wp->popup, &hbar, &vbar);
             if (vbar)
                 XtCallCallbacks(vbar, XtNjumpProc, &top);
             return;
         } else if (ch == MENU_NEXT_PAGE || ch == MENU_PREVIOUS_PAGE) {
-            Widget hbar = (Widget) 0, vbar = (Widget) 0;
-
-            find_scrollbars(wp->w, &hbar, &vbar);
+            find_scrollbars(wp->w, wp->popup, &hbar, &vbar);
             if (vbar) {
                 float shown, top;
                 Arg arg[2];
+
                 XtSetArg(arg[0], nhStr(XtNshown), &shown);
                 XtSetArg(arg[1], nhStr(XtNtopOfThumb), &top);
                 XtGetValues(vbar, arg, TWO);
                 top += ((ch == MENU_NEXT_PAGE) ? shown : -shown);
-                if (vbar)
-                    XtCallCallbacks(vbar, XtNjumpProc, &top);
+                XtCallCallbacks(vbar, XtNjumpProc, &top);
             }
             return;
-        } else if (index(menu_info->curr_menu.gacc, ch)) {
-        group_accel:
+        } else if (ch == MENU_SHIFT_RIGHT || ch == MENU_SHIFT_LEFT) {
+            find_scrollbars(wp->w, wp->popup, &hbar, &vbar);
+            if (hbar) {
+                float shown, halfshown, left;
+                Arg arg[2];
+
+                XtSetArg(arg[0], nhStr(XtNshown), &shown);
+                XtSetArg(arg[1], nhStr(XtNtopOfThumb), &left);
+                XtGetValues(hbar, arg, TWO);
+                halfshown = shown * 0.5;
+                left += ((ch == MENU_SHIFT_RIGHT) ? halfshown : -halfshown);
+                XtCallCallbacks(hbar, XtNjumpProc, &left);
+            }
+            return;
+        } else if (strchr(menu_info->curr_menu.gacc, ch)) {
+ group_accel:
             /* matched a group accelerator */
             if (menu_info->how == PICK_ANY || menu_info->how == PICK_ONE) {
                 for (count = 0, curr = menu_info->curr_menu.base; curr;
@@ -350,11 +364,12 @@ Cardinal *num_params;
                 X11_nhbell();
             return;
         } else {
-        make_selection:
+ make_selection:
             selected_something = FALSE;
             for (count = 0, curr = menu_info->curr_menu.base; curr;
                  curr = curr->next, count++)
-                if (curr->identifier.a_void != 0 && curr->selector == ch)
+                if (curr->identifier.a_void != 0
+                    && (curr->selector == ch || curr->gselector == ch))
                     break;
 
             if (curr) {
@@ -376,15 +391,13 @@ Cardinal *num_params;
         /* pop down on ESC */
     }
 
-menu_done:
+ menu_done:
     menu_popdown(wp);
 }
 
 /* ARGSUSED */
 static void
-menu_ok(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+menu_ok(Widget w, XtPointer client_data, XtPointer call_data)
 {
     struct xwindow *wp = (struct xwindow *) client_data;
 
@@ -396,9 +409,8 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-menu_cancel(w, client_data, call_data)
-Widget w; /* don't use - may be None */
-XtPointer client_data, call_data;
+menu_cancel(Widget w, /* don't use - may be None */
+            XtPointer client_data, XtPointer call_data)
 {
     struct xwindow *wp = (struct xwindow *) client_data;
 
@@ -414,9 +426,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-menu_all(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+menu_all(Widget w, XtPointer client_data, XtPointer call_data)
 {
     nhUse(w);
     nhUse(call_data);
@@ -426,9 +436,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-menu_none(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+menu_none(Widget w, XtPointer client_data, XtPointer call_data)
 {
     nhUse(w);
     nhUse(call_data);
@@ -438,9 +446,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-menu_invert(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+menu_invert(Widget w, XtPointer client_data, XtPointer call_data)
 {
     nhUse(w);
     nhUse(call_data);
@@ -450,9 +456,7 @@ XtPointer client_data, call_data;
 
 /* ARGSUSED */
 static void
-menu_search(w, client_data, call_data)
-Widget w;
-XtPointer client_data, call_data;
+menu_search(Widget w, XtPointer client_data, XtPointer call_data)
 {
     struct xwindow *wp = (struct xwindow *) client_data;
     struct menu_info_t *menu_info = wp->menu_information;
@@ -467,8 +471,7 @@ XtPointer client_data, call_data;
 
 /* common to menu_search and menu_key */
 static void
-search_menu(wp)
-struct xwindow *wp;
+search_menu(struct xwindow *wp)
 {
     char *pat, buf[BUFSZ + 2]; /* room for '*' + BUFSZ-1 + '*' + '\0' */
     struct menu_info_t *menu_info = wp->menu_information;
@@ -500,58 +503,65 @@ struct xwindow *wp;
 }
 
 static void
-select_all(wp)
-struct xwindow *wp;
+select_all(struct xwindow *wp)
 {
     x11_menu_item *curr;
     int count;
 
     reset_menu_count(wp->menu_information);
     for (count = 0, curr = wp->menu_information->curr_menu.base; curr;
-         curr = curr->next, count++)
-        if (curr->identifier.a_void != 0)
-            if (!curr->selected) {
-                invert_line(wp, curr, count, -1L);
-            }
-
+         curr = curr->next, count++) {
+        /* skip 'curr' if not selectable (header or such) or already
+           selected (no need to set) or rejected due to skip-invert test */
+        if (!curr->identifier.a_void
+            || curr->selected
+            || !menuitem_invert_test(1, curr->itemflags, FALSE))
+            continue;
+        invert_line(wp, curr, count, -1L);
+    }
 }
 
 static void
-select_none(wp)
-struct xwindow *wp;
+select_none(struct xwindow *wp)
 {
     x11_menu_item *curr;
     int count;
 
     reset_menu_count(wp->menu_information);
     for (count = 0, curr = wp->menu_information->curr_menu.base; curr;
-         curr = curr->next, count++)
-        if (curr->identifier.a_void != 0)
-            if (curr->selected) {
-                invert_line(wp, curr, count, -1L);
-            }
+         curr = curr->next, count++) {
+        /* skip 'curr' if not selectable (header or such) or already not
+           selected (no need to unset) or rejected due to skip-invert test */
+        if (!curr->identifier.a_void
+            || !curr->selected
+            || !menuitem_invert_test(2, curr->itemflags, TRUE))
+            continue;
+        invert_line(wp, curr, count, -1L);
+    }
 
 }
 
 static void
-invert_all(wp)
-struct xwindow *wp;
+invert_all(struct xwindow *wp)
 {
     x11_menu_item *curr;
     int count;
 
     reset_menu_count(wp->menu_information);
     for (count = 0, curr = wp->menu_information->curr_menu.base; curr;
-         curr = curr->next, count++)
-        if (curr->identifier.a_void != 0)
-            invert_line(wp, curr, count, -1L);
-
+         curr = curr->next, count++) {
+        /* skip 'curr' if not selectable (header or such)
+           or rejected due to skip-invert test */
+        if (!curr->identifier.a_void
+            || !menuitem_invert_test(0, curr->itemflags, curr->selected))
+            continue;
+        invert_line(wp, curr, count, -1L);
+    }
 }
 
 static void
-invert_match(wp, match)
-struct xwindow *wp;
-char *match; /* wildcard pattern for pmatch() */
+invert_match(struct xwindow *wp,
+             char *match) /* wildcard pattern for pmatch() */
 {
     x11_menu_item *curr;
     int count;
@@ -569,9 +579,8 @@ char *match; /* wildcard pattern for pmatch() */
 }
 
 static void
-select_match(wp, match)
-struct xwindow *wp;
-char *match; /* wildcard pattern for pmatch() */
+select_match(struct xwindow *wp,
+             char *match) /* wildcard pattern for pmatch() */
 {
     x11_menu_item *curr, *found = 0;
     int count;
@@ -596,8 +605,7 @@ char *match; /* wildcard pattern for pmatch() */
 }
 
 static void
-menu_popdown(wp)
-struct xwindow *wp;
+menu_popdown(struct xwindow *wp)
 {
     nh_XtPopdown(wp->popup); /* remove the event grab */
     XtDestroyWidget(wp->popup);
@@ -607,11 +615,163 @@ struct xwindow *wp;
     wp->menu_information->is_up = FALSE; /* menu is down */
 }
 
+/* construct a bit mask specifying which scrolling operations are allowed */
+static unsigned
+menu_scrollmask(struct xwindow *wp)
+{
+    float shown, top;
+    Arg args[2];
+    Widget hbar = (Widget) 0, vbar = (Widget) 0;
+    unsigned scrlmask = 0U;
+
+    /* set up args once, then use twice (provided that both scrollbars are
+       present); 'top' is left for horizontal scrollbar */
+    (void) memset(args, 0, sizeof args);
+    XtSetArg(args[0], nhStr(XtNshown), &shown);
+    XtSetArg(args[1], nhStr(XtNtopOfThumb), &top);
+
+    find_scrollbars(wp->w, wp->popup, &hbar, &vbar);
+    if (vbar) {
+        XtGetValues(vbar, args, TWO);
+        if (top > 0.0)
+            scrlmask |= 1U; /* not at top; can scroll up */
+        if (top + shown < 1.0)
+            scrlmask |= 2U; /* more beyond bottom; can scroll down */
+    }
+    if (hbar) {
+        XtGetValues(hbar, args, TWO);
+        if (top > 0.0)
+            scrlmask |= 4U; /* not at left edge; can scroll to left */
+        if (top + shown < 1.0)
+            scrlmask |= 8U; /* more beyond right side; can scroll to right */
+    }
+    return scrlmask;
+}
+
+/* if a menu is scrolled vertically and/horizontally, return it to the top
+   and far left */
+static void
+menu_unscroll(struct xwindow *wp)
+{
+    float top, left, zero = 0.0;
+    Arg arg;
+    Widget hbar = (Widget) 0, vbar = (Widget) 0;
+
+    find_scrollbars(wp->w, wp->popup, &hbar, &vbar);
+    if (hbar) {
+        XtSetArg(arg, nhStr(XtNtopOfThumb), &left);
+        XtGetValues(hbar, &arg, ONE);
+        if (left > 0.0)
+            XtCallCallbacks(hbar, XtNjumpProc, &zero);
+    }
+    if (vbar) {
+        XtSetArg(arg, nhStr(XtNtopOfThumb), &top);
+        XtGetValues(vbar, &arg, ONE);
+        if (top > 0.0)
+            XtCallCallbacks(vbar, XtNjumpProc, &zero);
+    }
+    return;
+}
+
 /* Global functions ======================================================= */
 
+/* called by X11_update_inventory() if persistent inventory is currently
+   displayed but the 'perm_invent' option is now Off */
 void
-X11_start_menu(window)
-winid window;
+x11_no_perminv(struct xwindow *wp)
+{
+    if (wp && wp->type == NHW_MENU && wp->menu_information->is_up) {
+        destroy_menu_entry_widgets(wp);
+        menu_popdown(wp);
+    }
+}
+
+/* called by X11_update_inventory() if user has executed #perminv command */
+void
+x11_scroll_perminv(int arg UNUSED) /* arg is always 1 */
+{
+    static const char extrakeys[] = "\033 \n\r\003\177\b";
+    char ch, menukeys[QBUFSZ];
+    boolean save_is_active;
+    unsigned scrlmask;
+    Cardinal no_args = 0;
+    struct xwindow *wp = &window_list[WIN_INVEN];
+
+    /* caller has ensured that perm_invent is enabled, but the window
+       might not be displayed; if that's the case, display it */
+    if (wp->type == NHW_MENU && !wp->menu_information->is_up)
+        X11_update_inventory(0);
+    /* if it's still not displayed for some reason, bail out now */
+    if (wp->type != NHW_MENU || !wp->menu_information->is_up) {
+        X11_nhbell();
+        return;
+    }
+
+    do {
+        scrlmask = menu_scrollmask(wp);
+        (void) collect_menu_keys(menukeys, scrlmask, FALSE);
+        /*
+         * Add quitchars plus a few others to the player's scrolling keys.
+         * We accept some extra characters that menus usually ignore:
+         * ^C will be treated like <escape>, leaving menu positioned as-is
+         * and returning to play; <delete> or <backspace> will be treated
+         * like <return> and <space>, resetting the menu to its top and
+         * returning to play; other characters will either be rejected by
+         * yn_function or stay here for scrolling.
+         */
+        Strcat(menukeys, extrakeys);
+        /* append any scrolling keys excluded by scrlmask, after the \033
+           added by extrakeys; they'll be acceptable but not shown */
+        (void) collect_menu_keys(eos(menukeys), ~scrlmask, FALSE);
+
+        /* normally the perm_invent menu is not flagged 'is_active' because
+           it doesn't accept input, so menu_popdown() doesn't set the flag
+           for the event loop to exit; force 'is_active' while this prompt
+           is in progress so that the prompt won't be left pending if
+           player closes the menu via mouse */
+        save_is_active = wp->menu_information->is_active;
+        wp->menu_information->is_active = TRUE;
+        ch = X11_yn_function_core("Inventory scroll:", menukeys,
+                                  0, (YN_NO_LOGMESG | YN_NO_DEFAULT));
+        if (wp->menu_information->is_up)
+            wp->menu_information->is_active = save_is_active;
+        else
+            ch = 0;
+
+        if (ch == C('c')) /* ^C */
+            ch = '\033';
+        else if (ch == '\177' || ch == '\b') /* <delete> or <backspace> */
+            ch = '\n';
+
+        if (ch && ch != '\033') {
+            /* in case persistent inventory window is covered, force it
+               to be on top; does not grab pointer or keyboard focus */
+            XMapRaised(XtDisplay(wp->popup), XtWindow(wp->popup));
+
+            /* the fake event never goes onto X's event queue; it is only
+               examined by menu_key(), so we shortcut the messy details in
+               favor of easy to handle union type code; might conceivably
+               confuse a sophisticated debugger so we should possibly redo
+               this to set it up properly:  event->keyevent->keycode */
+            fake_perminv_event.type = ch;
+            menu_key(wp->w, &fake_perminv_event, (String *) 0, &no_args);
+            fake_perminv_event.type = 0;
+        }
+
+        /* if yn_function() is using a popup (the 'slow=False' setting
+           in NetHack.ad) for its prompt+response and there is any
+           overlap between the persistent inventory and main windows,
+           perm_invent would be pushed behind the map every iteration of
+           this loop, so handle only one character at a time for !slow */
+        if (!appResources.slow)
+            break;
+    } while (ch && !strchr(quitchars, ch));
+
+    return;
+}
+
+void
+X11_start_menu(winid window, unsigned long mbehavior UNUSED)
 {
     struct xwindow *wp;
     check_winid(window);
@@ -619,7 +779,7 @@ winid window;
     wp = &window_list[window];
 
     if (wp->menu_information->is_menu) {
-        /* make sure we'ere starting with a clean slate */
+        /* make sure we're starting with a clean slate */
         free_menu(&wp->menu_information->new_menu);
     } else {
         wp->menu_information->is_menu = TRUE;
@@ -628,20 +788,19 @@ winid window;
 
 /*ARGSUSED*/
 void
-X11_add_menu(window, glyph, identifier, ch, gch, attr, str, preselected)
-winid window;
-int glyph; /* unused (for now) */
-const anything *identifier;
-char ch;
-char gch; /* group accelerator (0 = no group) */
-int attr;
-const char *str;
-boolean preselected;
+X11_add_menu(winid window,
+             const glyph_info *glyphinfo UNUSED,
+             const anything *identifier,
+             char ch,  /* selector letter; 0 if not selectable */
+             char gch, /* group accelerator (0 = no group) */
+             int attr,
+             int clr,
+             const char *str,
+             unsigned itemflags)
 {
     x11_menu_item *item;
     struct menu_info_t *menu_info;
-
-    nhUse(glyph);
+    boolean preselected = (itemflags & MENU_ITEMFLAGS_SELECTED) != 0;
 
     check_winid(window);
     menu_info = window_list[window].menu_information;
@@ -654,6 +813,8 @@ boolean preselected;
     item->next = (x11_menu_item *) 0;
     item->identifier = *identifier;
     item->attr = attr;
+    item->color = clr;
+    item->itemflags = itemflags;
     item->selected = item->preselected = preselected;
     item->pick_count = -1L;
     item->window = window;
@@ -705,9 +866,7 @@ boolean preselected;
 }
 
 void
-X11_end_menu(window, query)
-winid window;
-const char *query;
+X11_end_menu(winid window, const char *query)
 {
     struct menu_info_t *menu_info;
 
@@ -722,10 +881,7 @@ const char *query;
 }
 
 int
-X11_select_menu(window, how, menu_list)
-winid window;
-int how;
-menu_item **menu_list;
+X11_select_menu(winid window, int how, menu_item **menu_list)
 {
     x11_menu_item *curr;
     struct xwindow *wp;
@@ -759,7 +915,7 @@ menu_item **menu_list;
         winid newwin = X11_create_nhwindow(NHW_MENU);
         struct xwindow *nwp = &window_list[newwin];
 
-        X11_start_menu(newwin);
+        X11_start_menu(newwin, MENU_BEHAVE_STANDARD);
         move_menu(&menu_info->new_menu, &nwp->menu_information->new_menu);
         for (curr = nwp->menu_information->new_menu.base; curr;
              curr = curr->next)
@@ -792,11 +948,11 @@ menu_item **menu_list;
         if (n > 0) /* at least one group accelerator found */
             for (ap = gacc, curr = menu_info->new_menu.base; curr;
                  curr = curr->next)
-                if (curr->gselector && !index(gacc, curr->gselector)
+                if (curr->gselector && !strchr(gacc, curr->gselector)
                     && (menu_info->how == PICK_ANY
                         || gcnt[GSELIDX(curr->gselector)] == 1)) {
                     *ap++ = curr->gselector;
-                    *ap = '\0'; /* re-terminate for index() */
+                    *ap = '\0'; /* re-terminate for strchr() */
                 }
     }
     menu_info->new_menu.gacc = copy_of(gacc);
@@ -808,14 +964,9 @@ menu_item **menu_list;
 
     permi = (window == WIN_INVEN && iflags.perm_invent && how == PICK_NONE);
 
-    if (menu_info->is_up) {
-        if (!menu_info->permi) {
-            destroy_menu_entry_widgets(wp);
-            nh_XtPopdown(wp->popup);
-            XtDestroyWidget(wp->popup);
-            wp->w = wp->popup = (Widget) 0;
-            menu_info->is_up = FALSE;
-        }
+    if (menu_info->is_up && !menu_info->permi) {
+        destroy_menu_entry_widgets(wp);
+        menu_popdown(wp);
     }
 
     if (!menu_info->is_up) {
@@ -867,7 +1018,11 @@ menu_item **menu_list;
 
         num_args = 0;
         XtSetArg(args[num_args], nhStr(XtNallowVert), True); num_args++;
-        XtSetArg(args[num_args], nhStr(XtNallowHoriz), False); num_args++;
+        /* allow horizontal scroll bar for persistent inventory window;
+           it could be allowed for any menu, but when scrolled to the side
+           the selector letters aren't visible so we won't do that [yet?] */
+        XtSetArg(args[num_args], nhStr(XtNallowHoriz), permi ? True : False);
+                                                                   num_args++;
         XtSetArg(args[num_args], nhStr(XtNuseBottom), True); num_args++;
         XtSetArg(args[num_args], nhStr(XtNuseRight), True); num_args++;
 #if 0
@@ -880,10 +1035,9 @@ menu_item **menu_list;
         XtSetArg(args[num_args], nhStr(XtNright), XtChainRight); num_args++;
         XtSetArg(args[num_args], XtNtranslations,
                  menu_translation_table); num_args++;
-        viewport_widget = XtCreateManagedWidget(
-            "menu_viewport",           /* name */
-            viewportWidgetClass, form, /* parent widget */
-            args, num_args);           /* values, and number of values */
+        viewport_widget = XtCreateManagedWidget("menu_viewport",
+                                                viewportWidgetClass, form,
+                                                args, num_args);
 
         num_args = 0;
         XtSetArg(args[num_args], XtNwidth, 100);
@@ -933,7 +1087,7 @@ menu_item **menu_list;
 
     menu_info->is_up = TRUE;
     if (permi) {
-        if (permi && menu_info->permi_x != -1) {
+        if (menu_info->permi_x != -1) {
             /* Cannot set window x,y at creation time,
                we must move the window now instead */
             XMoveWindow(XtDisplay(wp->popup), XtWindow(wp->popup),
@@ -941,7 +1095,7 @@ menu_item **menu_list;
         }
         /* cant use nh_XtPopup() because it may try to grab the focus */
         XtPopup(wp->popup, (int) XtGrabNone);
-        if (permi && menu_info->permi_x == -1) {
+        if (menu_info->permi_x == -1) {
             /* remember perm_invent window geometry the first time */
             get_widget_window_geometry(wp->popup,
                                        &menu_info->permi_x,
@@ -998,8 +1152,7 @@ menu_item **menu_list;
  * zero length.
  */
 static char *
-copy_of(s)
-const char *s;
+copy_of(const char *s)
 {
     if (!s)
         s = "";
@@ -1010,9 +1163,7 @@ const char *s;
  * Create ok, cancel, all, none, invert, and search buttons.
  */
 static Widget
-menu_create_buttons(wp, form, under)
-struct xwindow *wp;
-Widget form,under;
+menu_create_buttons(struct xwindow *wp, Widget form, Widget under)
 {
     Arg args[15];
     Cardinal num_args;
@@ -1107,7 +1258,8 @@ Widget form,under;
     num_args = 0;
     XtSetArg(args[num_args], nhStr(XtNfromVert), label); num_args++;
     XtSetArg(args[num_args], nhStr(XtNfromHoriz), invert); num_args++;
-    XtSetArg(args[num_args], nhStr(XtNsensitive), how != PICK_NONE); num_args++;
+    XtSetArg(args[num_args], nhStr(XtNsensitive), how != PICK_NONE);
+                                                                   num_args++;
     XtSetArg(args[num_args], nhStr(XtNtop), XtChainTop); num_args++;
     XtSetArg(args[num_args], nhStr(XtNbottom), XtChainTop); num_args++;
     XtSetArg(args[num_args], nhStr(XtNleft), XtChainLeft); num_args++;
@@ -1134,9 +1286,7 @@ Widget form,under;
 }
 
 static void
-menu_create_entries(wp, curr_menu)
-struct xwindow *wp;
-struct menu *curr_menu;
+menu_create_entries(struct xwindow *wp, struct menu *curr_menu)
 {
     x11_menu_item *curr;
     int menulineidx = 0;
@@ -1144,6 +1294,7 @@ struct menu *curr_menu;
     int how = wp->menu_information->how;
     Arg args[15];
     Cardinal num_args;
+    Dimension cwidth, maxwidth = 0;
 
     for (curr = curr_menu->base; curr; curr = curr->next) {
         char tmpbuf[BUFSZ];
@@ -1155,6 +1306,7 @@ struct menu *curr_menu;
 
         num_args = 0;
         XtSetArg(args[num_args], nhStr(XtNlabel), str); num_args++;
+        XtSetArg(args[num_args], nhStr(XtNjustify), XtJustifyLeft); num_args++;
         XtSetArg(args[num_args], nhStr(XtNleft), XtChainLeft); num_args++;
         XtSetArg(args[num_args], nhStr(XtNright), XtChainLeft); num_args++;
         XtSetArg(args[num_args], nhStr(XtNtop), XtChainTop); num_args++;
@@ -1162,9 +1314,9 @@ struct menu *curr_menu;
         XtSetArg(args[num_args], nhStr(XtNborderWidth), 0); num_args++;
         XtSetArg(args[num_args], nhStr(XtNvertDistance), 0); num_args++;
 
-        if (!iflags.use_menu_color || wp->menu_information->disable_mcolors
-            || !get_menu_coloring(curr->str, &color, &attr))
-            attr = curr->attr;
+        attr = curr->attr;
+        if (!wp->menu_information->disable_mcolors)
+            color = curr->color;
 
         if (color != NO_COLOR) {
             if (attr != ATR_INVERSE)
@@ -1182,7 +1334,8 @@ struct menu *curr_menu;
         }
 
         if (menulineidx) {
-            XtSetArg(args[num_args], nhStr(XtNfromVert), prevlinewidget); num_args++;
+            XtSetArg(args[num_args], nhStr(XtNfromVert), prevlinewidget);
+                                                                   num_args++;
         } else {
             XtSetArg(args[num_args], nhStr(XtNtop), XtChainTop); num_args++;
         }
@@ -1210,12 +1363,27 @@ struct menu *curr_menu;
             XtAddCallback(linewidget, XtNcallback, menu_select,
                           (XtPointer) curr);
         prevlinewidget = linewidget;
+
+        if (canpick) {
+            /* get the current line width */
+            XtSetArg(args[0], XtNwidth, &cwidth);
+            XtGetValues(curr->w, args, ONE);
+            if (maxwidth < cwidth)
+                maxwidth = cwidth;
+        }
+    }
+
+    /* set all selectable menu entries to the maximum width */
+    if (how != PICK_NONE) {
+        XtSetArg(args[0], XtNwidth, maxwidth);
+        for (curr = curr_menu->base; curr; curr = curr->next)
+            if (curr->identifier.a_void)
+                XtSetValues(curr->w, args, ONE);
     }
 }
 
 static void
-destroy_menu_entry_widgets(wp)
-struct xwindow *wp;
+destroy_menu_entry_widgets(struct xwindow *wp)
 {
     WidgetList wlist;
     Cardinal numchild;
@@ -1239,8 +1407,7 @@ struct xwindow *wp;
 }
 
 static void
-move_menu(src_menu, dest_menu)
-struct menu *src_menu, *dest_menu;
+move_menu(struct menu *src_menu, struct menu *dest_menu)
 {
     free_menu(dest_menu);   /* toss old menu */
     *dest_menu = *src_menu; /* make new menu current */
@@ -1249,8 +1416,7 @@ struct menu *src_menu, *dest_menu;
 }
 
 static void
-free_menu_line_entries(mp)
-struct menu *mp;
+free_menu_line_entries(struct menu *mp)
 {
     /* We're not freeing menu entry widgets here, but let XtDestroyWidget()
        on the parent widget take care of that */
@@ -1263,8 +1429,7 @@ struct menu *mp;
 }
 
 static void
-free_menu(mp)
-struct menu *mp;
+free_menu(struct menu *mp)
 {
     free_menu_line_entries(mp);
     if (mp->query)
@@ -1275,8 +1440,7 @@ struct menu *mp;
 }
 
 static void
-reset_menu_to_default(mp)
-struct menu *mp;
+reset_menu_to_default(struct menu *mp)
 {
     mp->base = mp->last = (x11_menu_item *) 0;
     mp->query = (const char *) 0;
@@ -1286,8 +1450,7 @@ struct menu *mp;
 }
 
 static void
-clear_old_menu(wp)
-struct xwindow *wp;
+clear_old_menu(struct xwindow *wp)
 {
     struct menu_info_t *menu_info = wp->menu_information;
 
@@ -1303,8 +1466,7 @@ struct xwindow *wp;
 }
 
 void
-create_menu_window(wp)
-struct xwindow *wp;
+create_menu_window(struct xwindow *wp)
 {
     wp->type = NHW_MENU;
     wp->menu_information =
@@ -1322,8 +1484,7 @@ struct xwindow *wp;
 }
 
 void
-destroy_menu_window(wp)
-struct xwindow *wp;
+destroy_menu_window(struct xwindow *wp)
 {
     clear_old_menu(wp); /* this will also destroy the widgets */
     free((genericptr_t) wp->menu_information);

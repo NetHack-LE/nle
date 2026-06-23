@@ -44,7 +44,7 @@
  *    + Include nethack's lint.h to get nhStr() macro.
  *    + Use nhStr() on string literals (or macros from <X11/StringDefs.h>
  *      that hide string literals) to cast away implicit 'const' in order
- *      to suppress "warning: assignment discards qualifers from pointer
+ *      to suppress "warning: assignment discards qualifiers from pointer
  *      target type" issued by 'gcc -Wwrite-strings' as used by nethack.
  *      (For this file, always the second parameter to XtSetArg().)
  *
@@ -77,8 +77,12 @@
 #undef PRESERVE_NO_SYSV
 #endif
 
+#define X11_BUILD
 #include "config.h" /* #define for const for non __STDC__ compilers */
+#undef X11_BUILD
+
 #include "lint.h"   /* for nethack's nhStr() macro */
+#include "winX.h"   /* to make sure prototypes match corresponding functions */
 
 /* ":" added to both translations below to allow limited redefining of
  * keysyms before testing for keysym values -- dlc */
@@ -96,11 +100,8 @@ static const char cancel_accelerators[] = "#override\n\
  *      an optional cancel button
  */
 Widget
-CreateDialog(parent, name, okay_callback, cancel_callback)
-Widget parent;
-String name;
-XtCallbackProc okay_callback;
-XtCallbackProc cancel_callback;
+CreateDialog(Widget parent, String name, XtCallbackProc okay_callback,
+             XtCallbackProc cancel_callback)
 {
     Widget form, prompt, response, okay, cancel;
     Arg args[20];
@@ -217,8 +218,7 @@ XtCallbackProc cancel_callback;
 /* get the prompt from the dialog box.  Used a startup time to
  * save away the initial prompt */
 String
-GetDialogPrompt(w)
-    Widget w;
+GetDialogPrompt(Widget w)
 {
     Arg args[1];
     Widget label;
@@ -233,9 +233,7 @@ GetDialogPrompt(w)
 
 /* set the prompt.  This is used to put error information in the prompt */
 void
-SetDialogPrompt(w, newprompt)
-Widget w;
-String newprompt;
+SetDialogPrompt(Widget w, String newprompt)
 {
     Arg args[1];
     Widget label;
@@ -247,8 +245,7 @@ String newprompt;
 
 /* get what the user typed; caller must free the response */
 String
-GetDialogResponse(w)
-Widget w;
+GetDialogResponse(Widget w)
 {
     Arg args[1];
     Widget response;
@@ -260,12 +257,9 @@ Widget w;
     return XtNewString(s);
 }
 
-/* set the default reponse */
+/* set the default response */
 void
-SetDialogResponse(w, s, ln)
-Widget w;
-String s;
-unsigned ln;
+SetDialogResponse(Widget w, String s, unsigned ln)
 {
     Arg args[4];
     Widget response;
@@ -295,8 +289,7 @@ unsigned ln;
 #if 0
 /* clear the response */
 void
-ClearDialogResponse(w)
-    Widget w;
+ClearDialogResponse(Widget w)
 {
     Arg args[2];
     Widget response;
@@ -312,9 +305,7 @@ ClearDialogResponse(w)
 
 /* position popup window under the cursor */
 void
-positionpopup(w, bottom)
-Widget w;
-boolean bottom; /* position y on bottom? */
+positionpopup(Widget w, boolean bottom) /* position y on bottom? */
 {
     Arg args[3];
     Cardinal num_args;

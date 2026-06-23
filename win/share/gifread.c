@@ -20,7 +20,7 @@
 #include "tile.h"
 
 #ifndef MONITOR_HEAP
-extern long *FDECL(alloc, (unsigned int));
+extern long *alloc(unsigned int);
 #endif
 
 #define PPM_ASSIGN(p, red, grn, blu) \
@@ -65,24 +65,22 @@ static int tiles_across, tiles_down, curr_tiles_across, curr_tiles_down;
 static pixel **image;
 static unsigned char input_code_size;
 
-static int FDECL(GetDataBlock, (FILE * fd, unsigned char *buf));
-static void FDECL(DoExtension, (FILE * fd, int label));
-static boolean FDECL(ReadColorMap, (FILE * fd, int number));
-static void FDECL(read_header, (FILE * fd));
-static int FDECL(GetCode, (FILE * fd, int code_size, int flag));
-static int FDECL(LWZReadByte, (FILE * fd, int flag, int input_code_size));
-static void FDECL(ReadInterleavedImage, (FILE * fd, int len, int height));
-static void FDECL(ReadTileStrip, (FILE * fd, int len));
+static int GetDataBlock(FILE * fd, unsigned char *buf);
+static void DoExtension(FILE * fd, int label);
+static boolean ReadColorMap(FILE * fd, int number);
+static void read_header(FILE * fd);
+static int GetCode(FILE * fd, int code_size, int flag);
+static int LWZReadByte(FILE * fd, int flag); /*, int input_code_size);*/
+static void ReadInterleavedImage(FILE * fd, int len, int height);
+static void ReadTileStrip(FILE * fd, int len);
 
 /* These should be in gif.h, but there isn't one. */
-boolean FDECL(fopen_gif_file, (const char *, const char *));
-boolean FDECL(read_gif_tile, (pixel(*) [TILE_X]));
-int NDECL(fclose_gif_file);
+boolean fopen_gif_file(const char *, const char *);
+boolean read_gif_tile(pixel(*) [TILE_X]);
+int fclose_gif_file(void);
 
 static int
-GetDataBlock(fd, buf)
-FILE *fd;
-unsigned char *buf;
+GetDataBlock(FILE *fd, unsigned char *buf)
 {
     unsigned char count;
 
@@ -102,12 +100,10 @@ unsigned char *buf;
 }
 
 static void
-DoExtension(fd, label)
-FILE *fd;
-int label;
+DoExtension(FILE *fd, int label)
 {
     static char buf[256];
-    char *str;
+    const char *str;
 
     switch (label) {
     case 0x01: /* Plain Text Extension */
@@ -169,9 +165,7 @@ int label;
 }
 
 static boolean
-ReadColorMap(fd, number)
-FILE *fd;
-int number;
+ReadColorMap(FILE *fd, int number)
 {
     int i;
     unsigned char rgb[3];
@@ -194,8 +188,7 @@ int number;
  * file, so if that image has a local colormap, overwrite the global one.
  */
 static void
-read_header(fd)
-FILE *fd;
+read_header(FILE *fd)
 {
     unsigned char buf[16];
     unsigned char c;
@@ -294,10 +287,7 @@ FILE *fd;
 }
 
 static int
-GetCode(fd, code_size, flag)
-FILE *fd;
-int code_size;
-int flag;
+GetCode(FILE *fd, int code_size, int flag)
 {
     static unsigned char buf[280];
     static int curbit, lastbit, done, last_byte;
@@ -338,10 +328,7 @@ int flag;
 }
 
 static int
-LWZReadByte(fd, flag, input_code_size)
-FILE *fd;
-int flag;
-int input_code_size;
+LWZReadByte(FILE *fd, int flag) /*, int input_code_size)*/
 {
     static int fresh = FALSE;
     int code, incode;
@@ -351,7 +338,7 @@ int input_code_size;
     static int clear_code, end_code;
     static int table[2][(1 << MAX_LWZ_BITS)];
     static int stack[(1 << (MAX_LWZ_BITS)) * 2], *sp;
-    register int i;
+    int i;
 
     if (flag) {
         set_code_size = input_code_size;
@@ -454,14 +441,12 @@ int input_code_size;
 }
 
 static void
-ReadInterleavedImage(fd, len, height)
-FILE *fd;
-int len, height;
+ReadInterleavedImage(FILE *fd, int len, int height)
 {
     int v;
     int xpos = 0, ypos = 0, pass = 0;
 
-    while ((v = LWZReadByte(fd, FALSE, (int) input_code_size)) >= 0) {
+    while ((v = LWZReadByte(fd, FALSE /*, (int) input_code_size*/ )) >= 0) {
         PPM_ASSIGN(image[ypos][xpos], ColorMap[CM_RED][v],
                    ColorMap[CM_GREEN][v], ColorMap[CM_BLUE][v]);
 
@@ -502,20 +487,18 @@ int len, height;
             break;
     }
 
-fini:
-    if (LWZReadByte(fd, FALSE, (int) input_code_size) >= 0)
+ fini:
+    if (LWZReadByte(fd, FALSE /*, (int) input_code_size*/ ) >= 0)
         Fprintf(stderr, "too much input data, ignoring extra...\n");
 }
 
 static void
-ReadTileStrip(fd, len)
-FILE *fd;
-int len;
+ReadTileStrip(FILE *fd, int len)
 {
     int v;
     int xpos = 0, ypos = 0;
 
-    while ((v = LWZReadByte(fd, FALSE, (int) input_code_size)) >= 0) {
+    while ((v = LWZReadByte(fd, FALSE /*, (int) input_code_size*/ )) >= 0) {
         PPM_ASSIGN(image[ypos][xpos], ColorMap[CM_RED][v],
                    ColorMap[CM_GREEN][v], ColorMap[CM_BLUE][v]);
 
@@ -530,9 +513,7 @@ int len;
 }
 
 boolean
-fopen_gif_file(filename, type)
-const char *filename;
-const char *type;
+fopen_gif_file(const char *filename, const char *type)
 {
     int i;
 
@@ -583,7 +564,7 @@ const char *type;
         exit(EXIT_FAILURE);
     }
 
-    if (LWZReadByte(gif_file, TRUE, (int) input_code_size) < 0) {
+    if (LWZReadByte(gif_file, TRUE /*, (int) input_code_size*/ ) < 0) {
         Fprintf(stderr, "error reading image\n");
         exit(EXIT_FAILURE);
     }
@@ -599,8 +580,7 @@ const char *type;
 
 /* Read a tile.  Returns FALSE when there are no more tiles */
 boolean
-read_gif_tile(pixels)
-pixel (*pixels)[TILE_X];
+read_gif_tile(pixel (*pixels)[TILE_X])
 {
     int i, j;
 
@@ -646,7 +626,7 @@ pixel (*pixels)[TILE_X];
 }
 
 int
-fclose_gif_file()
+fclose_gif_file(void)
 {
     int i;
 
@@ -665,20 +645,21 @@ fclose_gif_file()
 }
 
 #ifndef AMIGA
-static char *std_args[] = { "tilemap", /* dummy argv[0] */
-                            "monsters.gif", "monsters.txt", "objects.gif",
-                            "objects.txt",  "other.gif",    "other.txt" };
+static const char *const std_args[] = {
+    "tilemap", /* dummy argv[0] */
+    "monsters.gif", "monsters.txt",
+    "objects.gif",  "objects.txt",
+    "other.gif",    "other.txt",
+};
 
 int
-main(argc, argv)
-int argc;
-char *argv[];
+main(int argc, char *argv[])
 {
     pixel pixels[TILE_Y][TILE_X];
 
     if (argc == 1) {
         argc = SIZE(std_args);
-        argv = std_args;
+        argv = (char **) std_args;
     } else if (argc != 3) {
         Fprintf(stderr, "usage: gif2txt giffile txtfile\n");
         exit(EXIT_FAILURE);

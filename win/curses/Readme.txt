@@ -3,9 +3,9 @@ INTRO
 
 The "curses" windowport is a new text-based interface for NetHack,
 using high-level curses routines to control the display.  Currently, it
-has been compiled and tested on Linux and Windows, but it should also
-be portable to a number of other systems, such as other forms of UNIX,
-Mac OS X, MSDOS, and OS/2.
+has been compiled and tested on Linux, macOS, Windows, and msdos, but it
+should also be portable to a number of other systems, such as other
+forms of UNIX and OS/2.
 
 Some features of this interface compared to the traditional tty
 interface include:
@@ -22,25 +22,25 @@ interface include:
 BUILDING
 ========
 
-As of this writing code has been compiled on Linux and Windows.
+UNIX/Linux/macOS build instructions:
 
-UNIX/Linux build instructions: Follow the instructions in
+Follow the instructions in
 sys/unix/Install.unx.  By default, the Makefile is setup to compile
 against ncurses.  Edit Makefile.src if you wish to compile against a
 different curses library, such as PDCurses for SDL.
+See sys/unix/NewInstall.unx for more information about building
+NetHack 5.0 and above.
 
-Windows build instructions: If you are using Mingw32 as your compiler,
-then follow the instructions in sys/winnt/Install.nt with the following
-changes:
+Windows build instructions:
 
- * After running nhsetup, manually copy the file cursmake.gcc to the
- src/ subdirectory
- * Instead of typing "mingw32-make -f Makefile.gcc install" you will
- type "mingw32-make -f cursmake.gcc install"
+By default, the Makefile.nmake and GNUmakefile are set up to build
+curses from the submodules/pdcurses submodules folder (assumes you
+obtained your NetHack sources via cloning a git repository),
+If you obtained your NetHack by another means, such as a zip download,
+follow the instructions in sys/windows/Install.windows.
 
 If you are using a different compiler, you will have to manually modify
 the appropriate Makefile to include the curses windowport files.
-
 
 GAMEPLAY
 ========
@@ -50,11 +50,11 @@ differences are primarily visual.  This windowport supports dymanic
 resizing of the terminal window, so you can play with it to see how it
 looks best to you during a game.  Also, the align_status and
 align_message options may be set during the game, so you can experiment
-to see what arraingement looks best to you.
+to see what arrangement looks best to you.
 
 For menus, in addition to the normal configurable keybindings for menu
 navigation descrived in the Guidebook, you can use the right and left
-arrows to to forward or backward one page, respectively, and the home
+arrows to forward or backward one page, respectively, and the home
 and end keys to go to the first and last pages, respectively.
 
 Some configuration options that are specific to or relevant to the
@@ -105,7 +105,7 @@ CONTACT
 
 Please send any bug reports, suggestions, patches, or miscellaneous
 feedback to me (Karl Garrison) at: kgarrison@pobox.com.  Note that as
-of this writing, I only have sporatic Internet access, so I may not get
+of this writing, I only have sporadic Internet access, so I may not get
 back to you right away.
 
 Happy Hacking!

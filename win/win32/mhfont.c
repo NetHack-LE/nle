@@ -1,5 +1,5 @@
-/* NetHack 3.6	mhfont.c	$NHDT-Date: 1432512812 2015/05/25 00:13:32 $  $NHDT-Branch: master $:$NHDT-Revision: 1.23 $ */
-/* Copyright (C) 2001 by Alex Kompel 	 */
+/* NetHack 5.0	mhfont.c	$NHDT-Date: 1596498349 2020/08/03 23:45:49 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.29 $ */
+/* Copyright (C) 2001 by Alex Kompel */
 /* NetHack may be freely redistributed.  See license for details. */
 
 /* font management and such */
@@ -55,7 +55,7 @@ mswin_font_supports_unicode(HFONT hFont)
     return FALSE;
 }
 
-/* create font based on window type, charater attributes and
+/* create font based on window type, character attributes and
    window device context */
 cached_font *
 mswin_get_font(int win_type, int attr, HDC hdc, BOOL replace)
@@ -217,7 +217,7 @@ mswin_get_font(int win_type, int attr, HDC hdc, BOOL replace)
 }
 
 UINT
-mswin_charset()
+mswin_charset(void)
 {
     CHARSETINFO cis;
     if (SYMHANDLING(H_IBM))

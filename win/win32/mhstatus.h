@@ -1,4 +1,4 @@
-/* NetHack 3.6	mhstatus.h	$NHDT-Date: 1432512812 2015/05/25 00:13:32 $  $NHDT-Branch: master $:$NHDT-Revision: 1.10 $ */
+/* NetHack 5.0	mhstatus.h	$NHDT-Date: 1596498361 2020/08/03 23:46:01 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.15 $ */
 /* Copyright (C) 2001 by Alex Kompel 	 */
 /* NetHack may be freely redistributed.  See license for details. */
 
@@ -17,11 +17,13 @@ static const int fieldorder2[] = { BL_LEVELDESC, BL_GOLD,      BL_HP,   BL_HPMAX
                              BL_ENE,       BL_ENEMAX,    BL_AC,   BL_XP,
                              BL_EXP,       BL_HD,        BL_TIME, BL_HUNGER,
                              BL_CAP,       BL_CONDITION, -1 };
+#ifdef MSWPROC_C
 static const int *fieldorders[] = { fieldorder1, fieldorder2, NULL };
+#endif
 static const int fieldcounts[NHSW_LINES] = { SIZE(fieldorder1) - 1, SIZE(fieldorder2) - 1};
 
 #define MSWIN_MAX_LINE1_STRINGS (SIZE(fieldorder1) - 1)
-#define MSWIN_MAX_LINE2_STRINGS (SIZE(fieldorder2) - 1 + BL_MASK_BITS)
+#define MSWIN_MAX_LINE2_STRINGS (SIZE(fieldorder2) - 1 + CONDITION_COUNT)
 #define MSWIN_MAX_LINE_STRINGS (MSWIN_MAX_LINE1_STRINGS > MSWIN_MAX_LINE2_STRINGS ? \
                                 MSWIN_MAX_LINE1_STRINGS : MSWIN_MAX_LINE2_STRINGS)
 

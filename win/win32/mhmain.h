@@ -1,11 +1,11 @@
-/* NetHack 3.6	mhmain.h	$NHDT-Date: 1432512811 2015/05/25 00:13:31 $  $NHDT-Branch: master $:$NHDT-Revision: 1.14 $ */
+/* NetHack 5.0	mhmain.h	$NHDT-Date: 1596498352 2020/08/03 23:45:52 $  $NHDT-Branch: NetHack-3.7 $:$NHDT-Revision: 1.15 $ */
 /* Copyright (C) 2001 by Alex Kompel 	 */
 /* NetHack may be freely redistributed.  See license for details. */
 
 #ifndef MSWINMainWindow_h
 #define MSWINMainWindow_h
 
-/* this is a main appliation window */
+/* this is a main application window */
 
 #include "winMS.h"
 

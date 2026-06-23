@@ -1,8 +1,8 @@
-/* NetHack 3.6    winhack.c    $NHDT-Date: 1449488876 2015/12/07 11:47:56 $  $NHDT-Branch: NetHack-3.6.0 $:$NHDT-Revision: 1.44 $ */
+/* NetHack 5.0    NetHackW.c    $NHDT-Date: 1693359674 2023/08/30 01:41:14 $  $NHDT-Branch: keni-crashweb2 $:$NHDT-Revision: 1.79 $ */
 /* Copyright (C) 2001 by Alex Kompel      */
 /* NetHack may be freely redistributed.  See license for details. */
 
-// winhack.cpp : Defines the entry point for the application.
+// NetHackW.cpp : Defines the entry point for the application.
 //
 
 #include "win10.h"
@@ -14,10 +14,6 @@
 #include "resource.h"
 #include "mhmain.h"
 #include "mhmap.h"
-
-#if !defined(SAFEPROCS)
-#error You must #define SAFEPROCS to build winhack.c
-#endif
 
 /* Borland and MinGW redefine "boolean" in shlwapi.h,
    so just use the little bit we need */
@@ -53,7 +49,6 @@ Version     _WIN_32IE   Platform/IE
 /*#define COMCTL_URL
  * "http://www.microsoft.com/msdownload/ieplatform/ie/comctrlx86.asp"*/
 
-extern void FDECL(nethack_exit, (int));
 static TCHAR *_get_cmd_arg(TCHAR *pCmdLine);
 static HRESULT GetComCtlVersion(LPDWORD pdwMajor, LPDWORD pdwMinor);
 BOOL WINAPI
@@ -63,7 +58,7 @@ _nhapply_image_transparent(HDC hDC, int x, int y, int width, int height,
 
 // Global Variables:
 NHWinApp _nethack_app;
-extern int GUILaunched;     /* We tell shared startup code in windmain.c
+int GUILaunched = TRUE;     /* We tell shared startup code in windmain.c
                                that the GUI was launched via this */
 
 #ifdef __BORLANDC__
@@ -71,11 +66,16 @@ extern int GUILaunched;     /* We tell shared startup code in windmain.c
 #define _strdup(s1) strdup(s1)
 #endif
 
-// Foward declarations of functions included in this code module:
-extern boolean FDECL(main, (int, char **));
-static void __cdecl mswin_moveloop(void *);
-
 #define MAX_CMDLINE_PARAM 255
+
+#ifdef _MSC_VER
+#pragma warning( push )
+#pragma warning( disable : 28251)
+#endif
+
+extern int nethackw_main(int argc, char *argv[]);
+
+static char *argv[MAX_CMDLINE_PARAM];
 
 int APIENTRY
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
@@ -83,7 +83,6 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 {
     INITCOMMONCONTROLSEX InitCtrls;
     int argc;
-    char *argv[MAX_CMDLINE_PARAM];
     size_t len;
     TCHAR *p;
     TCHAR wbuf[BUFSZ];
@@ -96,34 +95,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
     UNREFERENCED_PARAMETER(lpCmdLine);
     UNREFERENCED_PARAMETER(nCmdShow);
 
-    /*
-     * Get a set of valid safe windowport function
-     * pointers during early startup initialization.
-     *
-     * When get_safe_procs is called with 0 as the param,
-     * non-functional, but safe function pointers are set
-     * for all windowport routines.
-     *
-     * When get_safe_procs is called with 1 as the param,
-     * raw_print, raw_print_bold, and wait_synch, and nhgetch
-     * are set to use C stdio routines via stdio_raw_print,
-     * stdio_raw_print_bold, stdio_wait_synch, and
-     * stdio_nhgetch.
-     */
-    windowprocs = *get_safe_procs(0);
-
-    /*
-     * Now we are going to override a couple
-     * of the windowprocs functions so that
-     * error messages are handled in a suitable
-     * way for the graphical version.
-     */
-    windowprocs.win_raw_print = mswin_raw_print;
-    windowprocs.win_raw_print_bold = mswin_raw_print_bold;
-    windowprocs.win_wait_synch = mswin_wait_synch;
-
     win10_init();
-    sys_early_init();
+    early_init(0, NULL);  /* Change as needed to support CRASHREPORT */
 
     /* init application structure */
     _nethack_app.hApp = hInstance;
@@ -158,6 +131,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
     _nethack_app.bNoHScroll = FALSE;
     _nethack_app.bNoVScroll = FALSE;
+    if (_nethack_app.saved_text)
+        free(_nethack_app.saved_text), _nethack_app.saved_text = 0;
     _nethack_app.saved_text = strdup("");
 
     _nethack_app.bAutoLayout = TRUE;
@@ -165,7 +140,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
     _nethack_app.bNoSounds = FALSE;
 
-#if 0  /* GdiTransparentBlt does not render spash bitmap for whatever reason */
+#if 0  /* GdiTransparentBlt does not render splash bitmap for whatever reason */
     /* use system-provided TransparentBlt for Win2k+ */
     ZeroMemory(&osvi, sizeof(OSVERSIONINFO));
     osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
@@ -178,21 +153,21 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
     // init controls
     if (FAILED(GetComCtlVersion(&major, &minor))) {
-        char buf[TBUFSZ];
-        Sprintf(buf, "Cannot load common control library.\n%s\n%s",
+        char buf2[TBUFSZ];
+        Sprintf(buf2, "Cannot load common control library.\n%s\n%s",
                 "For further information, refer to the installation notes at",
                 INSTALL_NOTES);
-        panic(buf);
+        panic("%s", buf2);
     }
     if (major < MIN_COMCTLMAJOR
         || (major == MIN_COMCTLMAJOR && minor < MIN_COMCTLMINOR)) {
-        char buf[TBUFSZ];
-        Sprintf(buf, "Common control library is outdated.\n%s %d.%d\n%s\n%s",
+        char buf2[TBUFSZ];
+        Sprintf(buf2, "Common control library is outdated.\n%s %d.%d\n%s\n%s",
                 "NetHack requires at least version ", MIN_COMCTLMAJOR,
                 MIN_COMCTLMINOR,
                 "For further information, refer to the installation notes at",
                 INSTALL_NOTES);
-        panic(buf);
+        panic("%s", buf2);
     }
     ZeroMemory(&InitCtrls, sizeof(InitCtrls));
     InitCtrls.dwSize = sizeof(InitCtrls);
@@ -201,34 +176,34 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
     /* get command line parameters */
     p = _get_cmd_arg(GetCommandLine());
-    p = _get_cmd_arg(NULL); /* skip first paramter - command name */
+    p = _get_cmd_arg(NULL); /* skip first parameter - command name */
     for (argc = 1; p && argc < MAX_CMDLINE_PARAM; argc++) {
         len = _tcslen(p);
         if (len > 0) {
-            argv[argc] = _strdup(NH_W2A(p, buf, BUFSZ));
+            argv[argc] = strdup(NH_W2A(p, buf, BUFSZ));
         } else {
-            argv[argc] = "";
+            argv[argc] = strdup("");
         }
         p = _get_cmd_arg(NULL);
     }
     GetModuleFileName(NULL, wbuf, BUFSZ);
-    argv[0] = _strdup(NH_W2A(wbuf, buf, BUFSZ));
+    argv[0] = strdup(NH_W2A(wbuf, buf, BUFSZ));
 
     if (argc == 2) {
         TCHAR *savefile = strdup(argv[1]);
-        TCHAR *plname;
+        TCHAR *name;
         for (p = savefile; *p && *p != '-'; p++)
             ;
         if (*p) {
             /* we found a '-' */
-            plname = p + 1;
-            for (p = plname; *p && *p != '.'; p++)
+            name = p + 1;
+            for (p = name; *p && *p != '.'; p++)
                 ;
             if (*p) {
                 if (strcmp(p + 1, "NetHack-saved-game") == 0) {
                     *p = '\0';
-                    argv[1] = "-u";
-                    argv[2] = _strdup(plname);
+                    argv[1] = strdup("-u");
+                    argv[2] = strdup(name);
                     argc = 3;
                 }
             }
@@ -236,13 +211,48 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
         free(savefile);
     }
     GUILaunched = 1;
-    /* let main do the argument processing */
-    (void) main(argc, argv);
+    /* emergency IO */
+    windowprocs.win_raw_print = mswin_raw_print;
+    windowprocs.win_raw_print_bold = mswin_raw_print_bold;
+    windowprocs.win_nhgetch = mswin_nhgetch;
+    windowprocs.win_wait_synch = mswin_wait_synch;
+
+    /* let nethackw_main do the argument processing */
+    nethackw_main(argc, argv);
+    /* not reached */
     return 0;
 }
 
+extern void free_menu_data(void);
+
+void
+free_winmain_stuff(void)
+{
+    int cnt;
+
+    for (cnt = 0; cnt < MAX_CMDLINE_PARAM; ++cnt) {
+        if (argv[cnt])
+            free((genericptr_t) argv[cnt]), argv[cnt] = 0;
+    }
+    if (_nethack_app.saved_text)
+        free((genericptr_t) _nethack_app.saved_text),
+            _nethack_app.saved_text = 0;
+    for (cnt = 0; cnt < MAXWINDOWS; ++cnt) {
+        if (windowdata[cnt].address) {
+            if (!windowdata[cnt].isstatic)
+                free(windowdata[cnt].address);
+            windowdata[cnt].address = 0;
+        }
+    }
+    free_menu_data();
+}
+
+#ifdef _MSC_VER
+#pragma warning( pop )
+#endif
+
 PNHWinApp
-GetNHApp()
+GetNHApp(void)
 {
     return &_nethack_app;
 }
@@ -288,7 +298,7 @@ _get_cmd_arg(TCHAR *pCmdLine)
     } else {
         pArgs = NULL;
     }
-
+    nhUse(bQuoted);
     return pRetArg;
 }
 
@@ -406,7 +416,7 @@ _nhapply_image_transparent(HDC hDC, int x, int y, int width, int height,
     /* Mask out the transparent colored pixels on the source image. */
     BitBlt(hdcSave, 0, 0, width, height, hdcBack, 0, 0, SRCAND);
 
-    /* XOR the source image with the beckground. */
+    /* XOR the source image with the background. */
     BitBlt(hdcMem, 0, 0, width, height, hdcSave, 0, 0, SRCPAINT);
 
     /* blt resulting image to the screen */
