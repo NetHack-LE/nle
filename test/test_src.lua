@@ -1,0 +1,142 @@
+
+-- Test different src functions
+
+local tests = {
+   makeplural = {
+      algae = "algae",
+      amoeba = "amoebae",
+      baluchitherium = "baluchitheria",
+      Bordeaux = "Bordeaux",
+      ["bunch of grapes"] = "bunches of grapes",
+      bus = "buses",
+      candelabrum = "candelabra",
+      caveman = "cavemen",
+      child = "children",
+      cookie = "cookies",
+      deer = "deer",
+      dingo = "dingoes",
+      epoch = "epochs",
+      ["Federal Bureau of Investigation"] = "Federal Bureaus of Investigation",
+      fish = "fish",
+      foot = "feet",
+      fox = "foxes",
+      fungus = "fungi",
+      gateau = "gateaux",
+      gauntlet = "gauntlets",
+      ["gauntlet of power"] = "gauntlets of power",
+      goose = "geese",
+      homunculus = "homunculi",
+      hoof = "hooves",
+      hyphae = "hyphae",
+      knife = "knives",
+      larvae = "larvae",
+      loch = "lochs",
+      lotus = "lotuses",
+      louse = "lice",
+      manes = "manes",
+      matzah = "matzot",
+      matzoh = "matzot",
+      mech = "mechs",
+      mouse = "mice",
+      mycelium = "mycelia",
+      nemesis = "nemeses",
+      nerf = "nerfs",
+      ninja = "ninja",
+      ox = "oxen",
+      potato = "potatoes",
+      priestess = "priestesses",
+      ronin = "ronin",
+      roshi = "roshi",
+      scale = "scales",
+      serf = "serfs",
+      shaman = "shamans",
+      sheep = "sheep",
+      shito = "shito",
+      ["slice of cake"] = "slices of cake",
+      stamen = "stamens",
+      tech = "techs",
+      tengu = "tengu",
+      tomato = "tomatoes",
+      tooth = "teeth",
+      tuna = "tuna",
+      valkyrie = "valkyries",
+      VAX = "VAXES",
+      vertebra = "vertebrae",
+      vortex = "vortices",
+      woman = "women",
+      wumpus = "wumpuses",
+      zorkmid = "zorkmids",
+      monarch = "monarchs",
+      stomach = "stomachs",
+      loch = "lochs",
+      tech = "techs",
+   },
+   makesingular = {
+      algae = "alga",
+      amoebae = "amoeba",
+      baluchitheria = "baluchitherium",
+      Bordeaux = "Bordeaux",
+      buses = "bus",
+      dingoes = "dingo",
+      ["gateaux au chocolat"] = "gateau au chocolat",
+      larvae = "larva",
+      lice = "louse",
+      matzot = "matzo",
+      mycelia = "mycelium",
+      nemeses = "nemesis",
+      oxen = "ox",
+      potatoes = "potato",
+      ["pots of tulips"] = "pot of tulips",
+      priestesses = "priestess",
+      ronin = "ronin",
+      ["set of dragon scales"] = "set of dragon scales",
+      techs = "tech",
+      tuna = "tuna",
+      vertebrae = "vertebra",
+      vortices = "vortex",
+   },
+   an = {
+      a = "an a",
+      b = "a b",
+      ["the foo"] = "the foo",
+      ["molten lava"] = "molten lava",
+      ["iron bars"] = "iron bars",
+      ice = "ice",
+      unicorn = "a unicorn",
+      uranium = "a uranium",
+      ["one-eyed"] = "a one-eyed",
+      candy = "a candy",
+      eucalyptus = "a eucalyptus",
+      ukulele = "a ukulele",
+      uke = "a uke",
+      ["useful tool"] = "a useful tool",
+   }
+}
+
+for func, fval in pairs(tests) do
+   for instr, outstr in pairs(fval) do
+      local ret = nh[func](instr)
+      if ret ~= outstr then
+         error(func .. "(\"" .. instr .. "\") != \"" .. outstr .. "\" (returned \"" .. ret .. "\") instead")
+      end
+   end
+end
+
+function test_getlin()
+   nh.pushkey("AbC");
+   local str = nh.getlin("What?");
+   if str ~= "AbC" then
+      error("nh.getlin fail, got \"" .. str .. "\"");
+   end
+end
+
+function test_abscoord()
+   local ax,ay = nh.abscoord(3, 8);
+   local pt = nh.abscoord({ x = 10, y = 5 });
+end
+
+test_getlin();
+test_abscoord();
+
+nh.flip_level(3);
+
