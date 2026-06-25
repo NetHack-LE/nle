@@ -56,9 +56,6 @@ message(STATUS "Building nle backend version: ${CMAKE_NLE_VERSION}")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-add_compile_options(-Wno-deprecated-non-prototype)
-add_compile_options(-Wno-unused-variable)
-
 set(HACKDIR
     "$ENV{HOME}/nethackdir.nle"
     CACHE STRING "Configuration files for nethack")
@@ -194,6 +191,9 @@ pybind11_add_module(
   $<TARGET_OBJECTS:tile>)
 target_link_libraries(_pynethack PUBLIC nethackdl)
 set_target_properties(_pynethack PROPERTIES CXX_STANDARD 14)
+if(NOT MSVC)
+  target_compile_options(_pynethack PRIVATE -Wno-deprecated-non-prototype)
+endif()
 target_include_directories(_pynethack PUBLIC ${NLE_INC_GEN} ${NLE_WIN}/share)
 # add_dependencies(_pynethack util tile) # For pm.h.
 

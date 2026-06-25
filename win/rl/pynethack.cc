@@ -474,7 +474,7 @@ class Nethack
                 if (tile_index < 0 || tile_index >= total_tiles_used) {
                     fprintf(stderr,
                             "Invalid tile index %d for glyph %d at position "
-                            "(%ld,%ld)\n",
+                            "(%d,%d)\n",
                             tile_index, glyph, tile_row, tile_col);
                     continue;
                 }

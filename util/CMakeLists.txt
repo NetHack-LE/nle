@@ -27,18 +27,37 @@ file(MAKE_DIRECTORY ${NLE_INC_GEN} ${NLE_SRC_GEN})
 add_executable(makedefs ${MAKEDEFS_SRC})
 target_include_directories(makedefs PRIVATE ${NLE_INC} ${NLE_INC_GEN}
                                             ${NLE_UTIL_GEN})
+if(NOT MSVC)
+  target_compile_options(makedefs PRIVATE -Wno-deprecated-non-prototype)
+endif()
+
 add_executable(dgn_comp ${DGN_COMP_SRC})
 target_include_directories(dgn_comp PRIVATE ${NLE_INC} ${NLE_INC_GEN}
                                             ${NLE_UTIL_GEN})
+if(NOT MSVC)
+  target_compile_options(dgn_comp PRIVATE -Wno-deprecated-non-prototype)
+endif()
+
 add_executable(lev_comp ${LEV_COMP_SRC})
 target_include_directories(lev_comp PRIVATE ${NLE_INC} ${NLE_INC_GEN}
                                             ${NLE_UTIL_GEN})
+if(NOT MSVC)
+  target_compile_options(lev_comp PRIVATE -Wno-deprecated-non-prototype)
+endif()
+
 add_executable(dlb ${DLB_SRC})
 target_include_directories(dlb PRIVATE ${NLE_INC} ${NLE_INC_GEN}
                                        ${NLE_UTIL_GEN})
+if(NOT MSVC)
+  target_compile_options(dlb PRIVATE -Wno-deprecated-non-prototype)
+endif()
+
 add_executable(recover recover.c)
 target_include_directories(recover PRIVATE ${NLE_INC} ${NLE_INC_GEN}
                                            ${NLE_UTIL_GEN})
+if(NOT MSVC)
+  target_compile_options(recover PRIVATE -Wno-deprecated-non-prototype)
+endif()
 
 add_custom_command(
   DEPENDS makedefs
@@ -91,6 +110,9 @@ add_custom_target(util DEPENDS ${MAKEDEFS_HEADERS} recover)
 add_executable(tilemap ${NLE_WIN}/share/tilemap.c)
 target_include_directories(tilemap PUBLIC ${NLE_INC} ${NLE_INC_GEN})
 add_dependencies(tilemap util)
+if(NOT MSVC)
+  target_compile_options(tilemap PRIVATE -Wno-deprecated-non-prototype)
+endif()
 
 file(GLOB NETHACK_TILE_SRC ${NLE_WIN}/rl/tile2rgb.c ${NLE_WIN}/rl/nletiletxt.c
      ${NLE_WIN}/share/tiletext.c)
@@ -98,6 +120,9 @@ add_library(tile OBJECT ${NETHACK_TILE_SRC} ${NLE_SRC_GEN}/tile.c)
 target_include_directories(tile PUBLIC ${NLE_INC} ${NLE_INC_GEN}
                                        ${NLE_WIN}/share)
 add_dependencies(tile generate_pm_h generate_tile_c)
+if(NOT MSVC)
+  target_compile_options(tile PRIVATE -Wno-deprecated-non-prototype)
+endif()
 
 # NOTE: util is dependent on these two
 add_dependencies(lev_comp util)
