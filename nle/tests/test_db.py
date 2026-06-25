@@ -1,9 +1,10 @@
 import os
 
 import pytest
-import test_converter
 
 import nle.env.tasks
+import nle.nethack
+import nle.tests.test_converter as test_converter
 from nle.dataset import db
 from nle.dataset import populate_db
 

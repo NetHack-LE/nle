@@ -2,7 +2,7 @@ import gymnasium as gym
 import numpy as np
 import pytest
 
-import nle
+import nle.nethack
 
 
 class TestTileset:
