@@ -27,12 +27,7 @@ file(MAKE_DIRECTORY ${NLE_INC_GEN} ${NLE_SRC_GEN})
 add_executable(makedefs ${MAKEDEFS_SRC})
 target_include_directories(makedefs PRIVATE ${NLE_INC} ${NLE_INC_GEN}
                                             ${NLE_UTIL_GEN})
-add_executable(dgn_comp ${DGN_COMP_SRC})
-target_include_directories(dgn_comp PRIVATE ${NLE_INC} ${NLE_INC_GEN}
-                                            ${NLE_UTIL_GEN})
-add_executable(lev_comp ${LEV_COMP_SRC})
-target_include_directories(lev_comp PRIVATE ${NLE_INC} ${NLE_INC_GEN}
-                                            ${NLE_UTIL_GEN})
+
 add_executable(dlb ${DLB_SRC})
 target_include_directories(dlb PRIVATE ${NLE_INC} ${NLE_INC_GEN}
                                        ${NLE_UTIL_GEN})
@@ -99,10 +94,6 @@ target_include_directories(tile PUBLIC ${NLE_INC} ${NLE_INC_GEN}
                                        ${NLE_WIN}/share)
 add_dependencies(tile generate_pm_h generate_tile_c)
 
-# NOTE: util is dependent on these two
-add_dependencies(lev_comp util)
-add_dependencies(dgn_comp util)
-
 set(MAN_PAGES ${NLE_DOC}/makedefs.6 ${NLE_DOC}/dgn_comp.6 ${NLE_DOC}/lev_comp.6
               ${NLE_DOC}/dlb.6 ${NLE_DOC}/recover.6 ${NLE_DOC}/nethack.6)
 
@@ -110,6 +101,6 @@ set(TXT_DOCS
     ${NLE_DOC}/makedefs.txt ${NLE_DOC}/dgn_comp.txt ${NLE_DOC}/lev_comp.txt
     ${NLE_DOC}/dlb.txt ${NLE_DOC}/recover.txt ${NLE_DOC}/nethack.txt)
 
-install(TARGETS makedefs dgn_comp lev_comp dlb recover DESTINATION ${INSTDIR})
+install(TARGETS makedefs dlb recover DESTINATION ${INSTDIR})
 install(FILES ${MAN_PAGES} DESTINATION ${INSTDIR}/man)
 install(FILES ${TXT_DOCS} DESTINATION ${INSTDIR}/doc)
