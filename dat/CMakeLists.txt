@@ -113,15 +113,6 @@ add_custom_command(
   OUTPUT options
   COMMAND makedefs ARGS -v)
 
-# Hack: Depend on bogusmon to avoid race wrt. makedef's grep.tmp file. Best to
-# be defensive about the paths (matters if NetHack's make install was run).
-add_custom_command(
-  DEPENDS $<TARGET_FILE:makedefs> $<TARGET_FILE:dgn_comp>
-          ${NLE_DAT_GEN}/dungeon.def ${NLE_DAT_GEN}/bogusmon
-  OUTPUT dungeon dungeon.pdf
-  COMMAND makedefs ARGS -e
-  COMMAND dgn_comp ARGS dungeon.pdf)
-
 add_custom_command(
   OUTPUT perm record logfile xlogfile COMMAND ${CMAKE_COMMAND} -E touch perm
                                               record logfile xlogfile)
