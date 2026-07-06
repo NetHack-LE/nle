@@ -6,6 +6,8 @@
 
 #ifdef USE_ISAAC64
 #include "isaac64.h"
+#include "nlernd.h"
+#include "nletypes.h"
 
 staticfn int whichrng(int (*fn)(int));
 staticfn int RND(int);
@@ -232,6 +234,10 @@ rnz(int i)
 
 /* Sets the seed for the random number generator */
 #ifdef USE_ISAAC64
+
+/* NLE: Array to store seeds for each random number generator. 
+    see nlernd.h */
+extern unsigned long nle_seeds[];
 
 staticfn void
 set_random(unsigned long seed,
