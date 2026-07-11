@@ -12,6 +12,11 @@
 #endif
 #include "hack.h"
 
+/* */
+//#include "decl.h"
+/* needed for term_start_screen & term_end_screen */
+#include "wintty.h"
+
 #include "dlb.h"
 
 #include "nle.h"
@@ -199,16 +204,16 @@ mainloop(fcontext_transfer_t ctx_transfer)
     char *scoreprefix = (settings.scoreprefix[0] != '\0')
                             ? settings.scoreprefix
                             : settings.hackdir;
-    fqn_prefix[SYSCONFPREFIX] = settings.hackdir;
-    fqn_prefix[CONFIGPREFIX] = settings.hackdir;
-    fqn_prefix[HACKPREFIX] = settings.hackdir;
-    fqn_prefix[SAVEPREFIX] = settings.hackdir;
-    fqn_prefix[LEVELPREFIX] = settings.hackdir;
-    fqn_prefix[BONESPREFIX] = settings.hackdir;
-    fqn_prefix[SCOREPREFIX] = scoreprefix;
-    fqn_prefix[LOCKPREFIX] = settings.hackdir;
-    fqn_prefix[TROUBLEPREFIX] = settings.hackdir;
-    fqn_prefix[DATAPREFIX] = settings.hackdir;
+    gf.fqn_prefix[SYSCONFPREFIX] = settings.hackdir;
+    gf.fqn_prefix[CONFIGPREFIX] = settings.hackdir;
+    gf.fqn_prefix[HACKPREFIX] = settings.hackdir;
+    gf.fqn_prefix[SAVEPREFIX] = settings.hackdir;
+    gf.fqn_prefix[LEVELPREFIX] = settings.hackdir;
+    gf.fqn_prefix[BONESPREFIX] = settings.hackdir;
+    gf.fqn_prefix[SCOREPREFIX] = scoreprefix;
+    gf.fqn_prefix[LOCKPREFIX] = settings.hackdir;
+    gf.fqn_prefix[TROUBLEPREFIX] = settings.hackdir;
+    gf.fqn_prefix[DATAPREFIX] = settings.hackdir;
 
     char *argv[1] = { "nethack" };
 
@@ -542,7 +547,7 @@ gettty()
 void
 settty(const char *s)
 {
-    end_screen();
+    term_end_screen();
     if (s)
         raw_print(s);
 }
@@ -550,7 +555,7 @@ settty(const char *s)
 void
 setftty()
 {
-    start_screen();
+    term_start_screen();
 
     iflags.cbreak = ON;
     iflags.echo = OFF;
