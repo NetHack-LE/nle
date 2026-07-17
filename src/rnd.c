@@ -9,9 +9,13 @@
 #include "nlernd.h"
 #include "nletypes.h"
 
-staticfn int whichrng(int (*fn)(int));
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+int whichrng(int (*fn)(int));
 staticfn int RND(int);
-staticfn void set_random(unsigned long, int (*)(int));
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+void set_random(unsigned long, int (*)(int));
 
 #if 0
 static isaac64_ctx rng_state;
@@ -32,7 +36,9 @@ struct rnglist_t rnglist[] = {
     { rn2_on_display_rng, FALSE, { 0 } },       /* DISP */
 };
 
-staticfn int
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+int
 whichrng(int (*fn)(int))
 {
     int i;
@@ -239,7 +245,9 @@ rnz(int i)
     see nlernd.h */
 extern unsigned long nle_seeds[];
 
-staticfn void
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+void
 set_random(unsigned long seed,
            int (*fn)(int))
 {
@@ -251,7 +259,9 @@ set_random(unsigned long seed,
 #else /* USE_ISAAC64 */
 
 /*ARGSUSED*/
-staticfn void
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+void
 set_random(unsigned long seed,
            int (*fn)(int) UNUSED)
 {
