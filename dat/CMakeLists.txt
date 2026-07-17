@@ -45,15 +45,17 @@ file(
 
 set(DATDLB
     ${DATHELP}
-    dungeon
+    dungeon.lua
     tribute
+    ${SPECIAL_LEVELS}
+    ${QUEST_LEVELS}
     bogusmon
     data
     engrave
     epitaph
     oracles
     options
-    quest.dat
+    quest.lua
     rumors)
 
 file(MAKE_DIRECTORY ${NLE_DAT_GEN})
@@ -109,7 +111,7 @@ add_custom_command(
 
 # Hack: Depend on date.h to avoid race.
 add_custom_command(
-  DEPENDS $<TARGET_FILE:makedefs> ${NLE_INC_GEN}/date.h
+  DEPENDS $<TARGET_FILE:makedefs> generate_date_h
   OUTPUT options
   COMMAND makedefs ARGS -v)
 
