@@ -627,3 +627,17 @@ init_linux_cons()
 #endif
 }
 #endif /* __linux__ */
+
+/* Taken from unixtty.c, needed by the term_start_screen 
+function, but we don't need to do anything */
+#ifdef ENHANCED_SYMBOLS
+/*
+ * set in term_start_screen() and allows
+ * OS-specific changes that may be
+ * required for support of utf8.
+ */
+void
+tty_utf8graphics_fixup(void)
+{
+}
+#endif
