@@ -13,7 +13,7 @@
 #include "hack.h"
 
 /* */
-//#include "decl.h"
+// #include "decl.h"
 /* needed for term_start_screen & term_end_screen */
 #include "wintty.h"
 
@@ -628,7 +628,7 @@ init_linux_cons()
 }
 #endif /* __linux__ */
 
-/* Taken from unixtty.c, needed by the term_start_screen 
+/* Taken from unixtty.c, needed by the term_start_screen
 function, but we don't need to do anything */
 #ifdef ENHANCED_SYMBOLS
 /*

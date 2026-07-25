@@ -124,16 +124,18 @@ class NetHackRL
     static void rl_putstr(winid wid, int attr, const char *text);
     static void rl_display_file(const char *filename, boolean must_exist);
     static void rl_start_menu(winid wid, unsigned long mbehavior);
-    static void rl_add_menu(winid wid, const glyph_info *glyphinfo, const ANY_P *identifier,
-                            char ch, char gch, int attr, int colour,
-                            const char *str, unsigned int presel);
+    static void rl_add_menu(winid wid, const glyph_info *glyphinfo,
+                            const ANY_P *identifier, char ch, char gch,
+                            int attr, int colour, const char *str,
+                            unsigned int presel);
     static void rl_end_menu(winid wid, const char *prompt);
     static int rl_select_menu(winid wid, int how, MENU_ITEM_P **menu_list);
     static void rl_mark_synch();
     static void rl_wait_synch();
 
     static void rl_cliparound(int x, int y);
-    static void rl_print_glyph(winid wid, coordxy x, coordxy y, const glyph_info *glyphinfo,
+    static void rl_print_glyph(winid wid, coordxy x, coordxy y,
+                               const glyph_info *glyphinfo,
                                const glyph_info *bkglyphinfo);
     static void rl_raw_print(const char *str);
     static void rl_raw_print_bold(const char *str);
@@ -164,14 +166,15 @@ class NetHackRL
 
   private:
     struct rl_menu_item {
-        const glyph_info *glyphinfo;    /* glyph to display with item (not used) */
-        anything identifier;            /* user identifier */
-        long count;                     /* user count */
-        std::string str;                /* description string */
-        int attr;                       /* string attribute */
-        unsigned int selected;          /* TRUE if selected by user */
-        char selector;                  /* keyboard accelerator */
-        char gselector;                 /* group accelerator */
+        const glyph_info
+            *glyphinfo;        /* glyph to display with item (not used) */
+        anything identifier;   /* user identifier */
+        long count;            /* user count */
+        std::string str;       /* description string */
+        int attr;              /* string attribute */
+        unsigned int selected; /* TRUE if selected by user */
+        char selector;         /* keyboard accelerator */
+        char gselector;        /* group accelerator */
     };
 
     struct rl_window {
@@ -228,8 +231,9 @@ class NetHackRL
     std::vector<rl_inventory_item> inventory_;
 
     void start_menu_method(winid wid, unsigned long mbehavior);
-    void add_menu_method(winid wid, const glyph_info *glyph, const anything *identifier,
-                         char ch, char gch, int attr, int colour, const char *str,
+    void add_menu_method(winid wid, const glyph_info *glyph,
+                         const anything *identifier, char ch, char gch,
+                         int attr, int colour, const char *str,
                          unsigned int preselected);
     void update_inventory_method();
 
@@ -277,7 +281,7 @@ NetHackRL::fill_obs(nle_obs *obs)
             ((u.ux == xdnstair && u.uy == ydnstair)
              || (u.ux == sstairs.sx && u.uy == sstairs.sy && !sstairs.up));
         */
-        
+
         obs->internal[0] = deepest_lev_reached(false);
         obs->internal[1] = in_yn_function;
         obs->internal[2] = in_getlin;
@@ -681,27 +685,28 @@ NetHackRL::destroy_nhwindow_method(winid wid)
 void
 NetHackRL::start_menu_method(winid wid, unsigned long mbehavior)
 {
-    DEBUG_API("rl_start_menu(wid=" << wid << ", mbehavior=" << mbehavior << ")" 
-                        << std::endl);
+    DEBUG_API("rl_start_menu(wid=" << wid << ", mbehavior=" << mbehavior
+                                   << ")" << std::endl);
     tty_start_menu(wid, mbehavior);
     windows_[wid]->menu_items.clear();
 }
 
 void
 NetHackRL::add_menu_method(
-    winid wid,                  /* window to use */
-    const glyph_info *glyphinfo,/* glyph to display with item (not used) */
-    const anything *identifier, /* what to return if selected */
-    char ch,                    /* keyboard accelerator (0 = pick our own) */
-    char gch,                   /* group accelerator (0 = no group) */
-    int attr,                   /* attribute for string (like putstr()) */
-    int colour,                 /* color for string */
-    const char *str,            /* menu string */
-    unsigned int preselected    /* item is marked as selected */
+    winid wid,                   /* window to use */
+    const glyph_info *glyphinfo, /* glyph to display with item (not used) */
+    const anything *identifier,  /* what to return if selected */
+    char ch,                     /* keyboard accelerator (0 = pick our own) */
+    char gch,                    /* group accelerator (0 = no group) */
+    int attr,                    /* attribute for string (like putstr()) */
+    int colour,                  /* color for string */
+    const char *str,             /* menu string */
+    unsigned int preselected     /* item is marked as selected */
 )
 {
     DEBUG_API("rl_add_menu" << std::endl);
-    tty_add_menu(wid, glyphinfo, identifier, ch, gch, attr, colour, str, preselected);
+    tty_add_menu(wid, glyphinfo, identifier, ch, gch, attr, colour, str,
+                 preselected);
 
     /* We just add the menu item here. One problem with this method is that
        we won't see any updates happening during tty_select_menu. We could
@@ -843,13 +848,13 @@ NetHackRL::rl_start_menu(winid wid, unsigned long mbehavior)
 }
 
 void
-NetHackRL::rl_add_menu(winid wid, const glyph_info *glyphinfo, const ANY_P *identifier,
-                       char ch, char gch, int attr, int colour, const char *str,
-                       unsigned int presel)
+NetHackRL::rl_add_menu(winid wid, const glyph_info *glyphinfo,
+                       const ANY_P *identifier, char ch, char gch, int attr,
+                       int colour, const char *str, unsigned int presel)
 {
     ScopedStack s(win_proc_calls, "add_menu");
-    instance->add_menu_method(wid, glyphinfo, identifier, ch, gch, attr, colour,
-                              str, presel);
+    instance->add_menu_method(wid, glyphinfo, identifier, ch, gch, attr,
+                              colour, str, presel);
 }
 
 void
@@ -913,32 +918,35 @@ NetHackRL::rl_cliparound(int x, int y)
                    around x,y. If bkglyph is NO_GLYPH, then the parameter
                    should be ignored (do nothing with it). */
 void
-NetHackRL::rl_print_glyph(winid wid, coordxy x, coordxy y, const glyph_info *glyphinfo,
+NetHackRL::rl_print_glyph(winid wid, coordxy x, coordxy y,
+                          const glyph_info *glyphinfo,
                           const glyph_info *bkglyphinfo)
 {
     int color;
-/* TODO: Remove the comments from this #define when NetHack5 upgrade is complete */
-//#if USE_DEBUG_API
-    DEBUG_API("rl_print_glyph(wid=" << wid << ", x=" << x << ", y=" << y
-                                    << ", glyph=(ch='" << (char) glyphinfo->ttychar
-                                    << "', color=" << glyphinfo->gm.sym.color);
-    DEBUG_API("), bkglyph=(ch='" << (char) bkglyphinfo->ttychar 
-                    << "', color=" << bkglyphinfo->framecolor
-                    << std::endl);
-//#endif
+    /* TODO: Remove the comments from this #define when NetHack5 upgrade is
+     * complete */
+    // #if USE_DEBUG_API
+    DEBUG_API("rl_print_glyph(wid="
+              << wid << ", x=" << x << ", y=" << y << ", glyph=(ch='"
+              << (char) glyphinfo->ttychar
+              << "', color=" << glyphinfo->gm.sym.color);
+    DEBUG_API("), bkglyph=(ch='" << (char) bkglyphinfo->ttychar << "', color="
+                                 << bkglyphinfo->framecolor << std::endl);
+    // #endif
 
     // No win_proc_calls entry here.
     if (wid == WIN_MAP) {
         instance->store_glyph(x, y, glyphinfo->glyph);
-        if (glyphinfo->glyph != nul_glyph && glyphinfo->gm.sym.color == CLR_BLACK) {
+        if (glyphinfo->glyph != nul_glyph
+            && glyphinfo->gm.sym.color == CLR_BLACK) {
             /* This will be 'bright black' (or blue) on tty so we change it to
              * make NLE's colors and tty_colors stay compatible. */
             color = iflags.wc2_darkgray ? 8 : CLR_BLUE;
         } else {
             color = glyphinfo->gm.sym.color;
         }
-        instance->store_mapped_glyph(glyphinfo->ttychar, color, 
-                                        glyphinfo->gm.glyphflags, x, y);
+        instance->store_mapped_glyph(glyphinfo->ttychar, color,
+                                     glyphinfo->gm.glyphflags, x, y);
         if (nle_get_obs()->screen_descriptions) {
             instance->store_screen_description(x, y, glyphinfo->glyph);
         }
