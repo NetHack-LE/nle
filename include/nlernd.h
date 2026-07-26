@@ -22,4 +22,7 @@ void nle_get_seed(nle_ctx_t *, unsigned long *, unsigned long *, boolean *,
 /* Fill struct tm with deterministic values from seed via ISAAC64. */
 void nle_fill_fixed_tm(struct tm *, unsigned long);
 
+/* Deterministic ubirthday from seed via ISAAC64. */
+time_t nle_fixed_birthday(unsigned long);
+
 #endif

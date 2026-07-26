@@ -955,7 +955,7 @@ nle_getlt_maybe_fixed()
 int
 getyear()
 {
-    return (1900 + getlt()->tm_year);
+    return (1900 + nle_getlt_maybe_fixed()->tm_year);
 }
 
 #if 0
