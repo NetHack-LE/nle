@@ -4,6 +4,10 @@
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "hack.h"
+#include "nlernd.h"
+#include "nletypes.h"
+
+extern nle_settings settings;
 
 struct trobj {
     short trotyp;
@@ -645,11 +649,16 @@ u_init()
     u.ualignbase[A_CURRENT] = u.ualignbase[A_ORIGINAL] = u.ualign.type =
         aligns[flags.initalign].value;
 
+    if (settings.fix_moon_phase && settings.time_seed_is_set) {
+        /* NLE: pin ubirthday to the seed; see nle_fixed_birthday(). */
+        ubirthday = nle_fixed_birthday(settings.time_seed);
+    } else {
 #if defined(BSD) && !defined(POSIX_TYPES)
-    (void) time((long *) &ubirthday);
+        (void) time((long *) &ubirthday);
 #else
-    (void) time(&ubirthday);
+        (void) time(&ubirthday);
 #endif
+    }
 
     /*
      *  For now, everyone starts out with a night vision range of 1 and

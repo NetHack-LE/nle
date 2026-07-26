@@ -163,6 +163,27 @@ nle_fill_fixed_tm(struct tm *tm, unsigned long seed)
     tm->tm_yday = tm->tm_mon * 30 + tm->tm_mday;
 }
 
+/*
+ * Deterministic ubirthday derived from the seed. NetHack hashes
+ * ubirthday for between-game flavor variation without consuming game
+ * RNG (shopkeeper names in shknam.c, shop surcharge parity in shk.c,
+ * antholemon() in mkroom.c, scroll labels in read.c), so a wall-clock
+ * ubirthday leaks real time into otherwise fully seeded games.
+ */
+time_t
+nle_fixed_birthday(unsigned long seed)
+{
+    isaac64_ctx time_rng;
+    unsigned char seed_bytes[sizeof(seed)];
+
+    memcpy(seed_bytes, &seed, sizeof(seed_bytes));
+    isaac64_init(&time_rng, seed_bytes, sizeof(seed_bytes));
+
+    /* Arbitrary fixed epoch range: 2000-01-01 plus up to ~40 years. */
+    return (time_t) (946684800UL
+                     + isaac64_next_uint(&time_rng, 1262304000UL));
+}
+
 void
 nle_set_seed(nle_ctx_t *nle, unsigned long core, unsigned long disp,
              boolean reseed, unsigned long lgen)
