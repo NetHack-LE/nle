@@ -586,7 +586,7 @@ void
 linux_mapon()
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         write(1, "\033(B", 3);
     }
 #endif
@@ -596,7 +596,7 @@ void
 linux_mapoff()
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         write(1, "\033(U", 3);
     }
 #endif
@@ -616,7 +616,7 @@ void
 init_linux_cons()
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         atexit(linux_mapon);
         linux_mapoff();
 #ifdef TEXTCOLOR
