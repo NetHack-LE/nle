@@ -577,10 +577,10 @@ introff()
 
 int linux_flag_console = 0;
 
-void NDECL(linux_mapon);
-void NDECL(linux_mapoff);
-void NDECL(check_linux_console);
-void NDECL(init_linux_cons);
+void linux_mapon(void);
+void linux_mapoff(void);
+void check_linux_console(void);
+void init_linux_cons(void);
 
 void
 linux_mapon()
