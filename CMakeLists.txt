@@ -131,7 +131,7 @@ ExternalProject_Add(
     SHA512=3a1a3ee8694b72b4ec9d3ce76705fe179328294353604ca950c53f41b41161b449877d43318ef4501fee44ecbd6c83314ce7468d7425ba9b2903c9c32a28bbc0
   BUILD_IN_SOURCE TRUE
   CONFIGURE_COMMAND ""
-  BUILD_COMMAND make
+  BUILD_COMMAND make MYCFLAGS=-fPIC
   BUILD_BYPRODUCTS <BINARY_DIR>/src/liblua.a
   INSTALL_COMMAND ""
   STEP_TARGETS build)
@@ -199,8 +199,7 @@ set_target_properties(nethack PROPERTIES CXX_STANDARD 14 SUFFIX ".so")
 target_compile_options(
   nethack
   PRIVATE -Wno-deprecated-non-prototype
-  PRIVATE -Wno-unused-variable
-  PRIVATE -fPIC)
+  PRIVATE -Wno-unused-variable)
 target_include_directories(
   nethack
   PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${NLE_INC_GEN} /usr/local/include
