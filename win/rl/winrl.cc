@@ -164,6 +164,9 @@ class NetHackRL
 
     static void rl_update_inventory(int arg UNUSED);
 
+    static win_request_info *rl_ctrl_nhwindow(winid wid, int request,
+                                              win_request_info *wri);
+
   private:
     struct rl_menu_item {
         const glyph_info
@@ -883,6 +886,14 @@ NetHackRL::rl_update_inventory(int arg UNUSED)
     instance->update_inventory_method();
 }
 
+win_request_info *
+NetHackRL::rl_ctrl_nhwindow(winid wid, int request, win_request_info *wri)
+{
+    DEBUG_API("rl_ctrl_nhwindow" << std::endl);
+    ScopedStack s(win_proc_calls, "ctrl_nhwindow");
+    return tty_ctrl_nhwindow(wid, request, wri);
+}
+
 void
 NetHackRL::rl_mark_synch()
 {
@@ -1216,4 +1227,5 @@ struct window_procs rl_procs = {
     nethack_rl::NetHackRL::rl_status_update,
     genl_can_suspend_yes,
     nethack_rl::NetHackRL::rl_update_inventory,
+    nethack_rl::NetHackRL::rl_ctrl_nhwindow
 };
