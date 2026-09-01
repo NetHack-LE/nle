@@ -1949,7 +1949,8 @@ rcfile(void)
     config_error_init(TRUE, nameval, nameval ? CONFIG_ERROR_SECURE : FALSE);
     (void) read_config_file(nameval, set_in_config);
     config_error_done();
-    if (xtraopts) {
+    /* NLE: Handle situation where we have empty options */
+    if (xtraopts && *xtraopts != '\0') {
         /* NETHACKOPTIONS is present and not a file name */
         go.opt_phase = environ_opt;
         config_error_init(FALSE, envname, FALSE);
