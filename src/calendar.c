@@ -5,6 +5,9 @@
 /* NetHack may be freely redistributed.  See license for details. */
 
 #include "hack.h"
+#include "nletypes.h"
+#include "nlernd.h"
+extern nle_settings settings;
 
 /*
  * Time routines
@@ -50,7 +53,7 @@ getlt(void)
  * and seeds have been set. Otherwise fall back to real system time.
  * The actual RNG work is done by nle_fill_fixed_tm() in nlernd.c.
  */
-STATIC_OVL struct tm *
+static struct tm *
 nle_getlt_maybe_fixed()
 {
     static struct tm fixed_tm;

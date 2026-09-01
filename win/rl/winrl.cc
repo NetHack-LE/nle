@@ -118,32 +118,33 @@ class NetHackRL
     static void rl_resume_nhwindows();
     static winid rl_create_nhwindow(int type);
     static void rl_clear_nhwindow(winid wid);
-    static void rl_display_nhwindow(winid wid, BOOLEAN_P block);
+    static void rl_display_nhwindow(winid wid, boolean block);
     static void rl_destroy_nhwindow(winid wid);
     static void rl_curs(winid wid, int x, int y);
     static void rl_putstr(winid wid, int attr, const char *text);
-    static void rl_display_file(const char *filename, BOOLEAN_P must_exist);
-    static void rl_start_menu(winid wid);
-    static void rl_add_menu(winid wid, int glyph, const ANY_P *identifier,
-                            CHAR_P ch, CHAR_P gch, int attr, const char *str,
-                            BOOLEAN_P presel);
+    static void rl_display_file(const char *filename, boolean must_exist);
+    static void rl_start_menu(winid wid, unsigned long mbehavior);
+    static void rl_add_menu(winid wid, const glyph_info *glyphinfo,
+                            const ANY_P *identifier, char ch, char gch,
+                            int attr, int colour, const char *str,
+                            unsigned int presel);
     static void rl_end_menu(winid wid, const char *prompt);
     static int rl_select_menu(winid wid, int how, MENU_ITEM_P **menu_list);
-    static void rl_update_inventory();
     static void rl_mark_synch();
     static void rl_wait_synch();
 
     static void rl_cliparound(int x, int y);
-    static void rl_print_glyph(winid wid, XCHAR_P x, XCHAR_P y, int glyph,
-                               int bkglyph);
+    static void rl_print_glyph(winid wid, coordxy x, coordxy y,
+                               const glyph_info *glyphinfo,
+                               const glyph_info *bkglyphinfo);
     static void rl_raw_print(const char *str);
     static void rl_raw_print_bold(const char *str);
     static int rl_nhgetch();
-    static int rl_nh_poskey(int *x, int *y, int *mod);
+    static int rl_nh_poskey(coordxy *x, coordxy *y, int *mod);
     static void rl_nhbell();
     static int rl_doprev_message();
     static char rl_yn_function(const char *question, const char *choices,
-                               CHAR_P def);
+                               char def);
     static void rl_getlin(const char *prompt, char *line);
     static int rl_get_ext_cmd();
     static void rl_number_pad(int);
@@ -151,8 +152,8 @@ class NetHackRL
     static void rl_start_screen();
     static void rl_end_screen();
 
-    static char *rl_getmsghistory(BOOLEAN_P init);
-    static void rl_putmsghistory(const char *msg, BOOLEAN_P is_restoring);
+    static char *rl_getmsghistory(boolean init);
+    static void rl_putmsghistory(const char *msg, boolean is_restoring);
 
     static void rl_outrip(winid wid, int how, time_t when);
     static void rl_status_init();
@@ -161,16 +162,22 @@ class NetHackRL
                                  int percent, int color,
                                  unsigned long *colormasks);
 
+    static void rl_update_inventory(int arg UNUSED);
+
+    static win_request_info *rl_ctrl_nhwindow(winid wid, int request,
+                                              win_request_info *wri);
+
   private:
     struct rl_menu_item {
-        int glyph;           /* character glyph */
-        anything identifier; /* user identifier */
-        long count;          /* user count */
-        std::string str;     /* description string */
-        int attr;            /* string attribute */
-        boolean selected;    /* TRUE if selected by user */
-        char selector;       /* keyboard accelerator */
-        char gselector;      /* group accelerator */
+        const glyph_info
+            *glyphinfo;        /* glyph to display with item (not used) */
+        anything identifier;   /* user identifier */
+        long count;            /* user count */
+        std::string str;       /* description string */
+        int attr;              /* string attribute */
+        unsigned int selected; /* TRUE if selected by user */
+        char selector;         /* keyboard accelerator */
+        char gselector;        /* group accelerator */
     };
 
     struct rl_window {
@@ -207,7 +214,7 @@ class NetHackRL
     void store_glyph(XCHAR_P x, XCHAR_P y, int glyph);
     void store_mapped_glyph(int ch, int color, int special, XCHAR_P x,
                             XCHAR_P y);
-    void store_screen_description(XCHAR_P x, XCHAR_P y, int glyph);
+    void store_screen_description(coordxy x, coordxy y, int glyph);
 
     void fill_obs(nle_obs *);
     int getch_method();
@@ -226,15 +233,16 @@ class NetHackRL
 
     std::vector<rl_inventory_item> inventory_;
 
-    void start_menu_method(winid wid);
-    void add_menu_method(winid wid, int glyph, const anything *identifier,
-                         char ch, char gch, int attr, const char *str,
-                         bool preselected);
+    void start_menu_method(winid wid, unsigned long mbehavior);
+    void add_menu_method(winid wid, const glyph_info *glyph,
+                         const anything *identifier, char ch, char gch,
+                         int attr, int colour, const char *str,
+                         unsigned int preselected);
     void update_inventory_method();
 
     winid create_nhwindow_method(int type);
     void clear_nhwindow_method(winid wid);
-    void display_nhwindow_method(winid wid, BOOLEAN_P block);
+    void display_nhwindow_method(winid wid, boolean block);
     void destroy_nhwindow_method(winid wid);
 };
 
@@ -271,15 +279,18 @@ NetHackRL::fill_obs(nle_obs *obs)
     }
     if (obs->internal) {
         // From do.c. sstairs is a potential "special" staircase.
+        /*
         boolean stairs_down =
             ((u.ux == xdnstair && u.uy == ydnstair)
              || (u.ux == sstairs.sx && u.uy == sstairs.sy && !sstairs.up));
+        */
 
         obs->internal[0] = deepest_lev_reached(false);
         obs->internal[1] = in_yn_function;
         obs->internal[2] = in_getlin;
         obs->internal[3] = xwaitingforspace;
-        obs->internal[4] = stairs_down;
+        stairway *stway = stairway_at(u.ux, u.uy);
+        obs->internal[4] = (stway && !stway->up);
         obs->internal[5] = 0; /* used to be core seed */
         obs->internal[6] = 0; /* used to be disp seed */
         obs->internal[7] = u.uhunger;
@@ -347,7 +358,7 @@ NetHackRL::fill_obs(nle_obs *obs)
                          win->strings.back().c_str(), NLE_MESSAGE_SIZE);
         } else if (ttyDisplay->toplin) {
             // Copy toplines[], see topl.c.
-            std::strncpy((char *) &obs->message[0], toplines,
+            std::strncpy((char *) &obs->message[0], gt.toplines,
                          NLE_MESSAGE_SIZE);
         } else {
             std::memset(obs->message, 0, NLE_MESSAGE_SIZE);
@@ -364,7 +375,7 @@ NetHackRL::fill_obs(nle_obs *obs)
                blstats will be updated. */
             blstats_[NLE_BL_X] = u.ux - 1; /* x coordinate, 1 <= ux <= cols */
             blstats_[NLE_BL_Y] = u.uy;     /* y coordinate, 0 <= uy < rows */
-            blstats_[NLE_BL_TIME] = moves;
+            blstats_[NLE_BL_TIME] = svm.moves;
         }
         std::memcpy(obs->blstats, &blstats_[0], sizeof(blstats_));
     }
@@ -450,10 +461,11 @@ NetHackRL::update_inventory_method()
        list up to date via the following code adopted from display_pickinv
        in invent.c */
 
+    /* TODO: Recheck this code for NetHack5 upgrade*/
     struct obj *otmp;
     inventory_.clear();
 
-    for (otmp = invent; otmp; otmp = otmp->nobj) {
+    for (otmp = gi.invent; otmp; otmp = otmp->nobj) {
         inventory_.emplace_back(rl_inventory_item{
             shuffled_glyph(obj_to_glyph(otmp, rn2_on_display_rng)),
             doname(otmp), otmp->invlet, otmp->oclass,
@@ -488,7 +500,7 @@ NetHackRL::store_mapped_glyph(int ch, int color, int special, XCHAR_P x,
 }
 
 void
-NetHackRL::store_screen_description(XCHAR_P x, XCHAR_P y, int glyph)
+NetHackRL::store_screen_description(coordxy x, coordxy y, int glyph)
 {
     // 1 <= x < cols, 0 <= y < rows (!)
     size_t i = (x - 1) % (COLNO - 1);
@@ -545,7 +557,7 @@ NetHackRL::update_blstats()
     blstats_[NLE_BL_HP] = hitpoints;               /* hitpoints         */
     blstats_[NLE_BL_HPMAX] = max_hitpoints;        /* max_hitpoints     */
     blstats_[NLE_BL_DEPTH] = depth(&u.uz);         /* depth             */
-    blstats_[NLE_BL_GOLD] = money_cnt(invent);     /* gold              */
+    blstats_[NLE_BL_GOLD] = money_cnt(gi.invent);  /* gold              */
     blstats_[NLE_BL_ENE] = min(u.uen, 9999);       /* energy            */
     blstats_[NLE_BL_ENEMAX] = min(u.uenmax, 9999); /* max_energy        */
     blstats_[NLE_BL_AC] = u.uac;                   /* armor_class       */
@@ -553,7 +565,7 @@ NetHackRL::update_blstats()
                                  : 0;       /* monster level, hit-dice */
     blstats_[NLE_BL_XP] = u.ulevel;         /* experience level  */
     blstats_[NLE_BL_EXP] = u.uexp;          /* experience points */
-    blstats_[NLE_BL_TIME] = moves;          /* time              */
+    blstats_[NLE_BL_TIME] = svm.moves;      /* time              */
     blstats_[NLE_BL_HUNGER] = u.uhs;        /* hunger state      */
     blstats_[NLE_BL_CAP] = near_capacity(); /* carrying capacity */
     blstats_[NLE_BL_DNUM] = u.uz.dnum;      /* dungeon number */
@@ -657,7 +669,7 @@ NetHackRL::clear_nhwindow_method(winid wid)
 }
 
 void
-NetHackRL::display_nhwindow_method(winid wid, BOOLEAN_P block)
+NetHackRL::display_nhwindow_method(winid wid, boolean block)
 {
     DEBUG_API("rl_display_nhwindow(wid=" << wid << ", block=" << block << ")"
                                          << std::endl);
@@ -674,34 +686,37 @@ NetHackRL::destroy_nhwindow_method(winid wid)
 }
 
 void
-NetHackRL::start_menu_method(winid wid)
+NetHackRL::start_menu_method(winid wid, unsigned long mbehavior)
 {
-    DEBUG_API("rl_start_menu(wid=" << wid << ")" << std::endl);
-    tty_start_menu(wid);
+    DEBUG_API("rl_start_menu(wid=" << wid << ", mbehavior=" << mbehavior
+                                   << ")" << std::endl);
+    tty_start_menu(wid, mbehavior);
     windows_[wid]->menu_items.clear();
 }
 
 void
 NetHackRL::add_menu_method(
-    winid wid,                  /* window to use, must be of type NHW_MENU */
-    int glyph,                  /* glyph to display with item (not used) */
-    const anything *identifier, /* what to return if selected */
-    char ch,                    /* keyboard accelerator (0 = pick our own) */
-    char gch,                   /* group accelerator (0 = no group) */
-    int attr,                   /* attribute for string (like putstr()) */
-    const char *str,            /* menu string */
-    bool preselected            /* item is marked as selected */
+    winid wid,                   /* window to use */
+    const glyph_info *glyphinfo, /* glyph to display with item (not used) */
+    const anything *identifier,  /* what to return if selected */
+    char ch,                     /* keyboard accelerator (0 = pick our own) */
+    char gch,                    /* group accelerator (0 = no group) */
+    int attr,                    /* attribute for string (like putstr()) */
+    int colour,                  /* color for string */
+    const char *str,             /* menu string */
+    unsigned int preselected     /* item is marked as selected */
 )
 {
     DEBUG_API("rl_add_menu" << std::endl);
-    tty_add_menu(wid, glyph, identifier, ch, gch, attr, str, preselected);
+    tty_add_menu(wid, glyphinfo, identifier, ch, gch, attr, colour, str,
+                 preselected);
 
     /* We just add the menu item here. One problem with this method is that
        we won't see any updates happening during tty_select_menu. We could
        try to inspect tty's own menu items instead? */
 
     windows_[wid]->menu_items.emplace_back(rl_menu_item{
-        glyph, *identifier, -1L, str, attr, preselected, ch, gch });
+        glyphinfo, *identifier, -1L, str, attr, preselected, ch, gch });
 }
 
 void
@@ -787,7 +802,7 @@ NetHackRL::rl_clear_nhwindow(winid wid)
                 -- Calling display_nhwindow(WIN_MESSAGE,???) will do a
                    --more--, if necessary, in the tty window-port. */
 void
-NetHackRL::rl_display_nhwindow(winid wid, BOOLEAN_P block)
+NetHackRL::rl_display_nhwindow(winid wid, boolean block)
 {
     ScopedStack s(win_proc_calls, "display_nhwindow");
     instance->display_nhwindow_method(wid, block);
@@ -821,7 +836,7 @@ NetHackRL::rl_putstr(winid wid, int attr, const char *text)
 }
 
 void
-NetHackRL::rl_display_file(const char *filename, BOOLEAN_P must_exist)
+NetHackRL::rl_display_file(const char *filename, boolean must_exist)
 {
     DEBUG_API("rl_display_file" << std::endl);
     ScopedStack s(win_proc_calls, "display_file");
@@ -829,20 +844,20 @@ NetHackRL::rl_display_file(const char *filename, BOOLEAN_P must_exist)
 }
 
 void
-NetHackRL::rl_start_menu(winid wid)
+NetHackRL::rl_start_menu(winid wid, unsigned long mbehavior)
 {
     ScopedStack s(win_proc_calls, "start_menu");
-    instance->start_menu_method(wid);
+    instance->start_menu_method(wid, mbehavior);
 }
 
 void
-NetHackRL::rl_add_menu(winid wid, int glyph, const ANY_P *identifier,
-                       CHAR_P ch, CHAR_P gch, int attr, const char *str,
-                       BOOLEAN_P presel)
+NetHackRL::rl_add_menu(winid wid, const glyph_info *glyphinfo,
+                       const ANY_P *identifier, char ch, char gch, int attr,
+                       int colour, const char *str, unsigned int presel)
 {
     ScopedStack s(win_proc_calls, "add_menu");
-    instance->add_menu_method(wid, glyph, identifier, ch, gch, attr, str,
-                              presel);
+    instance->add_menu_method(wid, glyphinfo, identifier, ch, gch, attr,
+                              colour, str, presel);
 }
 
 void
@@ -864,11 +879,19 @@ NetHackRL::rl_select_menu(winid wid, int how, MENU_ITEM_P **menu_list)
 }
 
 void
-NetHackRL::rl_update_inventory()
+NetHackRL::rl_update_inventory(int arg UNUSED)
 {
     DEBUG_API("rl_update_inventory" << std::endl);
     ScopedStack s(win_proc_calls, "update_inventory");
     instance->update_inventory_method();
+}
+
+win_request_info *
+NetHackRL::rl_ctrl_nhwindow(winid wid, int request, win_request_info *wri)
+{
+    DEBUG_API("rl_ctrl_nhwindow" << std::endl);
+    ScopedStack s(win_proc_calls, "ctrl_nhwindow");
+    return tty_ctrl_nhwindow(wid, request, wri);
 }
 
 void
@@ -895,7 +918,7 @@ NetHackRL::rl_cliparound(int x, int y)
 #endif
 }
 
-/* print_glyph(window, x, y, glyph, bkglyph)
+/* print_glyph(window, x, y, *glyph_info, *bkglyph_info)
                 -- Print the glyph at (x,y) on the given window.  Glyphs are
                    integers at the interface, mapped to whatever the window-
                    port wants (symbol, font, color, attributes, ...there's
@@ -906,46 +929,44 @@ NetHackRL::rl_cliparound(int x, int y)
                    around x,y. If bkglyph is NO_GLYPH, then the parameter
                    should be ignored (do nothing with it). */
 void
-NetHackRL::rl_print_glyph(winid wid, XCHAR_P x, XCHAR_P y, int glyph,
-                          int bkglyph)
+NetHackRL::rl_print_glyph(winid wid, coordxy x, coordxy y,
+                          const glyph_info *glyphinfo,
+                          const glyph_info *bkglyphinfo)
 {
-    int ch;
     int color;
-    unsigned special;
-
-    (void) mapglyph(glyph, &ch, &color, &special, x, y, 0);
-#if USE_DEBUG_API
-    DEBUG_API("rl_print_glyph(wid=" << wid << ", x=" << x << ", y=" << y
-                                    << ", glyph=(ch='" << (char) ch
-                                    << "', color=" << color
-                                    << ", special=" << special);
-    int bch;
-    int bcolor;
-    unsigned bspecial;
-    (void) mapglyph(bkglyph, &bch, &bcolor, &bspecial, x, y, 0);
-    DEBUG_API("), bkglyph=(ch='" << (char) bch << "', color=" << bcolor
-                                 << ", special=" << bspecial << ")"
-                                 << std::endl);
-#endif
+    /* TODO: Remove the comments from this #define when NetHack5 upgrade is
+     * complete */
+    // #if USE_DEBUG_API
+    DEBUG_API("rl_print_glyph(wid="
+              << wid << ", x=" << x << ", y=" << y << ", glyph=(ch='"
+              << (char) glyphinfo->ttychar
+              << "', color=" << glyphinfo->gm.sym.color);
+    DEBUG_API("), bkglyph=(ch='" << (char) bkglyphinfo->ttychar << "', color="
+                                 << bkglyphinfo->framecolor << std::endl);
+    // #endif
 
     // No win_proc_calls entry here.
     if (wid == WIN_MAP) {
-        instance->store_glyph(x, y, glyph);
-        if (glyph != nul_glyph && color == CLR_BLACK) {
+        instance->store_glyph(x, y, glyphinfo->glyph);
+        if (glyphinfo->glyph != nul_glyph
+            && glyphinfo->gm.sym.color == CLR_BLACK) {
             /* This will be 'bright black' (or blue) on tty so we change it to
              * make NLE's colors and tty_colors stay compatible. */
             color = iflags.wc2_darkgray ? 8 : CLR_BLUE;
+        } else {
+            color = glyphinfo->gm.sym.color;
         }
-        instance->store_mapped_glyph(ch, color, special, x, y);
+        instance->store_mapped_glyph(glyphinfo->ttychar, color,
+                                     glyphinfo->gm.glyphflags, x, y);
         if (nle_get_obs()->screen_descriptions) {
-            instance->store_screen_description(x, y, glyph);
+            instance->store_screen_description(x, y, glyphinfo->glyph);
         }
     } else {
         DEBUG_API("Window id is " << wid << ". This shouldn't happen."
                                   << std::endl);
     }
 
-    tty_print_glyph(wid, x, y, glyph, bkglyph);
+    tty_print_glyph(wid, x, y, glyphinfo, bkglyphinfo);
 }
 void
 NetHackRL::rl_raw_print(const char *str)
@@ -980,7 +1001,7 @@ NetHackRL::rl_nhgetch()
 }
 
 int
-NetHackRL::rl_nh_poskey(int *x, int *y, int *mod)
+NetHackRL::rl_nh_poskey(coordxy *x, coordxy *y, int *mod)
 {
     nhUse(x);
     nhUse(y);
@@ -1012,7 +1033,7 @@ NetHackRL::rl_doprev_message()
 
 char
 NetHackRL::rl_yn_function(const char *question_, const char *choices,
-                          CHAR_P def)
+                          char def)
 {
     DEBUG_API("rl_yn_function" << std::endl);
     ScopedStack s(win_proc_calls, "yn_function");
@@ -1054,7 +1075,7 @@ NetHackRL::rl_delay_output()
     DEBUG_API("rl_delay_output" << std::endl);
     // No call to tty_delay_output() as we don't actually want delays.
 }
-
+/*
 void
 NetHackRL::rl_start_screen()
 {
@@ -1076,7 +1097,7 @@ NetHackRL::rl_end_screen()
         // global objects. So we do it here.
         instance.reset(nullptr);
 }
-
+*/
 void
 NetHackRL::rl_outrip(winid wid, int how, time_t when)
 {
@@ -1085,14 +1106,14 @@ NetHackRL::rl_outrip(winid wid, int how, time_t when)
 }
 
 char *
-NetHackRL::rl_getmsghistory(BOOLEAN_P init)
+NetHackRL::rl_getmsghistory(boolean init)
 {
     DEBUG_API("rl_getmsghistory" << std::endl);
     return tty_getmsghistory(init);
 }
 
 void
-NetHackRL::rl_putmsghistory(const char *msg, BOOLEAN_P is_restoring)
+NetHackRL::rl_putmsghistory(const char *msg, boolean is_restoring)
 {
     DEBUG_API("rl_putmsghistory" << std::endl);
     tty_putmsghistory(msg, is_restoring);
@@ -1132,7 +1153,7 @@ rl_update_positionbar(char *chrs)
 } // namespace nethack_rl
 
 struct window_procs rl_procs = {
-    "rl",
+    WPID(rl),
     (WC_COLOR | WC_HILITE_PET | WC_INVERSE | WC_EIGHT_BIT_IN
      | WC_PERM_INVENT),
     (0
@@ -1166,7 +1187,6 @@ struct window_procs rl_procs = {
     nethack_rl::NetHackRL::rl_end_menu,
     nethack_rl::NetHackRL::rl_select_menu,
     genl_message_menu, /* no need for X-specific handling */
-    nethack_rl::NetHackRL::rl_update_inventory,
     nethack_rl::NetHackRL::rl_mark_synch,
     nethack_rl::NetHackRL::rl_wait_synch,
 #ifdef CLIPPING
@@ -1176,7 +1196,6 @@ struct window_procs rl_procs = {
     nethack_rl::rl_update_positionbar,
 #endif
     nethack_rl::NetHackRL::rl_print_glyph,
-    // NetHackRL::rl_print_glyph_compose,
     nethack_rl::NetHackRL::rl_raw_print,
     nethack_rl::NetHackRL::rl_raw_print_bold,
     nethack_rl::NetHackRL::rl_nhgetch,
@@ -1194,9 +1213,6 @@ struct window_procs rl_procs = {
     donull,
     donull,
 #endif
-    /* other defs that really should go away (they're tty specific) */
-    nethack_rl::NetHackRL::rl_start_screen,
-    nethack_rl::NetHackRL::rl_end_screen,
 #ifdef GRAPHIC_TOMBSTONE
     nethack_rl::NetHackRL::rl_outrip,
 #else
@@ -1210,4 +1226,6 @@ struct window_procs rl_procs = {
     tty_status_enablefield,
     nethack_rl::NetHackRL::rl_status_update,
     genl_can_suspend_yes,
+    nethack_rl::NetHackRL::rl_update_inventory,
+    nethack_rl::NetHackRL::rl_ctrl_nhwindow
 };

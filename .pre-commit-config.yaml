@@ -12,7 +12,7 @@ repos:
     rev: v0.6.13
   - hooks:
       - description: Format files with clang-format
-        entry: clang-format
+        entry: clang-format -i
         files: ^(src\/nle|include\/nle|win\/rl|sys\/unix\/nle).*\.(c|cc|cxx|cpp|cu|h|hpp|hxx|cuh|proto)$
         id: clang-format
         language: system

@@ -6,10 +6,16 @@
 
 #ifdef USE_ISAAC64
 #include "isaac64.h"
+#include "nlernd.h"
+#include "nletypes.h"
 
-staticfn int whichrng(int (*fn)(int));
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+int whichrng(int (*fn)(int));
 staticfn int RND(int);
-staticfn void set_random(unsigned long, int (*)(int));
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+void set_random(unsigned long, int (*)(int));
 
 #if 0
 static isaac64_ctx rng_state;
@@ -30,7 +36,9 @@ struct rnglist_t rnglist[] = {
     { rn2_on_display_rng, FALSE, { 0 } },       /* DISP */
 };
 
-staticfn int
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+int
 whichrng(int (*fn)(int))
 {
     int i;
@@ -233,7 +241,13 @@ rnz(int i)
 /* Sets the seed for the random number generator */
 #ifdef USE_ISAAC64
 
-staticfn void
+/* NLE: Array to store seeds for each random number generator. 
+    see nlernd.h */
+extern unsigned long nle_seeds[];
+
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+void
 set_random(unsigned long seed,
            int (*fn)(int))
 {
@@ -245,7 +259,9 @@ set_random(unsigned long seed,
 #else /* USE_ISAAC64 */
 
 /*ARGSUSED*/
-staticfn void
+/* NLE: remove staticfn modifier as we want to access
+this function from nlernd.c */
+void
 set_random(unsigned long seed,
            int (*fn)(int) UNUSED)
 {

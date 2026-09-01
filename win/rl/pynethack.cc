@@ -13,7 +13,7 @@
 extern "C" {
 #include "hack.h"
 #include "permonst.h"
-#include "pm.h" // File generated during NetHack compilation.
+// #include "pm.h" // File generated during NetHack compilation.
 #include "rm.h"
 }
 
@@ -37,7 +37,7 @@ extern int total_tiles_used; /* also in tile.c */
 boolean
 In_hell(d_level *lev)
 {
-    return (boolean) (dungeons[lev->dnum].flags.hellish);
+    return (boolean) (svd.dungeons[lev->dnum].flags.hellish);
 }
 
 /* are you in the mines dungeon? */
@@ -474,7 +474,7 @@ class Nethack
                 if (tile_index < 0 || tile_index >= total_tiles_used) {
                     fprintf(stderr,
                             "Invalid tile index %d for glyph %d at position "
-                            "(%ld,%ld)\n",
+                            "(%d,%d)\n",
                             tile_index, glyph, tile_row, tile_col);
                     continue;
                 }
@@ -641,28 +641,28 @@ PYBIND11_MODULE(_pynethack, m)
     // MAXWIN is #defined as 20 there.
     mn.attr("MAXWIN") = py::int_(20);
 
-    mn.attr("NUMMONS") = py::int_(NUMMONS);
-    mn.attr("NUM_OBJECTS") = py::int_(NUM_OBJECTS);
+    mn.attr("NUMMONS") = py::int_((int) NUMMONS);
+    mn.attr("NUM_OBJECTS") = py::int_((int) NUM_OBJECTS);
 
     // Glyph array offsets. This is what the glyph_is_* functions
     // are based on, see display.h.
-    mn.attr("GLYPH_MON_OFF") = py::int_(GLYPH_MON_OFF);
-    mn.attr("GLYPH_PET_OFF") = py::int_(GLYPH_PET_OFF);
-    mn.attr("GLYPH_INVIS_OFF") = py::int_(GLYPH_INVIS_OFF);
-    mn.attr("GLYPH_DETECT_OFF") = py::int_(GLYPH_DETECT_OFF);
-    mn.attr("GLYPH_BODY_OFF") = py::int_(GLYPH_BODY_OFF);
-    mn.attr("GLYPH_RIDDEN_OFF") = py::int_(GLYPH_RIDDEN_OFF);
-    mn.attr("GLYPH_OBJ_OFF") = py::int_(GLYPH_OBJ_OFF);
-    mn.attr("GLYPH_CMAP_OFF") = py::int_(GLYPH_CMAP_OFF);
-    mn.attr("GLYPH_EXPLODE_OFF") = py::int_(GLYPH_EXPLODE_OFF);
-    mn.attr("GLYPH_ZAP_OFF") = py::int_(GLYPH_ZAP_OFF);
-    mn.attr("GLYPH_SWALLOW_OFF") = py::int_(GLYPH_SWALLOW_OFF);
-    mn.attr("GLYPH_WARNING_OFF") = py::int_(GLYPH_WARNING_OFF);
-    mn.attr("GLYPH_STATUE_OFF") = py::int_(GLYPH_STATUE_OFF);
-    mn.attr("MAX_GLYPH") = py::int_(MAX_GLYPH);
+    mn.attr("GLYPH_MON_OFF") = py::int_((int) GLYPH_MON_OFF);
+    mn.attr("GLYPH_PET_OFF") = py::int_((int) GLYPH_PET_OFF);
+    mn.attr("GLYPH_INVIS_OFF") = py::int_((int) GLYPH_INVIS_OFF);
+    mn.attr("GLYPH_DETECT_OFF") = py::int_((int) GLYPH_DETECT_OFF);
+    mn.attr("GLYPH_BODY_OFF") = py::int_((int) GLYPH_BODY_OFF);
+    mn.attr("GLYPH_RIDDEN_OFF") = py::int_((int) GLYPH_RIDDEN_OFF);
+    mn.attr("GLYPH_OBJ_OFF") = py::int_((int) GLYPH_OBJ_OFF);
+    mn.attr("GLYPH_CMAP_OFF") = py::int_((int) GLYPH_CMAP_OFF);
+    mn.attr("GLYPH_EXPLODE_OFF") = py::int_((int) GLYPH_EXPLODE_OFF);
+    mn.attr("GLYPH_ZAP_OFF") = py::int_((int) GLYPH_ZAP_OFF);
+    mn.attr("GLYPH_SWALLOW_OFF") = py::int_((int) GLYPH_SWALLOW_OFF);
+    mn.attr("GLYPH_WARNING_OFF") = py::int_((int) GLYPH_WARNING_OFF);
+    mn.attr("GLYPH_STATUE_OFF") = py::int_((int) GLYPH_STATUE_OFF);
+    mn.attr("MAX_GLYPH") = py::int_((int) MAX_GLYPH);
 
-    mn.attr("NO_GLYPH") = py::int_(NO_GLYPH);
-    mn.attr("GLYPH_INVISIBLE") = py::int_(GLYPH_INVISIBLE);
+    mn.attr("NO_GLYPH") = py::int_((int) NO_GLYPH);
+    mn.attr("GLYPH_INVISIBLE") = py::int_((int) GLYPH_INVISIBLE);
 
     mn.attr("MAXEXPCHARS") = py::int_(MAXEXPCHARS);
     mn.attr("MAXPCHARS") = py::int_(static_cast<int>(MAXPCHARS));
@@ -799,7 +799,19 @@ PYBIND11_MODULE(_pynethack, m)
                 v_h.set_holder_constructed(true);
             },
             py::detail::is_new_style_constructor())
-        .def_readonly("mname", &permonst::mname)   /* full name */
+        /* TODO: NetHack 5 introduces gendered names for monsters.
+        NLE needs to be aware of this. */
+        .def_static(
+            "mname",
+            [](const permonst &pm, int idx) -> const char * {
+                if (idx < 0 || idx >= NUM_MGENDERS)
+                    throw std::out_of_range(
+                        "Argument should be between 0 and NUM_MGENDERS ("
+                        + std::to_string(NUM_MGENDERS) + ") but got "
+                        + std::to_string(idx));
+                return pm.pmnames[idx];
+            },
+            py::return_value_policy::reference)
         .def_readonly("mlet", &permonst::mlet)     /* symbol */
         .def_readonly("mlevel", &permonst::mlevel) /* base monster level */
         .def_readonly("mmove", &permonst::mmove)   /* move speed */
