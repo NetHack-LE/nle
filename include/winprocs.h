@@ -16,6 +16,10 @@ enum wp_ids { wp_tty = 1, wp_X11, wp_Qt, wp_mswin, wp_curses,
 #if defined(AMIGA)
               wp_amii, wp_amiv,
 #endif
+/* NLE: add our windowport */
+#if defined(RL_GRAPHICS)
+              wp_rl,
+#endif
 #ifdef OUTDATED_STUFF
               wp_mac, wp_Gem, wp_Gnome,
 #endif

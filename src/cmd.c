@@ -1659,6 +1659,27 @@ do_repeat(void)
     return res;
 }
 
+/* NLE: Replacement commands*/
+int nle_dosave() {
+    pline("You get the feeling there's only one way to save yourself..."); 
+    return 1;
+}
+
+int nle_done2() {
+    pline("You can't quit now, you're having so much fun!"); 
+    return 1;
+}
+
+int nle_doset() {
+    pline("The options are already set perfectly for you!"); 
+    return 1;
+}
+
+int nle_noop() {
+    pline("Noop");
+    return 1;
+}
+
 /* extcmdlist: full command list, ordered by command name;
    commands with no keystroke or with only a meta keystroke generally
    need to be flagged as autocomplete and ones with a regular keystroke
@@ -2555,26 +2576,6 @@ extcmds_match(const char *findstr, int ecmflags, int **matchlist)
         *matchlist = retmatchlist;
 
     return mi;
-}
-
-int nle_dosave() {
-    pline("You get the feeling there's only one way to save yourself..."); 
-    return 1;
-}
-
-int nle_done2() {
-    pline("You can't quit now, you're having so much fun!"); 
-    return 1;
-}
-
-int nle_doset() {
-    pline("The options are already set perfectly for you!"); 
-    return 1;
-}
-
-int nle_noop() {
-    pline("Noop");
-    return 1;
 }
 
 const char *

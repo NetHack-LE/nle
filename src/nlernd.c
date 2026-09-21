@@ -14,7 +14,7 @@ extern struct rnglist_t rnglist[];
 extern int whichrng(int (*fn)(int));
 
 /* See rnd.c. */
-extern int set_random(unsigned long, int (*fn)(int));
+extern void set_random(unsigned long, int (*fn)(int));
 
 /* An appropriate version of this must always be provided in
    port-specific code somewhere. It returns a number suitable

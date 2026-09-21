@@ -365,7 +365,7 @@ extern void video_update_positionbar(char *);
 #undef fflush
 extern int nle_putchar(int);
 extern int nle_puts(const char *);
-extern int nle_xputs(const char *);
+extern void nle_xputs(const char *);
 extern int nle_fflush(FILE *);
 
 #define putchar nle_putchar

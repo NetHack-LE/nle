@@ -12,6 +12,11 @@
 #endif
 #include "hack.h"
 
+/* */
+// #include "decl.h"
+/* needed for term_start_screen & term_end_screen */
+#include "wintty.h"
+
 #include "dlb.h"
 
 #include "nle.h"
@@ -199,16 +204,16 @@ mainloop(fcontext_transfer_t ctx_transfer)
     char *scoreprefix = (settings.scoreprefix[0] != '\0')
                             ? settings.scoreprefix
                             : settings.hackdir;
-    fqn_prefix[SYSCONFPREFIX] = settings.hackdir;
-    fqn_prefix[CONFIGPREFIX] = settings.hackdir;
-    fqn_prefix[HACKPREFIX] = settings.hackdir;
-    fqn_prefix[SAVEPREFIX] = settings.hackdir;
-    fqn_prefix[LEVELPREFIX] = settings.hackdir;
-    fqn_prefix[BONESPREFIX] = settings.hackdir;
-    fqn_prefix[SCOREPREFIX] = scoreprefix;
-    fqn_prefix[LOCKPREFIX] = settings.hackdir;
-    fqn_prefix[TROUBLEPREFIX] = settings.hackdir;
-    fqn_prefix[DATAPREFIX] = settings.hackdir;
+    gf.fqn_prefix[SYSCONFPREFIX] = settings.hackdir;
+    gf.fqn_prefix[CONFIGPREFIX] = settings.hackdir;
+    gf.fqn_prefix[HACKPREFIX] = settings.hackdir;
+    gf.fqn_prefix[SAVEPREFIX] = settings.hackdir;
+    gf.fqn_prefix[LEVELPREFIX] = settings.hackdir;
+    gf.fqn_prefix[BONESPREFIX] = settings.hackdir;
+    gf.fqn_prefix[SCOREPREFIX] = scoreprefix;
+    gf.fqn_prefix[LOCKPREFIX] = settings.hackdir;
+    gf.fqn_prefix[TROUBLEPREFIX] = settings.hackdir;
+    gf.fqn_prefix[DATAPREFIX] = settings.hackdir;
 
     char *argv[1] = { "nethack" };
 
@@ -542,7 +547,7 @@ gettty()
 void
 settty(const char *s)
 {
-    end_screen();
+    term_end_screen();
     if (s)
         raw_print(s);
 }
@@ -550,7 +555,7 @@ settty(const char *s)
 void
 setftty()
 {
-    start_screen();
+    term_start_screen();
 
     iflags.cbreak = ON;
     iflags.echo = OFF;
@@ -572,16 +577,16 @@ introff()
 
 int linux_flag_console = 0;
 
-void NDECL(linux_mapon);
-void NDECL(linux_mapoff);
-void NDECL(check_linux_console);
-void NDECL(init_linux_cons);
+void linux_mapon(void);
+void linux_mapoff(void);
+void check_linux_console(void);
+void init_linux_cons(void);
 
 void
 linux_mapon()
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         write(1, "\033(B", 3);
     }
 #endif
@@ -591,7 +596,7 @@ void
 linux_mapoff()
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         write(1, "\033(U", 3);
     }
 #endif
@@ -611,7 +616,7 @@ void
 init_linux_cons()
 {
 #ifdef TTY_GRAPHICS
-    if (WINDOWPORT("tty") && linux_flag_console) {
+    if (WINDOWPORT(tty) && linux_flag_console) {
         atexit(linux_mapon);
         linux_mapoff();
 #ifdef TEXTCOLOR
@@ -622,3 +627,17 @@ init_linux_cons()
 #endif
 }
 #endif /* __linux__ */
+
+/* Taken from unixtty.c, needed by the term_start_screen
+function, but we don't need to do anything */
+#ifdef ENHANCED_SYMBOLS
+/*
+ * set in term_start_screen() and allows
+ * OS-specific changes that may be
+ * required for support of utf8.
+ */
+void
+tty_utf8graphics_fixup(void)
+{
+}
+#endif
