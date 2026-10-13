@@ -453,8 +453,6 @@ char *buf, *monbuf;
         Sprintf(buf, "interior of %s", a_monnam(u.ustuck));
         pm = u.ustuck->data;
     } else if (glyph_is_monster(glyph)) {
-        bhitpos.x = x;
-        bhitpos.y = y;
         if ((mtmp = m_at(x, y)) != 0) {
             look_at_monster(buf, monbuf, mtmp, x, y);
             pm = mtmp->data;
@@ -1380,8 +1378,6 @@ boolean do_mons; /* True => monsters, False => objects */
                 if (glyph_is_monster(glyph)) {
                     struct monst *mtmp;
 
-                    bhitpos.x = x; /* [is this actually necessary?] */
-                    bhitpos.y = y;
                     if (x == u.ux && y == u.uy && canspotself()) {
                         (void) self_lookat(lookbuf);
                         ++count;
