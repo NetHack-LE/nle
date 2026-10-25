@@ -159,7 +159,8 @@ init_nle(FILE *ttyrec, nle_obs *obs)
 
     nle->observation = obs;
 
-    TMT *vterminal = tmt_open(LI, CO, nle_vt_callback, nle, NULL, true);
+    TMT *vterminal =
+        tmt_open(NLE_TERM_LI, NLE_TERM_CO, nle_vt_callback, nle, NULL, true);
     assert(vterminal);
     nle->vterminal = vterminal;
 
@@ -415,10 +416,6 @@ nle_fopen_wizkit_file()
 nle_ctx_t *
 nle_start(nle_obs *obs, FILE *ttyrec, nle_settings *settings_p)
 {
-    /* Set CO and LI to control ttyrec output size. */
-    CO = NLE_TERM_CO;
-    LI = NLE_TERM_LI;
-
     settings = *settings_p;
 
     nle_ctx_t *nle = init_nle(ttyrec, obs);
@@ -542,6 +539,10 @@ void
 gettty()
 {
     /* Should set erase_char, intr_char, kill_char */
+
+    /* Set CO and LI to control ttyrec output size. */
+    CO = NLE_TERM_CO;
+    LI = NLE_TERM_LI;
 }
 
 void
