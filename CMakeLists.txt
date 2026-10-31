@@ -121,14 +121,14 @@ add_subdirectory(util)
 add_subdirectory(dat)
 
 # Lua.
-set(LUA_VERSION 5.4.3)
+set(LUA_VERSION 5.4.8)
 include(ExternalProject)
 ExternalProject_Add(
   fetch-lua
   PREFIX "lua"
   URL http://www.lua.org/ftp/lua-${LUA_VERSION}.tar.gz
   URL_HASH
-    SHA512=3a1a3ee8694b72b4ec9d3ce76705fe179328294353604ca950c53f41b41161b449877d43318ef4501fee44ecbd6c83314ce7468d7425ba9b2903c9c32a28bbc0
+    SHA256=4f18ddae154e793e46eeab727c59ef1c0c0c2b744e7b94219710d76f530629ae
   BUILD_IN_SOURCE TRUE
   CONFIGURE_COMMAND ""
   BUILD_COMMAND make MYCFLAGS=-fPIC
