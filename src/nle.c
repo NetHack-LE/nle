@@ -202,6 +202,18 @@ mainloop(fcontext_transfer_t ctx_transfer)
         settings.hackdir[len] = '\0';
     }
 
+    char *argv[1] = { "nethack" };
+
+    unixmain(1, argv);
+}
+
+/* Due to NetHack5 initialising globals during unixmain & so overwriting
+ * our initialised values, we need to initialise them here and call this
+ * function after unixmain has called it's own various init functions.
+ */
+void
+nle_init_globals(void)
+{
     char *scoreprefix = (settings.scoreprefix[0] != '\0')
                             ? settings.scoreprefix
                             : settings.hackdir;
@@ -216,9 +228,8 @@ mainloop(fcontext_transfer_t ctx_transfer)
     gf.fqn_prefix[TROUBLEPREFIX] = settings.hackdir;
     gf.fqn_prefix[DATAPREFIX] = settings.hackdir;
 
-    char *argv[1] = { "nethack" };
-
-    unixmain(1, argv);
+    CO = NLE_TERM_CO;
+    LI = NLE_TERM_LI;
 }
 
 boolean
@@ -539,10 +550,6 @@ void
 gettty()
 {
     /* Should set erase_char, intr_char, kill_char */
-
-    /* Set CO and LI to control ttyrec output size. */
-    CO = NLE_TERM_CO;
-    LI = NLE_TERM_LI;
 }
 
 void
