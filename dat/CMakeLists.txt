@@ -10,7 +10,7 @@ set(DATHELP
 
 file(
   GLOB SPECIAL_LEVELS
-  RELATIVE ${NH_DAT}
+  RELATIVE ${NLE_DAT}
   asmodeus.lua
   baalz.lua
   bigrm-??.lua
@@ -40,7 +40,7 @@ file(
 
 file(
   GLOB QUEST_LEVELS
-  RELATIVE ${NH_DAT}
+  RELATIVE ${NLE_DAT}
   ???-goal.lua ???-fil?.lua ???-loca.lua ???-strt.lua)
 
 set(DATDLB
