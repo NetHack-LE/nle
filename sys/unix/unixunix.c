@@ -102,11 +102,11 @@ eraseoldlocks(void)
 void
 getlock(void)
 {
+#ifndef RL_GRAPHICS
 #ifndef SELF_RECOVER
     static const char destroy_old_game_prompt[] =
     "There is already a game in progress under your name.  Destroy old game?";
 #endif
-#ifndef RL_GRAPHICS
     int i = 0, fd, c, too_old;
     const char *fq_lock;
 
