@@ -54,6 +54,9 @@ extern void init_linux_cons(void);
 static void wd_message(void);
 static struct passwd *get_unix_pw(void);
 
+/* NLE: Hook to initialise NLE-specific globals */
+extern void nle_init_globals(void);
+
 /* NLE: change from main() to unixmain() */
 int
 unixmain(int argc, char *argv[])
@@ -170,6 +173,10 @@ unixmain(int argc, char *argv[])
 #endif
 
     process_options(argc, argv); /* command line options */
+
+    /* NLE: Initialise the global variables we want to override. */
+    nle_init_globals();
+
 #ifdef WINCHAIN
     commit_windowchain();
 #endif
